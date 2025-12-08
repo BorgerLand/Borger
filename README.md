@@ -61,6 +61,7 @@ I built Borger to power [Borger Land](https://borger.land), a for-profit web por
 ### Getting started:
 
 - Required technomologies
+    - [Git](https://git-scm.com/install/)
     - [Rustup](https://rustup.rs/)
     - [Bun](https://bun.com/)
     - [Something capable of running Bash scripts](https://xubuntu.org/download/) (Windows victims use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install))
@@ -85,8 +86,11 @@ I built Borger to power [Borger Land](https://borger.land), a for-profit web por
 
 ### Make 'em move hunny
 
+Fork this repo first. Then:
+
 ```bash
-cd borger
+git clone https://github.com/Username/MyGame.git
+cd MyGame
 ./setup.sh
 ./dev.sh
 #wait a few seconds for it to stop spamming the console
