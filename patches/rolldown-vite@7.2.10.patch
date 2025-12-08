@@ -1,0 +1,31 @@
+diff --git a/dist/client/client.mjs b/dist/client/client.mjs
+index 2252dd4c8f56a1ce4883c4ba5b68097aa4582c5b..e5105da3731749deae28b88203e2a96ebdcdd817 100644
+--- a/dist/client/client.mjs
++++ b/dist/client/client.mjs
+@@ -800,7 +800,7 @@ const debounceReload = (time) => {
+ 			timer = null;
+ 		}
+ 		timer = setTimeout(() => {
+-			location.reload();
++			console.warn("VITE: PAGE RELOAD REQUIRED");
+ 		}, time);
+ 	};
+ };
+@@ -829,7 +829,7 @@ async function handleMessage(payload) {
+ 		case "update":
+ 			await hmrClient.notifyListeners("vite:beforeUpdate", payload);
+ 			if (hasDocument) if (isFirstUpdate && hasErrorOverlay()) {
+-				location.reload();
++				console.warn("VITE: PAGE RELOAD REQUIRED");
+ 				return;
+ 			} else {
+ 				if (enableOverlay) clearErrorOverlay();
+@@ -867,7 +867,7 @@ async function handleMessage(payload) {
+ 					const url = new URL(socket.url);
+ 					url.search = "";
+ 					await waitForSuccessfulPing(url.href);
+-					location.reload();
++					console.warn("VITE: PAGE RELOAD REQUIRED");
+ 				}
+ 			}
+ 			break;

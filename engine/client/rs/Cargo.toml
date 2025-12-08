@@ -1,0 +1,44 @@
+[package]
+name = "client_rs"
+version.workspace = true
+edition.workspace = true
+
+[features]
+server = []
+client = ["base/client", "game_rs/client"]
+
+[dependencies]
+base = { path = "../../base" }
+game_rs = { path = "../../../game/rs" }
+log.workspace = true
+glam.workspace = true
+wasm-bindgen.workspace = true
+console_log.workspace = true
+js-sys.workspace = true
+web-time.workspace = true
+web-sys.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.wasm-pack.profile.client-dev.wasm-bindgen]
+dwarf-debug-info = true #compatibility with devtools debugger
+
+[package.metadata.wasm-pack.profile.client-release]
+#enabled features should match engine/client/.cargo/config.toml
+#AND llvm defaults listed here (wasm-opt is not aware of llvm defaults):
+#https://doc.rust-lang.org/rustc/platform-support/wasm32-unknown-unknown.html#enabled-webassembly-features
+wasm-opt = [
+	#optimize file size
+	"-Os",
+	#config.toml
+	"--enable-threads",
+	"--enable-simd",
+	#llvm defaults
+	"--enable-multivalue",
+	"--enable-mutable-globals",
+	"--enable-reference-types",
+	"--enable-sign-ext",
+	"--enable-nontrapping-float-to-int",
+	"--enable-bulk-memory",
+]

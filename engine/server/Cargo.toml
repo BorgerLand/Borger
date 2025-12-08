@@ -1,0 +1,17 @@
+[package]
+name = "server"
+version.workspace = true
+edition.workspace = true
+
+[features]
+server = ["base/server", "game_rs/server"]
+client = []
+
+[dependencies]
+base = { path = "../base" }
+game_rs = { path = "../../game/rs" }
+log.workspace = true
+tokio.workspace = true
+wtransport.workspace = true
+simple_logger.workspace = true
+clap.workspace = true

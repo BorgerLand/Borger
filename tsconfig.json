@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"baseUrl": ".",
+		"paths": {
+			"@engine/code_generator/*": ["engine/code_generator/src/*"],
+
+			//should match vite.config.ts
+			"@engine/client_rs": ["engine/client/rs/pkg"],
+			"@engine/client_ts/*": ["engine/client/ts/src/*"],
+			"@simulation/*": ["game/ts/src/simulation/*"],
+			"@presentation/*": ["game/ts/src/presentation/*"]
+		},
+		"moduleResolution": "bundler",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"strict": true,
+		"allowImportingTsExtensions": true,
+		"jsx": "react-jsx"
+	},
+	"include": ["engine/code_generator/src/Main.ts", "game/ts/src/Index.ts", "*.config.ts"]
+}

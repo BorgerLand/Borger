@@ -1,0 +1,4 @@
+#nightly required for multithreading
+[toolchain]
+channel = "nightly-2025-12-03" #make sure to restart ide's rust analyzer after updating
+components = ["rust-src"]

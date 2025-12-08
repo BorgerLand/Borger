@@ -1,0 +1,12 @@
+#currently not working. using vscode-specific config temporarily (.vscode/settings.json)
+#https://github.com/rust-lang/rust-analyzer/issues/13529#issuecomment-2463335743
+#https://github.com/rust-lang/rust-analyzer/issues/13529#issuecomment-2594960157
+
+#you can change the feature flags to server
+#or client in order to toggle error detection
+#for either one (but only one at a time)
+cargo.features = ["server"]
+#cargo.features = ["client"]
+
+#leave this alone
+runnables.extraArgs = ["--features=server"]

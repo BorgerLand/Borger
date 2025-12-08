@@ -1,0 +1,19 @@
+[target.wasm32-unknown-unknown]
+rustflags = [
+	#https://github.com/rust-lang/rust/pull/147225
+	"-C", "link-arg=--shared-memory",
+	"-C", "link-arg=--max-memory=4294967296",
+	"-C", "link-arg=--import-memory",
+	"-C", "link-arg=--export=__wasm_init_tls",
+	"-C", "link-arg=--export=__tls_size",
+	"-C", "link-arg=--export=__tls_align",
+	"-C", "link-arg=--export=__tls_base",
+	
+	#enabled features should match wasm-opt section of engine/client/rs/Cargo.toml
+	#(excluding the ones already enabled in llvm by default)
+	"-C", "target-feature=+simd128,+atomics",
+]
+
+#build rust std from source for access to sweet juicy experimental features
+[unstable]
+build-std = ["std", "panic_abort"]

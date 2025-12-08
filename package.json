@@ -1,0 +1,37 @@
+{
+	"type": "module",
+	"dependencies": {
+		"react": "*",
+		"react-dom": "*",
+		"three": "*",
+		"zustand": "*"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "*",
+		"@types/bun": "*",
+		"@types/react": "*",
+		"@types/react-dom": "*",
+		"@types/three": "*",
+		"@typescript-eslint/eslint-plugin": "*",
+		"@typescript-eslint/parser": "*",
+		"@vitejs/plugin-react": "*",
+		"concurrently": "*",
+		"eslint": "*",
+		"eslint-config-prettier": "*",
+		"eslint-gitignore": "*",
+		"eslint-plugin-prettier": "*",
+		"eslint-plugin-react": "*",
+		"eslint-plugin-react-hooks": "*",
+		"eslint-plugin-react-refresh": "*",
+		"postcss": "*",
+		"prettier": "*",
+		"prettier-plugin-tailwindcss": "*",
+		"tailwindcss": "*",
+		"typescript": "*",
+		"vite": "npm:rolldown-vite@*",
+		"zod": "*"
+	},
+	"patchedDependencies": {
+		"rolldown-vite@7.2.10": "patches/rolldown-vite@7.2.10.patch"
+	}
+}

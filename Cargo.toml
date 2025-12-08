@@ -1,0 +1,64 @@
+[workspace]
+resolver = "2"
+members = [
+	"engine/base",
+	"game/rs",
+	"engine/server",
+	"engine/client/rs",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+
+[workspace.dependencies]
+#shared
+log = { version = "*", default-features = false }
+glam = { version = "*", default-features = false, features = ["std"] }
+atomicbox = { version = "*", default-features = false }
+tokio = { version = "*", default-features = false, features = ["rt"] }
+num_enum = { version = "*", default-features = false }
+
+#wasm-specific shims (used in base to make client happier)
+wasm-bindgen = { version = "=0.2.105", default-features = false } #0.2.106 is borked. fails to compile
+wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33
+web-time = { version = "*", default-features = false }
+
+#server only
+wtransport = { version = "*", default-features = false, features = ["ring", "self-signed"] }
+simple_logger = { version = "*", default-features = false, features = ["colors"] }
+clap = { version = "*", default-features = false, features = ["std", "derive", "color", "error-context", "help", "suggestions", "usage"] }
+progenitor = { version = "*", default-features = false, features = ["macro"] }
+reqwest = { version = "*", default-features = false }
+serde = { version = "*", default-features = false }
+uuid = { version = "*", default-features = false, features = ["serde"] }
+futures = { version = "*", default-features = false }
+
+#client only
+console_log = { version = "*", default-features = false, features = ["color"] }
+js-sys = { version = "*", default-features = false }
+web-sys = { version = "*", default-features = false, features = ["WritableStreamDefaultWriter"] }
+
+#dev build
+[profile.server-dev]
+inherits = "dev"
+opt-level = 3 #optimize server for speed
+[profile.client-dev]
+inherits = "dev"
+opt-level = "s" #optimize client for size
+
+#release build: even more optimizations
+[profile.release]
+strip = "symbols" #no more debuggin
+# Compile the entire crate as one unit.
+# Slows compile times, marginal improvements.
+codegen-units = 1
+# Do a second optimization pass over the entire program, including dependencies.
+# Slows compile times, marginal improvements.
+lto = "fat"
+[profile.server-release]
+inherits = "release"
+opt-level = 3 #optimize server for speed
+[profile.client-release]
+inherits = "release"
+opt-level = "s" #optimize client for size

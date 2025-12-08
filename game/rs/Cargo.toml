@@ -1,0 +1,18 @@
+[package]
+name = "game_rs"
+version.workspace = true
+edition.workspace = true
+
+[features]
+server = ["base/server"]
+client = ["base/client", "js-sys", "web-sys"]
+
+[dependencies]
+base = { path = "../../engine/base" }
+log.workspace = true
+glam.workspace = true
+wasm-bindgen.workspace = true
+
+#client only
+js-sys = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true }

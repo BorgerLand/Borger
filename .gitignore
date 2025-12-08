@@ -1,0 +1,10 @@
+#tool-generated
+node_modules
+target
+release
+engine/base/src/generated
+game/assets/devcert.json
+
+#ide config
+rust-analyzer.toml
+.vscode/settings.json
