@@ -2,7 +2,7 @@ import * as Renderer from "@engine/client_ts/Renderer.ts";
 import * as Net from "@engine/client_ts/Net.ts";
 import ClientRSInit, * as ClientRS from "@engine/client_rs";
 import * as ConsoleLog from "@engine/client_ts/ConsoleLog.ts";
-import { BufferAttribute, InstancedBufferAttribute, Object3D, type TypedArray } from "three";
+import { Object3D } from "three";
 export type EngineState = Awaited<ReturnType<typeof init>>;
 
 export async function init(cb: {
