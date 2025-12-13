@@ -27,7 +27,6 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		include: Object.entries(packageJson.dependencies)
-			.filter(([_, version]) => !version.startsWith("file:"))
 			.map(([dep]) => dep)
 			.concat("react-dom/client", "three/webgpu", "three/tsl"),
 	},
