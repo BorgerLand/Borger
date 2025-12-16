@@ -14,7 +14,7 @@
 - 🦀 Rust and WebAssembly (multithreaded game logic) featuring ~10 second recompilation time/iteration speed
 - 🛜 Multiplayer over the WebTransport protocol (WebSocket fallback on Safari 🖕🍎)
 
-Borger's flagship innovation is a beginner-friendly mental model for multiplayer, allowing you to write fully server-authoritative game logic as if it's a single player game. Then, for each of your game mechanics, simply tune the setting dial between "snappy" or "correct" using the magic `multiplayer_tradeoff!()` macro.
+Borger's flagship innovation is a beginner-friendly mental model that empowers "multiplayer on rails", allowing you to write fully server-authoritative game logic as if it's a single player game. Then, for each of your game mechanics, simply tune the setting dial between "snappy" or "correct" using the magic `multiplayer_tradeoff!()` macro.
 
 The framework:
 
