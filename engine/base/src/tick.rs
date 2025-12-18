@@ -89,6 +89,10 @@ impl TickInfo {
 		self.id_consensus > self.id_cur
 	}
 
+	pub const fn convert_duration(dur: Duration) -> TickID {
+		f32::round(dur.as_secs_f32() / Self::SIM_DT) as TickID
+	}
+
 	pub(crate) fn get_elapsed_at(id: TickID) -> Duration {
 		Duration::from_secs_f64(Self::SIM_DT as f64 * id as f64)
 	}

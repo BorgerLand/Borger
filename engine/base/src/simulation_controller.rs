@@ -44,10 +44,10 @@ const TRACE_TICK_ADVANCEMENT: bool = false;
 const TRACE_TICK_ADVANCEMENT: bool = false;
 
 //allow receiving client input state this early/late.
-//too early = kick
-//too late = server's prediction becomes final
 #[cfg(feature = "server")]
-const INPUT_ARRIVAL_WINDOW: Duration = Duration::from_secs(1);
+const INPUT_TOO_EARLY: Duration = Duration::from_secs(1); //too early = kick
+#[cfg(feature = "server")]
+const INPUT_TOO_LATE: TickID = TickInfo::convert_duration(Duration::from_secs(3)); //too late = server's prediction becomes final
 
 //communications between the simulation thread
 //and the owning parent thread
@@ -92,9 +92,9 @@ pub(crate) struct SimulationInternals {
 	//storage for reconciliation: resimulate inputs when more arrive.
 	//server is aware of all clients' inputs; client only stores its own
 	#[cfg(feature = "server")]
-	input_history: HashMap<usize32, VecDeque<InputState>>,
+	input_history: HashMap<usize32, InternalInputHistory>,
 	#[cfg(feature = "client")]
-	input_history: VecDeque<InputState>,
+	input_history: InternalInputHistory,
 
 	#[cfg(feature = "server")]
 	new_connection_receiver: SyncReceiver<AsyncSender<SimToClientCommand>>,
@@ -107,6 +107,21 @@ pub(crate) struct SimulationInternals {
 
 	#[cfg(feature = "client")]
 	pub local_client_id: usize32,
+}
+
+#[derive(Default)]
+struct InternalInputHistory {
+	ticks: VecDeque<InputState>,
+
+	#[cfg(feature = "server")]
+	latest_receied: InputState,
+
+	//how many ticks timed out and reached consensus
+	//while waiting for this client's inputs. used to
+	//prevent newly received inputs from adding to the
+	//ticks buffer until there are no more missing
+	#[cfg(feature = "server")]
+	missing: u32,
 }
 
 pub fn init(
@@ -185,7 +200,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 		#[cfg(feature = "server")]
 		input_history: HashMap::new(),
 		#[cfg(feature = "client")]
-		input_history: VecDeque::new(),
+		input_history: InternalInputHistory::default(),
 
 		#[cfg(feature = "server")]
 		new_connection_receiver: moved_data.new_connection_receiver,
@@ -208,7 +223,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 	#[cfg(feature = "client")]
 	{
 		let tick_id_fast_forward = sim.ctx.tick.id_cur + header.fast_forward_ticks;
-		generate_bogus_inputs(&mut sim.input_history, header.fast_forward_ticks);
+		generate_bogus_inputs(&mut sim.input_history.ticks, header.fast_forward_ticks);
 		simulate(&mut sim, tick_id_fast_forward);
 	}
 
@@ -265,23 +280,31 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 			for (&id, client) in sim.comms.iter() {
 				while let Ok(client_msg) = client.from_client.try_recv() {
 					match client_msg {
-						ClientToSimCommand::ReceiveInput(input_history) => {
+						ClientToSimCommand::ReceiveInput(ser_rx_buffer) => {
 							let inputs = sim.input_history.get_mut(&id).unwrap();
-							let associated_tick = sim.ctx.tick.id_consensus - 1 + inputs.len() as TickID;
-							let mut new_input = inputs.back().unwrap().clone();
+							let mut new_input = inputs.latest_receied.clone();
 
 							//this occurrence of deserialization needs to be
 							//treated with care because the inputs aren't
 							//trusted. an evil client could otherwise crash
 							//the server by sending a corrupt input
-							match diff_des::des_rx_input(&mut new_input, input_history) {
+							match diff_des::des_rx_input(&mut new_input, ser_rx_buffer) {
 								Ok(_) => {
 									(sim.cb.input_validate)(&mut new_input);
-									inputs.push_back(new_input);
+									if inputs.missing == 0 {
+										let associated_tick =
+											sim.ctx.tick.id_consensus + inputs.ticks.len() as TickID - 1;
 
-									if associated_tick < rollback_to {
-										rollback_to = associated_tick;
+										inputs.ticks.push_back(new_input.clone());
+
+										if associated_tick < rollback_to {
+											rollback_to = associated_tick;
+										}
+									} else {
+										inputs.missing -= 1;
 									}
+
+									inputs.latest_receied = new_input;
 								}
 								Err(oops) => {
 									//connection must be killed. this should never
@@ -310,15 +333,15 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 			//client's vec is unpredictable and depends on ping/
 			//latency. it's even possible they may have too many
 
-			let input_on_time = sim.ctx.tick.get_instant(sim.ctx.tick.id_cur);
-			let input_too_new = input_on_time + INPUT_ARRIVAL_WINDOW;
+			let input_on_time = sim.ctx.tick.get_instant(tick_id_target);
+			let input_too_early = input_on_time + INPUT_TOO_EARLY;
 
 			for (client_id, inputs) in sim.input_history.iter() {
 				let associated_time = sim
 					.ctx
 					.tick
-					.get_instant(sim.ctx.tick.id_consensus - 1 + inputs.len() as TickID);
-				if associated_time >= input_too_new {
+					.get_instant(sim.ctx.tick.id_consensus + inputs.ticks.len() as TickID - 1);
+				if associated_time >= input_too_early {
 					#[allow(unused_must_use)]
 					//safe to ignore error. if client has disconnected, sim thread will be notified shortly
 					sim.comms
@@ -327,7 +350,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 						.to_client
 						.send(SimToClientCommand::RequestKick(format!(
 							"received inputs too far into the future (> {:?})",
-							INPUT_ARRIVAL_WINDOW
+							INPUT_TOO_EARLY
 						)));
 				}
 			}
@@ -351,11 +374,26 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 				sim.ctx.tick.id_consensus += sim
 					.input_history
 					.values()
-					.map(|inputs| inputs.len() - 1)
+					.map(|inputs| inputs.ticks.len() - 1)
 					.min()
 					.map(|min| min as TickID)
 					.unwrap_or(max_advance) //if there are no clients, insta-advance to tick_id_target
-					.min(max_advance) //if all clients are living in the future, prevent them from fast forwarding the whole server
+					.min(max_advance); //if all clients are living in the future, prevent them from fast forwarding the whole server
+			}
+
+			//handle timeout
+			let tick_id_timeout = tick_id_target.saturating_sub(INPUT_TOO_LATE);
+			if sim.ctx.tick.id_consensus < tick_id_timeout {
+				if TRACE_TICK_ADVANCEMENT {
+					debug!(
+						"timeout due to late client inputs. forcing consensus for {} ticks",
+						tick_id_timeout - sim.ctx.tick.id_consensus
+					);
+				}
+
+				let tick_id_consensus = sim.ctx.tick.id_consensus;
+				rollback(&mut sim, tick_id_consensus);
+				sim.ctx.tick.id_consensus = tick_id_timeout;
 			}
 		}
 
@@ -384,7 +422,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 
 			if input_is_late {
 				new_input = (sim.cb.input_predict_late)(
-					sim.input_history.back().unwrap(),
+					sim.input_history.ticks.back().unwrap(),
 					1,
 					&sim.ctx.state,
 					sim.local_client_id,
@@ -400,7 +438,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 				.cur;
 			ser_tx_input_diff(prv_input, &mut new_input, diff);
 
-			sim.input_history.push_back(new_input); //store for reconciliation
+			sim.input_history.ticks.push_back(new_input); //store for reconciliation
 			sim.comms
 				.to_presentation
 				.send(SimToPresentationCommand::InputDiff(diff.tx_end_tick().unwrap()))
@@ -531,7 +569,7 @@ fn trigger_net_events(
 
 				sim.comms.insert(new_client_id, comms);
 				generate_bogus_inputs(
-					sim.input_history.entry(new_client_id).or_default(),
+					&mut sim.input_history.entry(new_client_id).or_default().ticks,
 					rollback_amount,
 				);
 				sim.ctx.diff.on_connect(new_client_id, sim.ctx.tick.id_cur);
@@ -593,8 +631,8 @@ fn reconcile(sim: &mut SimulationInternals, buffers: Vec<VecDeque<u8>>) -> TickI
 				sim.ctx.tick.id_consensus += 1;
 				sim.ctx.tick.id_cur += 1;
 
-				sim.input_history.pop_front();
-				debug_assert!(sim.input_history.len() >= 2);
+				sim.input_history.ticks.pop_front();
+				debug_assert!(sim.input_history.ticks.len() >= 2);
 			}
 			TickType::Predicted => {
 				predicted_reconcile_amount += 1;
@@ -656,20 +694,44 @@ fn simulate(sim: &mut SimulationInternals, to: TickID) -> TickID {
 		for (&client_id, input_history) in input_iter {
 			let (input_prv, input_cur) = if has_consensus {
 				#[cfg(feature = "server")]
-				sim.ctx.diff.tx_toggle_client(client_id, true);
+				{
+					sim.ctx.diff.tx_toggle_client(client_id, true);
 
-				//2 inputs are guaranteed to exist for this tick
-				//on all clients (remember index 1 is associated
-				//with id_consensus). all clients having at least 2
-				//inputs is what makes a tick at consensus in the
-				//first place
-				(input_history.pop_front().unwrap(), input_history[0].clone())
+					//there should be 2 inputs for this tick on all clients,
+					//where index 1 is associated with id_consensus. if not,
+					//this is a forced timeout due to not receiving client's
+					//inputs in time, in which case the server's prediction
+					//becomes final, in order to prevent WaitForConsensus
+					//stalling forever
+					let prv = input_history.ticks.pop_front().unwrap();
+
+					let cur = input_history.ticks.front().cloned().unwrap_or_else(|| {
+						input_history.missing += 1;
+
+						let finalized_prediction = (sim.cb.input_predict_late)(
+							&prv,
+							input_history.missing as TickID,
+							&sim.ctx.state,
+							client_id,
+						);
+
+						input_history.ticks.push_back(finalized_prediction.clone());
+						finalized_prediction
+					});
+
+					(prv, cur)
+				}
+
+				#[cfg(feature = "client")]
+				{
+					unreachable!()
+				}
 			} else {
-				//tick is at consensus so no guarantee of any inputs existing
+				//tick is not at consensus so no guarantee of any inputs existing
 				let prv = get_input(
 					sim.ctx.tick.id_cur - 1,
 					&sim.ctx,
-					input_history,
+					&input_history.ticks,
 					#[cfg(feature = "server")]
 					sim.cb.input_predict_late,
 					#[cfg(feature = "server")]
@@ -679,7 +741,7 @@ fn simulate(sim: &mut SimulationInternals, to: TickID) -> TickID {
 				let cur = get_input(
 					sim.ctx.tick.id_cur,
 					&sim.ctx,
-					input_history,
+					&input_history.ticks,
 					#[cfg(feature = "server")]
 					sim.cb.input_predict_late,
 					#[cfg(feature = "server")]
@@ -755,7 +817,7 @@ fn generate_bogus_inputs(inputs: &mut VecDeque<InputState>, amount: TickID) {
 fn get_input(
 	tick: TickID,
 	ctx: &GameContext<Impl>,
-	client_input_history: &VecDeque<InputState>,
+	input_history: &VecDeque<InputState>,
 
 	#[cfg(feature = "server")] predict_late: fn(
 		/*last_known*/ &InputState,
@@ -767,15 +829,15 @@ fn get_input(
 	#[cfg(feature = "server")] client_id: usize32,
 ) -> Result<InputState, InputState> {
 	let input_idx = 1 + tick - ctx.tick.id_consensus;
-	match client_input_history.get(input_idx as usize) {
+	match input_history.get(input_idx as usize) {
 		//input has been received. server acks it
 		Some(input) => Ok(input.clone()),
 
 		//input hasn't arrived for this tick yet (not acked)
 		#[cfg(feature = "server")]
 		None => Err(predict_late(
-			client_input_history.back().unwrap(),
-			1 + input_idx - (client_input_history.len() as TickID),
+			input_history.back().unwrap(),
+			1 + input_idx - (input_history.len() as TickID),
 			&ctx.state,
 			client_id,
 		)),
