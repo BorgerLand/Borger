@@ -4,7 +4,7 @@ use base::prelude::*;
 
 //all callbacks are guaranteed to be triggered
 //in order of declaration, on the server only,
-//and during an unrollbackable tick.
+//and during a consensus tick.
 
 //called on tick id 0
 pub fn on_server_start(_state: &mut SimulationState, _diff: &mut DiffSerializer<WaitForConsensus>) {}

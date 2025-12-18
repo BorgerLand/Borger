@@ -219,13 +219,13 @@ macro_rules! multiplayer_tradeoff
 		}
 	};
 
-	//WaitForConsensus - adds server feature flag+wraps in is_unrollbackable() if statement
+	//WaitForConsensus - adds server feature flag+wraps in has_consensus() if statement
 	(WaitForConsensus, $ctx:ident, $tick:expr, $code:stmt) =>
 	{
 		#[cfg(feature = "server")]
 		{
 			let _tick: &base::tick::TickInfo = $tick;
-			if _tick.is_unrollbackable()
+			if _tick.has_consensus()
 			{
 				let $ctx = unsafe { $ctx._to_consensus() };
 				$code
@@ -237,7 +237,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let _tick: &base::tick::TickInfo = $tick;
-			if _tick.is_unrollbackable()
+			if _tick.has_consensus()
 			{
 				let $rebind = $ctx; //evaluate safely first
 				let $rebind = unsafe { $rebind._to_consensus() };
@@ -250,7 +250,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let _tick: &base::tick::TickInfo = $tick;
-			if _tick.is_unrollbackable()
+			if _tick.has_consensus()
 			{
 				let $ctx = unsafe { $ctx._to_consensus() };
 				$($code)*
@@ -262,7 +262,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let _tick: &base::tick::TickInfo = $tick;
-			if _tick.is_unrollbackable()
+			if _tick.has_consensus()
 			{
 				let $rebind = $ctx; //evaluate safely first
 				let $rebind = unsafe { $rebind._to_consensus() };

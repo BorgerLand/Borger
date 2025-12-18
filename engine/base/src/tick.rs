@@ -20,9 +20,10 @@ pub enum TickType {
 	///nature
 	NetEvents,
 
-	///Unrollbackable tick is final. All inputs have been received
-	///from all clients. It will never be simulated again
-	Unrollbackable,
+	///Consensus tick is final. All inputs have been received
+	///from all clients (or timeout occurred while waiting).
+	///It will never be simulated again
+	Consensus,
 
 	///Predicted tick has not received inputs from all clients yet.
 	///It is guaranteed to simulate again when either the late input
@@ -38,22 +39,23 @@ pub struct TickInfo {
 
 	//all of these id's are incremental
 
-	//rollbackable: oldest tick that can still be rolled back and
+	//consensus: oldest tick that can still be rolled back and
 	//(as in, rewind simulation state to right before this tick
 	//happened). controls the amount of state history that must be
 	//stored for rollback. will only ever increase
-	pub(crate) id_unrollbackable: TickID,
+	pub(crate) id_consensus: TickID,
 
 	//another way of looking at this number is "how many ticks have
 	//completed start to finish" or "tick.id_unfinished". may increase
 	//or decrease due to local rollbacks, causing old ticks to be
 	//resimulated
 	pub(crate) id_cur: TickID,
-	//id_unrollbackable <= id_cur
+	//
+	//id_consensus <= id_cur
 	//the wider the gap between id's, the worse the performance
 	//due to more rollbacks and retransmitting old ticks. this
 	//also means that the laggiest client will hurt performance
-	//for everyone, including the server
+	//for everyone, including the server. we don't like that guy
 }
 
 impl TickInfo {
@@ -66,7 +68,7 @@ impl TickInfo {
 		TickInfo {
 			first: Instant::now()
 				- Duration::from_secs_f64((id_start + fast_forward_ticks) as f64 * Self::SIM_DT as f64),
-			id_unrollbackable: id_start,
+			id_consensus: id_start,
 			id_cur: id_start,
 		}
 	}
@@ -79,13 +81,12 @@ impl TickInfo {
 	//non-deterministic code is allowed, and large transition events
 	//(objective complete, game end, etc.) are encouraged to happen now
 	#[cfg(feature = "server")]
-	pub fn is_unrollbackable(&self) -> bool {
-		//seems counterintuitive that unrollbackable
-		//can be higher than cur, but this is because
-		//id_unrollbackable is incremented at the start
-		//of a tick while id_cur is incremented at the
-		//end
-		self.id_unrollbackable > self.id_cur
+	pub fn has_consensus(&self) -> bool {
+		//seems counterintuitive that consensus can be higher
+		//than cur, but this is because id_consensus is
+		//incremented at the start of a tick while id_cur of
+		//a tick while id_cur is incremented at the end
+		self.id_consensus > self.id_cur
 	}
 
 	pub(crate) fn get_elapsed_at(id: TickID) -> Duration {
@@ -106,13 +107,13 @@ impl Debug for TickInfo {
 		#[derive(Debug)]
 		#[allow(dead_code)]
 		struct TickInfo {
-			id_unrollbackable: TickID,
+			id_consensus: TickID,
 			id_cur: TickID,
 		}
 
 		Debug::fmt(
 			&TickInfo {
-				id_unrollbackable: self.id_unrollbackable,
+				id_consensus: self.id_consensus,
 				id_cur: self.id_cur,
 			},
 			f,
@@ -120,19 +121,19 @@ impl Debug for TickInfo {
 	}
 }
 
-//triggering an unrollbackable game logic event is
-//normally delayed because they're caused by something
+//triggering an unrollbackable game logic event (aka
+//using multiplayer_tradeoff!(WaitForConsensus) is
+//normally delayed because it's caused by something
 //happening on a specific tick, so that tick needs
-//to finalize/become unrollbackable before triggering
-//the unrollbackable event. unrollbackable network
-//events on the other hand do not care about happening
-//on a specific tick, so in order to trigger them asap,
+//to finalize/reach consensus before triggering the
+//unrollbackable event. unrollbackable network events
+//on the other hand do not care about happening on a
+//specific tick, so in order to trigger them asap,
 //server rolls back as far as it can to the most recent
-//unrollbackable point in history
+//consensus point in history
 #[cfg(feature = "server")]
 pub(crate) enum UnrollbackableNetEvent {
 	ServerStart,
 	ClientConnect(SimToClientChannel),
-	//Chat, //required for executing game logic based on chat (/commands)
 	ClientDisconnect(usize32),
 }

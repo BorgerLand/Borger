@@ -83,7 +83,7 @@ pub(crate) struct SimulationInternals {
 	cb: SimulationCallbacks,
 
 	//input_history and state_diff both need to keep at least
-	//(1 + tick.id_cur - tick.id_unrollbackable) ticks worth of history.
+	//(1 + tick.id_cur - tick.id_consensus) ticks worth of history.
 	//it is guaranteed to have this amount of history for at least one
 	//client, as well as at least 1 per client, but may be missing some
 	//from other clients due to latency (inputs arriving later than
@@ -228,13 +228,14 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 		- when server executes net events, it is considered to only be the first half of a tick
 		- first thing written to every state diff packet (both types) is the corresponding tick id.
 		  client will roll back to this id upon arrival. each rollback decrements tick_id_cur
-		- second thing written, if applicable, is a diff op signaling that this tick is either net events or unrollbackable.
+		- second thing written, if applicable, is a diff op signaling that this tick is either net events or at consensus.
 		  if client receives net events, do not increment any of the 3 tick id's.
-		  if client receives unrollbackable simulation-driven, increment both tick id's. pop the oldest element from input_history.
+		  if client receives at consensus simulation-driven, increment both tick id's. pop the oldest element from input_history.
 		  otherwise assume normal acked simulation-driven. increment id_cur
-		- server must not send (skip) simulation-driven packet to clients whose input hasn't been acked for that tick.
+		- server must not send simulation-driven packet to clients whose input hasn't been acked for that tick (skip them).
 		  if client receives simulation-driven packet, it is assumed to acknowledge client's input.
-		  unrollbackable packets (including net events) will never be skipped because unrollbackable guarantees all inputs of that tick are acked
+		  consensus packets (including net events) will never be skipped because consensus guarantees all inputs of that tick are acked
+		  note that a tick can become consensus/finalized without all client inputs, due to waiting for inputs too long/timeout
 		- after all state diff packets are processed, client then locally simulates/predicts up to id_target
 		*/
 
@@ -244,9 +245,9 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 			//in order to minimize the amount of rolling back
 			//for processing non-deterministic net_events,
 			//inputs need to be deserialized first. remember
-			//that tick.id_unrollbackable can only increment
-			//when inputs have been received for all clients
-			//for that particular tick id
+			//that tick.id_consensus can only increment when
+			//inputs have been received for all clients for
+			//that particular tick id
 
 			//connect event received from new_connection_receiver
 			while let Ok(to_client) = sim.new_connection_receiver.try_recv() {
@@ -266,7 +267,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 					match client_msg {
 						ClientToSimCommand::ReceiveInput(input_history) => {
 							let inputs = sim.input_history.get_mut(&id).unwrap();
-							let associated_tick = sim.ctx.tick.id_unrollbackable - 1 + inputs.len() as TickID;
+							let associated_tick = sim.ctx.tick.id_consensus - 1 + inputs.len() as TickID;
 							let mut new_input = inputs.back().unwrap().clone();
 
 							//this occurrence of deserialization needs to be
@@ -304,11 +305,10 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 
 			//in an ideal world, input_history now contains, for
 			//every client, inputs corresponding to tick id's
-			//[unrollbackable - 1, cur]. index 1 definitely refers
-			//to tick.id_unrollbackable, but the exact length of
-			//each client's vec is unpredictable and depends on
-			//ping/latency. it's even possible they may have too
-			//many
+			//[consensus - 1, cur]. index 1 definitely refers
+			//to tick.is_consensus, but the exact length of each
+			//client's vec is unpredictable and depends on ping/
+			//latency. it's even possible they may have too many
 
 			let input_on_time = sim.ctx.tick.get_instant(sim.ctx.tick.id_cur);
 			let input_too_new = input_on_time + INPUT_ARRIVAL_WINDOW;
@@ -317,7 +317,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 				let associated_time = sim
 					.ctx
 					.tick
-					.get_instant(sim.ctx.tick.id_unrollbackable - 1 + inputs.len() as TickID);
+					.get_instant(sim.ctx.tick.id_consensus - 1 + inputs.len() as TickID);
 				if associated_time >= input_too_new {
 					#[allow(unused_must_use)]
 					//safe to ignore error. if client has disconnected, sim thread will be notified shortly
@@ -343,12 +343,12 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 			//this may trigger even more rolling back
 			trigger_net_events(&mut sim, &mut net_events, rollback_amount);
 
-			if sim.ctx.tick.id_cur == sim.ctx.tick.id_unrollbackable {
-				//tick.id_unrollbackable is calculated based on
+			if sim.ctx.tick.id_cur == sim.ctx.tick.id_consensus {
+				//tick.id_consensus is calculated based on
 				//what is the oldest tick id for which an input
 				//has been received from all clients
-				let max_advance = tick_id_target - sim.ctx.tick.id_unrollbackable;
-				sim.ctx.tick.id_unrollbackable += sim
+				let max_advance = tick_id_target - sim.ctx.tick.id_consensus;
+				sim.ctx.tick.id_consensus += sim
 					.input_history
 					.values()
 					.map(|inputs| inputs.len() - 1)
@@ -435,7 +435,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 
 //returns how many ticks were rolled back
 fn rollback(sim: &mut SimulationInternals, to: TickID) -> TickID {
-	debug_assert!(to >= sim.ctx.tick.id_unrollbackable && to <= sim.ctx.tick.id_cur);
+	debug_assert!(to >= sim.ctx.tick.id_consensus && to <= sim.ctx.tick.id_cur);
 
 	let amount = sim.ctx.tick.id_cur - to;
 	if amount == 0 {
@@ -446,7 +446,7 @@ fn rollback(sim: &mut SimulationInternals, to: TickID) -> TickID {
 		debug!(
 			"rollback {} ticks ({})",
 			amount,
-			if to == sim.ctx.tick.id_unrollbackable {
+			if to == sim.ctx.tick.id_consensus {
 				"full"
 			} else {
 				"partial"
@@ -459,7 +459,7 @@ fn rollback(sim: &mut SimulationInternals, to: TickID) -> TickID {
 		sim.ctx.tick.id_cur -= 1;
 	}
 
-	if sim.ctx.tick.id_cur == sim.ctx.tick.id_unrollbackable {
+	if sim.ctx.tick.id_cur == sim.ctx.tick.id_consensus {
 		debug_assert_eq!(sim.ctx.diff.rollback_buffer.len(), 0);
 	}
 
@@ -481,7 +481,7 @@ fn trigger_net_events(
 	}
 
 	//full rollback required
-	rollback_amount += rollback(sim, sim.ctx.tick.id_unrollbackable);
+	rollback_amount += rollback(sim, sim.ctx.tick.id_consensus);
 
 	//split this tick into 2 halves:
 	//state changes caused by net events, and
@@ -566,7 +566,7 @@ fn trigger_net_events(
 #[cfg(feature = "client")]
 fn reconcile(sim: &mut SimulationInternals, buffers: Vec<VecDeque<u8>>) -> TickID {
 	let mut predicted_reconcile_amount = 0;
-	let mut unrollbackable_reconcile_amount = 0;
+	let mut consensus_reconcile_amount = 0;
 
 	for mut buffer in buffers {
 		let tick_id_received = TickID::des_rx(&mut buffer).unwrap();
@@ -580,17 +580,17 @@ fn reconcile(sim: &mut SimulationInternals, buffers: Vec<VecDeque<u8>>) -> TickI
 		let tick_type = TickType::des_rx(&mut buffer).unwrap();
 		match tick_type {
 			TickType::NetEvents => {
-				debug_assert_eq!(tick_id_received, sim.ctx.tick.id_unrollbackable);
+				debug_assert_eq!(tick_id_received, sim.ctx.tick.id_consensus);
 
 				if TRACE_TICK_ADVANCEMENT {
 					debug!("net events triggered");
 				}
 			}
-			TickType::Unrollbackable => {
-				debug_assert_eq!(tick_id_received, sim.ctx.tick.id_unrollbackable);
+			TickType::Consensus => {
+				debug_assert_eq!(tick_id_received, sim.ctx.tick.id_consensus);
 
-				unrollbackable_reconcile_amount += 1;
-				sim.ctx.tick.id_unrollbackable += 1;
+				consensus_reconcile_amount += 1;
+				sim.ctx.tick.id_consensus += 1;
 				sim.ctx.tick.id_cur += 1;
 
 				sim.input_history.pop_front();
@@ -611,11 +611,11 @@ fn reconcile(sim: &mut SimulationInternals, buffers: Vec<VecDeque<u8>>) -> TickI
 		sim.ctx.diff.ser_rollback_end_tick();
 	}
 
-	let total_reconcile_amount = unrollbackable_reconcile_amount + predicted_reconcile_amount;
+	let total_reconcile_amount = consensus_reconcile_amount + predicted_reconcile_amount;
 	if TRACE_TICK_ADVANCEMENT && total_reconcile_amount > 0 {
 		debug!(
-			"reconcile {} ticks ({} unrollbackable+{} predicted)",
-			total_reconcile_amount, unrollbackable_reconcile_amount, predicted_reconcile_amount,
+			"reconcile {} ticks ({} consensus+{} predicted)",
+			total_reconcile_amount, consensus_reconcile_amount, predicted_reconcile_amount,
 		);
 	}
 
@@ -632,21 +632,20 @@ fn simulate(sim: &mut SimulationInternals, to: TickID) -> TickID {
 	let total_simulate_amount = to - sim.ctx.tick.id_cur;
 
 	if TRACE_TICK_ADVANCEMENT && total_simulate_amount > 0 {
-		let unrollbackable_simulate_amount =
-			sim.ctx.tick.id_unrollbackable.saturating_sub(sim.ctx.tick.id_cur);
+		let consensus_simulate_amount = sim.ctx.tick.id_consensus.saturating_sub(sim.ctx.tick.id_cur);
 		debug!(
-			"simulate {} ticks ({} unrollbackable+{} predicted)",
+			"simulate {} ticks ({} consensus+{} predicted)",
 			total_simulate_amount,
-			unrollbackable_simulate_amount,
-			total_simulate_amount - unrollbackable_simulate_amount,
+			consensus_simulate_amount,
+			total_simulate_amount - consensus_simulate_amount,
 		);
 	}
 
 	while sim.ctx.tick.id_cur < to {
 		#[cfg(feature = "server")]
-		let is_unrollbackable = sim.ctx.tick.is_unrollbackable();
+		let has_consensus = sim.ctx.tick.has_consensus();
 		#[cfg(feature = "client")]
-		let is_unrollbackable = false; //when a client is simulating a tick it is always a prediction
+		let has_consensus = false; //when a client is simulating a tick it is always a prediction
 
 		#[cfg(feature = "server")]
 		let input_iter = sim.input_history.iter_mut();
@@ -655,19 +654,18 @@ fn simulate(sim: &mut SimulationInternals, to: TickID) -> TickID {
 
 		//populate the mythical client.input as defined in State.ts
 		for (&client_id, input_history) in input_iter {
-			let (input_prv, input_cur) = if is_unrollbackable {
+			let (input_prv, input_cur) = if has_consensus {
 				#[cfg(feature = "server")]
 				sim.ctx.diff.tx_toggle_client(client_id, true);
 
 				//2 inputs are guaranteed to exist for this tick
 				//on all clients (remember index 1 is associated
-				//with id_unrollbackable). all clients having at
-				//least 2 inputs is what makes a tick unrollbackable
-				//in the first place
+				//with id_consensus). all clients having at least 2
+				//inputs is what makes a tick at consensus in the
+				//first place
 				(input_history.pop_front().unwrap(), input_history[0].clone())
 			} else {
-				//tick is rollbackable so no guarantee of any
-				//inputs existing
+				//tick is at consensus so no guarantee of any inputs existing
 				let prv = get_input(
 					sim.ctx.tick.id_cur - 1,
 					&sim.ctx,
@@ -702,8 +700,8 @@ fn simulate(sim: &mut SimulationInternals, to: TickID) -> TickID {
 			input.cur = input_cur;
 		}
 
-		let tick_type = if is_unrollbackable {
-			TickType::Unrollbackable
+		let tick_type = if has_consensus {
+			TickType::Consensus
 		} else {
 			TickType::Predicted
 		};
@@ -743,14 +741,14 @@ fn tx_all_clients(sim: &mut SimulationInternals) {
 
 fn generate_bogus_inputs(inputs: &mut VecDeque<InputState>, amount: TickID) {
 	//new client will attempt to rapidly fast forward
-	//from id_unrollbackable to id_cur, so it won't have
-	//time to populate real input states. generate a bunch
-	//of bogus ones locally without transmitting to avoid
+	//from id_consensus to id_cur, so it won't have time
+	//to populate real input states. generate a bunch of
+	//bogus ones locally without transmitting to avoid
 	//wasting bandwidth. it is expected to start sending
 	//inputs at id_cur. the +1 is so that there is always
 	//at least 1 last known input, in the event that a
 	//client hasn't sent anything at all since the last
-	//unrollbackable tick
+	//consensus tick
 	inputs.extend((0..amount + 1).map(|_| InputState::default()));
 }
 
@@ -768,7 +766,7 @@ fn get_input(
 
 	#[cfg(feature = "server")] client_id: usize32,
 ) -> Result<InputState, InputState> {
-	let input_idx = 1 + tick - ctx.tick.id_unrollbackable;
+	let input_idx = 1 + tick - ctx.tick.id_consensus;
 	match client_input_history.get(input_idx as usize) {
 		//input has been received. server acks it
 		Some(input) => Ok(input.clone()),

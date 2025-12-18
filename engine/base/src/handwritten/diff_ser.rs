@@ -25,7 +25,7 @@ pub struct DiffSerializer<Tradeoff: AnyTradeoff> {
 	//fields that exist locally and will never be sent
 	//over wire
 	pub(crate) rollback_buffer: Vec<u8>, //raw packed bytes representing diffs to the state
-	rollback_enabled: bool,              //rollback is disabled during unrollbackable events
+	rollback_enabled: bool,              //rollback is disabled during consensus/unrollbackable events
 	rollback_prv_path: Option<Rc<Vec<usize32>>>,
 
 	//write the CURRENT value of a state to transmit
