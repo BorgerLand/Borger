@@ -1,8 +1,6 @@
 #!/bin/bash
 
-#make sure code generator runs before anything else.
-#otherwise missing mod cargo.toml files can break
-#cargo watch
+#make sure code generator runs before anything else
 cd engine/code_generator
 bun src/Main.ts
 cd ../..
