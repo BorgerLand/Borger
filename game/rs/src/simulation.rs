@@ -1,6 +1,6 @@
 use crate::simulation::pipeline::simulation_tick;
 use base::SimulationCallbacks;
-use base::simulation_controller::SimulationExternals;
+use base::simulation_controller::SimControllerExternals;
 
 #[cfg(feature = "server")]
 use crate::simulation::net_events::*;
@@ -17,7 +17,7 @@ pub mod net_events;
 
 //custom game logic modules
 
-pub fn init(#[cfg(feature = "client")] new_client_snapshot: VecDeque<u8>) -> SimulationExternals {
+pub fn init(#[cfg(feature = "client")] new_client_snapshot: VecDeque<u8>) -> SimControllerExternals {
 	base::init(
 		SimulationCallbacks {
 			simulation_tick,

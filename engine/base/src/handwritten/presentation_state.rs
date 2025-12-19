@@ -3,7 +3,7 @@ use crate::presentation_state::*;
 use crate::simulation_state;
 
 #[cfg(feature = "client")]
-use {crate::simulation_controller::SimulationInternals, std::sync::atomic::Ordering, web_time::Instant};
+use {crate::simulation_controller::SimControllerInternals, std::sync::atomic::Ordering, web_time::Instant};
 
 pub type ClientState = ClientStateGeneric<ClientState_owned, ClientState_remote>;
 
@@ -38,7 +38,7 @@ pub struct PresentationTick {
 }
 
 #[cfg(feature = "client")]
-pub(crate) fn output_presentation(sim: &mut SimulationInternals) {
+pub(crate) fn output_presentation(sim: &mut SimControllerInternals) {
 	sim.output_sender.store(
 		Some(std::boxed::Box::new(PresentationTick {
 			time: sim.ctx.tick.get_now(),

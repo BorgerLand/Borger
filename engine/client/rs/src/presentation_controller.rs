@@ -2,7 +2,7 @@ use base::entities;
 use base::js_bindings::{JSBindings, bind_camera};
 use base::networked_types::primitive::usize_to_32;
 use base::presentation_state::PresentationTick;
-use base::simulation_controller::SimulationExternals;
+use base::simulation_controller::SimControllerExternals;
 use base::simulation_state::InputState;
 use base::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
 use game_rs::presentation::on_client_start;
@@ -17,7 +17,7 @@ use web_time::Instant;
 
 #[wasm_bindgen]
 pub struct PresentationController {
-	sim: SimulationExternals,
+	sim: SimControllerExternals,
 	now: Instant,
 	bindings: JSBindings,
 
