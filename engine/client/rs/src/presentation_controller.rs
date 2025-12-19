@@ -1,4 +1,3 @@
-use base::entities;
 use base::js_bindings::{JSBindings, bind_camera};
 use base::networked_types::primitive::usize_to_32;
 use base::presentation_state::PresentationTick;
@@ -125,7 +124,6 @@ impl PresentationController {
 			if !self.is_ready && received_tick {
 				let first_tick = cur_tick.unwrap();
 
-				entities::interpolate(None, first_tick, true, 0., &mut self.bindings);
 				presentation_tick(None, first_tick, true, 0., input, &mut self.bindings);
 			}
 
@@ -148,14 +146,6 @@ impl PresentationController {
 		self.now = desired_time.clamp(prv_tick_uw.time, cur_tick.time);
 		let interp_amount =
 			(self.now - prv_tick_uw.time).as_secs_f32() / (cur_tick.time - prv_tick_uw.time).as_secs_f32();
-
-		entities::interpolate(
-			prv_tick,
-			cur_tick,
-			received_tick,
-			interp_amount,
-			&mut self.bindings,
-		);
 
 		presentation_tick(
 			prv_tick,
