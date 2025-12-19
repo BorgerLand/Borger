@@ -47,7 +47,7 @@ const TRACE_TICK_ADVANCEMENT: bool = false;
 #[cfg(feature = "server")]
 const INPUT_TOO_EARLY: Duration = Duration::from_secs(1); //too early = kick
 #[cfg(feature = "server")]
-const INPUT_TOO_LATE: TickID = TickInfo::convert_duration(Duration::from_secs(3)); //too late = server's prediction becomes final
+const INPUT_TOO_LATE: Duration = Duration::from_secs(3); //too late = server's prediction becomes final
 
 //communications between the simulation thread
 //and the owning parent thread
@@ -382,7 +382,7 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 			}
 
 			//handle timeout
-			let tick_id_timeout = tick_id_target.saturating_sub(INPUT_TOO_LATE);
+			let tick_id_timeout = tick_id_target.saturating_sub(TickInfo::convert_duration(INPUT_TOO_LATE));
 			if sim.ctx.tick.id_consensus < tick_id_timeout {
 				if TRACE_TICK_ADVANCEMENT {
 					debug!(
@@ -395,6 +395,8 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 				rollback(&mut sim, tick_id_consensus);
 				sim.ctx.tick.id_consensus = tick_id_timeout;
 			}
+
+			simulate(&mut sim, tick_id_target);
 		}
 
 		//receive and process data from client's presentation thread
@@ -445,12 +447,17 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 				.unwrap(); //send to server
 
 			reconcile(&mut sim, rx_buffers);
+
+			if tick_id_target >= sim.ctx.tick.id_cur {
+				simulate(&mut sim, tick_id_target);
+			} else {
+				//received consensus tick that client hasn't simulated yet.
+				//client is running very behind
+				sim.ctx.tick.recalibrate(sim.ctx.tick.id_cur - tick_id_target);
+			}
+
+			output_presentation(&mut sim);
 		}
-
-		simulate(&mut sim, tick_id_target);
-
-		#[cfg(feature = "client")]
-		output_presentation(&mut sim);
 
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("end scheduled tick");
@@ -466,7 +473,9 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 			//tick rate is fast?
 			thread::sleep(next_tick_time - now);
 		} /* else if now > next_tick_time {
-		//simulation tick is running behind. possible death spiral
+		//simulation tick is running behind. possible death spiral.
+		//intentionally not handling this because game is unplayable
+		//and player will just quit
 		}*/
 	}
 }
@@ -631,8 +640,17 @@ fn reconcile(sim: &mut SimulationInternals, buffers: Vec<VecDeque<u8>>) -> TickI
 				sim.ctx.tick.id_consensus += 1;
 				sim.ctx.tick.id_cur += 1;
 
-				sim.input_history.ticks.pop_front();
-				debug_assert!(sim.input_history.ticks.len() >= 2);
+				let stale_input = sim.input_history.ticks.pop_front().unwrap();
+				if sim.input_history.ticks.is_empty() {
+					//received consensus tick that client hasn't simulated yet.
+					//client is running very behind
+					sim.input_history.ticks.push_front((sim.cb.input_predict_late)(
+						&stale_input,
+						1,
+						&sim.ctx.state,
+						sim.local_client_id,
+					));
+				}
 			}
 			TickType::Predicted => {
 				predicted_reconcile_amount += 1;
@@ -660,10 +678,9 @@ fn reconcile(sim: &mut SimulationInternals, buffers: Vec<VecDeque<u8>>) -> TickI
 	total_reconcile_amount
 }
 
-//returns how many ticks were simulated
-fn simulate(sim: &mut SimulationInternals, to: TickID) -> TickID {
+fn simulate(sim: &mut SimulationInternals, to: TickID) {
 	if to == sim.ctx.tick.id_cur {
-		return 0;
+		return;
 	}
 
 	debug_assert!(to > sim.ctx.tick.id_cur);
@@ -786,8 +803,6 @@ fn simulate(sim: &mut SimulationInternals, to: TickID) -> TickID {
 
 		sim.ctx.tick.id_cur += 1;
 	}
-
-	total_simulate_amount
 }
 
 #[cfg(feature = "server")]

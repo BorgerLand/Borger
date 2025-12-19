@@ -93,16 +93,22 @@ impl TickInfo {
 		f32::round(dur.as_secs_f32() / Self::SIM_DT) as TickID
 	}
 
-	pub(crate) fn get_elapsed_at(id: TickID) -> Duration {
-		Duration::from_secs_f64(Self::SIM_DT as f64 * id as f64)
+	pub(crate) fn get_duration(offset: TickID) -> Duration {
+		Duration::from_secs_f64(Self::SIM_DT as f64 * offset as f64)
 	}
 
 	pub(crate) fn get_instant(&self, id: TickID) -> Instant {
-		self.first + Self::get_elapsed_at(id)
+		self.first + Self::get_duration(id)
 	}
 
 	pub(crate) fn get_now(&self) -> Instant {
 		self.get_instant(self.id_cur)
+	}
+
+	//use if client is running behind server
+	#[cfg(feature = "client")]
+	pub(crate) fn recalibrate(&mut self, offset: TickID) {
+		self.first -= Self::get_duration(offset);
 	}
 }
 
