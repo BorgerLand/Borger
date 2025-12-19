@@ -155,7 +155,7 @@ macro_rules! multiplayer_tradeoff
 	(Immediate, $ctx:ident, $code:stmt) =>
 	{
 		{
-			let $ctx = unsafe { $ctx._to_immediate() };
+			let $ctx = unsafe { $ctx._to_immediate_unchecked() };
 			$code
 		}
 	};
@@ -163,14 +163,14 @@ macro_rules! multiplayer_tradeoff
 	{
 		{
 			let $rebind = $ctx;
-			let $rebind = unsafe { $rebind._to_immediate() };
+			let $rebind = unsafe { $rebind._to_immediate_unchecked() };
 			$code
 		}
 	};
 	(Immediate, $ctx:ident, { $($code:tt)* }) =>
 	{
 		{
-			let $ctx = unsafe { $ctx._to_immediate() };
+			let $ctx = unsafe { $ctx._to_immediate_unchecked() };
 			$($code)*
 		}
 	};
@@ -178,7 +178,7 @@ macro_rules! multiplayer_tradeoff
 	{
 		{
 			let $rebind = $ctx;
-			let $rebind = unsafe { $rebind._to_immediate() };
+			let $rebind = unsafe { $rebind._to_immediate_unchecked() };
 			$($code)*
 		}
 	};
@@ -188,7 +188,7 @@ macro_rules! multiplayer_tradeoff
 	{
 		#[cfg(feature = "server")]
 		{
-			let $ctx = unsafe { $ctx._to_server() };
+			let $ctx = unsafe { $ctx._to_server_unchecked() };
 			$code
 		}
 	};
@@ -197,7 +197,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let $rebind = $ctx; //evaluate safely first
-			let $rebind = unsafe { $rebind._to_server() };
+			let $rebind = unsafe { $rebind._to_server_unchecked() };
 			$code
 		}
 	};
@@ -205,7 +205,7 @@ macro_rules! multiplayer_tradeoff
 	{
 		#[cfg(feature = "server")]
 		{
-			let $ctx = unsafe { $ctx._to_server() };
+			let $ctx = unsafe { $ctx._to_server_unchecked() };
 			$($code)*
 		}
 	};
@@ -214,7 +214,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let $rebind = $ctx; //evaluate safely first
-			let $rebind = unsafe { $rebind._to_server() };
+			let $rebind = unsafe { $rebind._to_server_unchecked() };
 			$($code)*
 		}
 	};
@@ -227,7 +227,7 @@ macro_rules! multiplayer_tradeoff
 			let _tick: &base::tick::TickInfo = $tick;
 			if _tick.has_consensus()
 			{
-				let $ctx = unsafe { $ctx._to_consensus() };
+				let $ctx = unsafe { $ctx._to_consensus_unchecked() };
 				$code
 			}
 		}
@@ -240,7 +240,7 @@ macro_rules! multiplayer_tradeoff
 			if _tick.has_consensus()
 			{
 				let $rebind = $ctx; //evaluate safely first
-				let $rebind = unsafe { $rebind._to_consensus() };
+				let $rebind = unsafe { $rebind._to_consensus_unchecked() };
 				$code
 			}
 		}
@@ -252,7 +252,7 @@ macro_rules! multiplayer_tradeoff
 			let _tick: &base::tick::TickInfo = $tick;
 			if _tick.has_consensus()
 			{
-				let $ctx = unsafe { $ctx._to_consensus() };
+				let $ctx = unsafe { $ctx._to_consensus_unchecked() };
 				$($code)*
 			}
 		}
@@ -265,7 +265,7 @@ macro_rules! multiplayer_tradeoff
 			if _tick.has_consensus()
 			{
 				let $rebind = $ctx; //evaluate safely first
-				let $rebind = unsafe { $rebind._to_consensus() };
+				let $rebind = unsafe { $rebind._to_consensus_unchecked() };
 				$($code)*
 			}
 		}

@@ -37,7 +37,7 @@ macro_rules! multiplayer_tradeoff_transitions {
 	($type:ident) => {
 		impl $type<Immediate> {
 			#[doc(hidden)]
-			pub unsafe fn _to_immediate(&mut self) -> &mut Self {
+			pub unsafe fn _to_immediate_unchecked(&mut self) -> &mut Self {
 				self
 			}
 		}
@@ -45,7 +45,7 @@ macro_rules! multiplayer_tradeoff_transitions {
 		#[cfg(feature = "server")]
 		impl<Tradeoff: ImmediateOrWaitForServer> $type<Tradeoff> {
 			#[doc(hidden)]
-			pub unsafe fn _to_server(&mut self) -> &mut $type<WaitForServer> {
+			pub unsafe fn _to_server_unchecked(&mut self) -> &mut $type<WaitForServer> {
 				unsafe { mem::transmute(self) }
 			}
 		}
@@ -53,7 +53,7 @@ macro_rules! multiplayer_tradeoff_transitions {
 		#[cfg(feature = "server")]
 		impl<Tradeoff: AnyTradeoff> $type<Tradeoff> {
 			#[doc(hidden)]
-			pub unsafe fn _to_consensus(&mut self) -> &mut $type<WaitForConsensus> {
+			pub unsafe fn _to_consensus_unchecked(&mut self) -> &mut $type<WaitForConsensus> {
 				unsafe { mem::transmute(self) }
 			}
 		}
