@@ -1,5 +1,9 @@
 # <img src="game/assets/favicon.webp" height="30"> BORGER <img src="game/assets/favicon.webp" height="30">
 
+### _⚠️ This is an ongoing R&D project. Many essential features don't exist yet. ⚠️_
+
+[Follow my unhinged gamedev journey for updates!](https://www.youtube.com/@borgerland)
+
 <div style="display: flex; gap: 10px;">
 	<img src="game/assets/flintlockwood1.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">
 	<img src="game/assets/flintlockwood2.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">
