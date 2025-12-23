@@ -1,4 +1,5 @@
-use crate::simulation_controller::{SimControllerInternals, TRACE_TICK_ADVANCEMENT, generate_bogus_inputs};
+use crate::networked_types::primitive::PrimitiveSerDes;
+use crate::simulation_controller::{InternalInputEntry, SimControllerInternals, TRACE_TICK_ADVANCEMENT};
 use crate::snapshot_serdes::NewClientHeader;
 use crate::tick::{TickID, TickInfo, TickType, UnrollbackableNetEvent};
 use crate::{ClientStateKind, diff_des};
@@ -13,7 +14,7 @@ const INPUT_TOO_LATE: Duration = Duration::from_secs(3); //too late = server's p
 
 impl SimControllerInternals {
 	//receive and process data from server's main thread
-	pub(super) fn scheduled_tick(&mut self, tick_id_target: TickID) {
+	pub(super) fn scheduled_tick_impl(&mut self, tick_id_target: TickID) {
 		//in order to minimize the amount of rolling back
 		//for processing non-deterministic net_events,
 		//inputs need to be deserialized first. remember
@@ -39,8 +40,8 @@ impl SimControllerInternals {
 			while let Ok(client_msg) = client.from_client.try_recv() {
 				match client_msg {
 					ClientToSimCommand::ReceiveInput(ser_rx_buffer) => {
-						let inputs = self.input_history.get_mut(&id).unwrap();
-						let mut new_input = inputs.latest_receied.clone();
+						let history = self.input_history.get_mut(&id).unwrap();
+						let mut new_input = history.latest_receied.clone();
 
 						//this occurrence of deserialization needs to be
 						//treated with care because the inputs aren't
@@ -49,20 +50,27 @@ impl SimControllerInternals {
 						match diff_des::des_rx_input(&mut new_input, ser_rx_buffer) {
 							Ok(_) => {
 								(self.cb.input_validate)(&mut new_input);
-								if inputs.missing == 0 {
-									let associated_tick =
-										self.ctx.tick.id_consensus + inputs.ticks.len() as TickID - 1;
+								if history.missing == 0 {
+									let tick_id_associated =
+										self.ctx.tick.id_consensus + history.entries.len() as TickID - 1;
 
-									inputs.ticks.push_back(new_input.clone());
+									history.entries.push_back(InternalInputEntry {
+										input: new_input.clone(),
+										ping: Some(
+											tick_id_associated.wrapping_sub(self.ctx.tick.id_cur) as i16
+										),
+									});
 
-									if associated_tick < rollback_to {
-										rollback_to = associated_tick;
+									if tick_id_associated < rollback_to {
+										rollback_to = tick_id_associated;
 									}
 								} else {
-									inputs.missing -= 1;
+									//this tick has already reched consensus so the
+									//input is no longer needed for simulation
+									history.missing -= 1;
 								}
 
-								inputs.latest_receied = new_input;
+								history.latest_receied = new_input;
 							}
 							Err(oops) => {
 								//connection must be killed. this should never
@@ -92,14 +100,14 @@ impl SimControllerInternals {
 		//client's vec is unpredictable and depends on ping/
 		//latency. it's even possible they may have too many
 
-		let input_on_time = self.ctx.tick.get_instant(tick_id_target);
+		let input_on_time = self.ctx.tick.get_instant(self.ctx.tick.id_cur);
 		let input_too_early = input_on_time + INPUT_TOO_EARLY;
 
-		for (client_id, inputs) in self.input_history.iter() {
+		for (client_id, history) in self.input_history.iter() {
 			let associated_time = self
 				.ctx
 				.tick
-				.get_instant(self.ctx.tick.id_consensus + inputs.ticks.len() as TickID - 1);
+				.get_instant(self.ctx.tick.id_consensus + history.entries.len() as TickID - 1);
 			if associated_time >= input_too_early {
 				#[allow(unused_must_use)]
 				//safe to ignore error. if client has disconnected, sim thread will be notified shortly
@@ -133,7 +141,7 @@ impl SimControllerInternals {
 			self.ctx.tick.id_consensus += self
 				.input_history
 				.values()
-				.map(|inputs| inputs.ticks.len() - 1)
+				.map(|history| history.entries.len() - 1)
 				.min()
 				.map(|min| min as TickID)
 				.unwrap_or(max_advance) //if there are no clients, insta-advance to tick_id_target
@@ -173,13 +181,11 @@ impl SimControllerInternals {
 		//split this tick into 2 halves:
 		//state changes caused by net events, and
 		//state changes caused by the simulation
+		self.ctx.diff.rollback_begin_tick(TickType::NetEvents);
 		for &client in self.comms.keys() {
-			self.ctx.diff.tx_toggle_client(client, true);
+			let buffer = self.ctx.diff.tx_begin_tick(client, true).unwrap();
+			TickType::NetEvents.ser_tx(buffer);
 		}
-
-		self.ctx
-			.diff
-			.ser_begin_tick(TickType::NetEvents, self.ctx.tick.id_cur);
 
 		while let Some(event) = self.net_events.pop_front() {
 			match event {
@@ -217,11 +223,12 @@ impl SimControllerInternals {
 					comms.to_client.send(SimToClientCommand::SendState(snapshot));
 
 					self.comms.insert(new_client_id, comms);
-					generate_bogus_inputs(
-						&mut self.input_history.entry(new_client_id).or_default().ticks,
-						rollback_amount,
-					);
-					self.ctx.diff.on_connect(new_client_id, self.ctx.tick.id_cur);
+					self.input_history
+						.entry(new_client_id)
+						.or_default()
+						.generate_bogus_inputs(rollback_amount); //client is still responsible for sending an input for this tick
+					let buffer = self.ctx.diff.on_connect(new_client_id);
+					TickType::NetEvents.ser_tx(buffer);
 				}
 
 				UnrollbackableNetEvent::ClientDisconnect(old_client_id) => {

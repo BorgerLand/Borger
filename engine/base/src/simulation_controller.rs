@@ -72,15 +72,10 @@ pub(crate) struct SimControllerInternals {
 	pub ctx: GameContext<Impl>,
 	cb: SimulationCallbacks,
 
-	//input_history and state_diff both need to keep at least
-	//(1 + tick.id_cur - tick.id_consensus) ticks worth of history.
-	//it is guaranteed to have this amount of history for at least one
-	//client, as well as at least 1 per client, but may be missing some
-	//from other clients due to latency (inputs arriving later than
-	//others)
-
-	//storage for reconciliation: resimulate inputs when more arrive.
-	//server is aware of all clients' inputs; client only stores its own
+	//inputs associated with ticks that haven't reached consensus yet
+	//are stored here. when more info is received ticks will be
+	//resimulated using this input history. server is aware of all
+	//clients' inputs; client only stores its own
 	#[cfg(feature = "server")]
 	input_history: HashMap<usize32, InternalInputHistory>,
 	#[cfg(feature = "client")]
@@ -102,19 +97,59 @@ pub(crate) struct SimControllerInternals {
 	pub local_client_id: usize32,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct InternalInputHistory {
-	ticks: VecDeque<InputState>,
+	//element at index 0 corresponds to the most recently
+	//completed consensus tick, and each subsequent element
+	//is a progressively more recent tick. between each
+	//scheduled tick (during the sleep period) it is
+	//guaranteed that every client has at least one element
+	//in order to compare the new input to the previous.
+	//some logic asserts at least 2 elements when consensus
+	//is taking place, in order to guarantee pop_front will
+	//leave at least 1 left by the end of the scheduled tick
+	entries: VecDeque<InternalInputEntry>,
 
-	#[cfg(feature = "server")]
-	latest_receied: InputState,
-
-	//how many ticks timed out and reached consensus
-	//while waiting for this client's inputs. used to
-	//prevent newly received inputs from adding to the
-	//ticks buffer until there are no more missing
+	//how many ticks timed out and reached consensus while
+	//waiting for this client's inputs. used to prevent
+	//newly received inputs from pushing to the inputs
+	//buffer until there are no more missing
 	#[cfg(feature = "server")]
 	missing: u32,
+
+	//the diff received from the client is always applied to
+	//this, regardless of whether there are .missing inputs
+	#[cfg(feature = "server")]
+	latest_receied: InputState,
+}
+
+#[derive(Default, Debug, Clone)]
+struct InternalInputEntry {
+	input: InputState,
+
+	//ping is measured in 2 different ways depending on
+	//whether this is the server or client:
+	//1. server: time in ticks between the tick that this entry
+	//is associated with and the server's scheduled tick.id_cur
+	//at the time of receiving. shipped to the corresponding
+	//client as part of its state diff packet header (see the
+	//signaling scheme). normally negative but can be positive
+	//if client is ahead
+	//2. server: rtt in ticks between the time the client sends
+	//this input and the time it receives the corresponding
+	//authoritative state diff from server. can only be
+	//positive
+	//together these 2 numbers are used to calibrate the
+	//client's tick_id_target to try to match the server's
+	//tick_id_target in real world time, in case they have
+	//become desynced with each other. the time between
+	//the client receiving the initial state snapshot and
+	//actually starting the simulation always causes a
+	//noticeable desync that this can fix
+	#[cfg(feature = "server")]
+	ping: Option<i16>, //offset
+	#[cfg(feature = "client")]
+	ping: bool, //whether waiting to be acked for the first time
 }
 
 pub fn init(
@@ -214,44 +249,50 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 	#[cfg(feature = "client")]
 	{
 		let tick_id_fast_forward = sim.ctx.tick.id_cur + header.fast_forward_ticks;
-		generate_bogus_inputs(&mut sim.input_history.ticks, header.fast_forward_ticks);
-		sim.simulate(tick_id_fast_forward);
+		sim.input_history.generate_bogus_inputs(header.fast_forward_ticks);
+
+		if header.fast_forward_ticks > 0 {
+			sim.simulate(tick_id_fast_forward);
+		}
 	}
 
 	loop {
-		sim.scheduled_tick_loop();
+		sim.scheduled_tick();
 	}
 }
 
 impl SimControllerInternals {
-	fn scheduled_tick_loop(&mut self) {
+	fn scheduled_tick(&mut self) {
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("begin scheduled tick @{:?}", self.ctx.tick);
 		}
 
-		//remember tick.id_cur is the number of completed ticks. the
-		//target/goal of this iteration of the loop is to simulate 1
-		//more tick than has currently finished simulating
-		let tick_id_target = self.ctx.tick.id_cur + 1;
-
 		/*
 		server to client tick signaling scheme:
+		- when server receives a client's input, as long as it hasn't timed out yet (INPUT_TOO_LATE) it rolls back to the tick associated with it and resimulates
 		- send separate state diff packets for simulation-driven vs. net events
-		- when server executes net events, it is considered to only be the first half of a tick
-		- first thing written to every state diff packet (both types) is the corresponding tick id.
-		  client will roll back to this id upon arrival. each rollback decrements tick_id_cur
-		- second thing written, if applicable, is a diff op signaling that this tick is either net events or at consensus.
-		  if client receives net events, do not increment any of the 3 tick id's.
-		  if client receives at consensus simulation-driven, increment both tick id's. pop the oldest element from input_history.
-		  otherwise assume normal acked simulation-driven. increment id_cur
-		- server must not send simulation-driven packet to clients whose input hasn't been acked for that tick (skip them).
-		  if client receives simulation-driven packet, it is assumed to acknowledge client's input.
-		  consensus packets (including net events) will never be skipped because consensus guarantees all inputs of that tick are acked
-		  note that a tick can become consensus/finalized without all client inputs, due to waiting for inputs too long/timeout
+		- when server executes net events, the associated diffs are considered to happen between id_consensus and the predicted tick after it
+		- first value written to every state diff packet is the type of tick that this buffer contains state diffs for:
+		  TickType::NetEvents -> client does not increment either of the tick id's. this diff is applied to the end of the most recent consensus tick to avoid rollback
+		  TickType::Consensus -> client increments both tick id's. pop the oldest element from input_history
+		  TickType::Predicted -> client increments id_cur only
+		- second value written depends on tick type:
+		  TickType::NetEvents -> nothing. no client inputs are associated with net events
+		  TickType::Consensus -> whether the receiving client's inputs are acked (true) or a timeout occurred (false)
+		  TickType::Predicted -> the associated tick id. clients who receive predicted ticks are guaranteed to be acked in this packet
+		- the first time a client's inputs are acked, a third value is written:
+		  it is the number of ticks between server's tick.id_cur at reception time and the acked input's associated tick id
+		  TickType::NetEvents -> n/a, net events don't have associated inputs
+		  TickType::Consensus -> only write if acked for the first time (implies previous value was true)
+		  TickType::Predicted -> only write if acked for the first time
+		- client will roll back to the correct id upon arrival. for NetEvents and Consensus, this means rolling back as far as possible (until the rollback buffer is empty)
 		- after all state diff packets are processed, client then locally simulates/predicts up to id_target
 		*/
 
-		self.scheduled_tick(tick_id_target);
+		//remember tick.id_cur is the number of completed ticks. the
+		//target/goal of this iteration of the loop is to simulate 1
+		//more tick than has currently finished simulating
+		self.scheduled_tick_impl(self.ctx.tick.id_cur + 1);
 
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("end scheduled tick");
@@ -266,23 +307,29 @@ impl SimControllerInternals {
 			//written in rust. also seems to sleep too long+cause clock drift if
 			//tick rate is fast?
 			thread::sleep(next_tick_time - now);
-		} /* else if now > next_tick_time {
-		//simulation tick is running behind. possible death spiral.
-		//intentionally not handling this because game is unplayable
-		//and player will just quit
-		}*/
+		} else if now > next_tick_time {
+			//simulation tick is running behind. possible death spiral.
+			//intentionally not handling this because game is unplayable
+			//and player will just quit
+			if TRACE_TICK_ADVANCEMENT {
+				debug!("simulation tick hiccuped");
+			}
+		}
 	}
 }
 
-//new client will attempt to rapidly fast forward
-//from id_consensus to id_cur, so it won't have time
-//to populate real input states. generate a bunch of
-//bogus ones locally without transmitting to avoid
-//wasting bandwidth. it is expected to start sending
-//inputs at id_cur. the +1 is so that there is always
-//at least 1 last known input, in the event that a
-//client hasn't sent anything at all since the last
-//consensus tick
-fn generate_bogus_inputs(inputs: &mut VecDeque<InputState>, amount: TickID) {
-	inputs.extend((0..amount + 1).map(|_| InputState::default()));
+impl InternalInputHistory {
+	//new client will attempt to rapidly fast forward
+	//from id_consensus to id_cur, so it won't have time
+	//to populate real input states. generate a bunch of
+	//bogus ones locally without transmitting to avoid
+	//wasting bandwidth. it is expected to start sending
+	//inputs at id_cur. the +1 is so that there is always
+	//at least 1 last known input, in the event that a
+	//client hasn't sent anything at all since the last
+	//consensus tick
+	fn generate_bogus_inputs(&mut self, amount: TickID) {
+		self.entries
+			.extend((0..amount + 1).map(|_| InternalInputEntry::default()));
+	}
 }

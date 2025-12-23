@@ -7,7 +7,7 @@ use std::mem;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
-use {crate::NetVisibility, crate::tick::TickID, std::collections::HashMap};
+use {crate::NetVisibility, std::collections::HashMap};
 
 //diff serializer's purpose is to capture any and
 //all changes to state. a serializer of differences.
@@ -118,32 +118,26 @@ impl DiffSerializer<Impl> {
 
 	//---tick lifecycle---//
 
-	#[cfg(feature = "server")]
-	pub fn tx_toggle_client(&mut self, id: usize32, enable: bool) {
-		self.tx.get_mut(&id).unwrap().enabled = enable;
-	}
-
-	pub fn ser_begin_tick(&mut self, tick_type: TickType, #[cfg(feature = "server")] tick_id: TickID) {
+	pub fn rollback_begin_tick(&mut self, tick_type: TickType) {
 		self.rollback_enabled = tick_type == TickType::Predicted;
 		self.rollback_prv_path = None;
 
 		if self.rollback_enabled {
 			DiffOperation::RollbackTickSeparator.ser_rollback(&mut self.rollback_buffer);
 		}
+	}
 
-		#[cfg(feature = "server")]
-		for client in self.tx.values_mut() {
-			Self::ser_tx_begin_tick(client, tick_type, tick_id);
+	pub fn rollback_end_tick(&mut self) {
+		if self.rollback_enabled {
+			self.ser_rollback_navigate_to(&Rc::default());
 		}
 	}
 
 	#[cfg(feature = "server")]
-	fn ser_tx_begin_tick(client: &mut TxData, tick_type: TickType, tick_id: TickID) {
-		if client.enabled {
-			let buffer = &mut client.buffer;
-			tick_id.ser_tx(buffer);
-			tick_type.ser_tx(buffer);
-		}
+	pub fn tx_begin_tick(&mut self, id: usize32, enable: bool) -> Option<&mut Vec<u8>> {
+		let client = self.tx.get_mut(&id).unwrap();
+		client.enabled = enable;
+		enable.then(|| &mut client.buffer)
 	}
 
 	//get the finalized data to send over the wire.
@@ -181,16 +175,10 @@ impl DiffSerializer<Impl> {
 		}
 	}
 
-	pub fn ser_rollback_end_tick(&mut self) {
-		if self.rollback_enabled {
-			self.ser_rollback_navigate_to(&Rc::default());
-		}
-	}
-
 	#[cfg(feature = "server")]
-	pub fn on_connect(&mut self, client_id: usize32, tick_id: TickID) {
+	pub fn on_connect(&mut self, client_id: usize32) -> &mut Vec<u8> {
 		self.tx.insert(client_id, TxData::default()); //default = tx enabled
-		Self::ser_tx_begin_tick(self.tx.get_mut(&client_id).unwrap(), TickType::NetEvents, tick_id);
+		&mut self.tx.get_mut(&client_id).unwrap().buffer
 	}
 
 	#[cfg(feature = "server")]
