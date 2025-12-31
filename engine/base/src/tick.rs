@@ -62,7 +62,7 @@ impl TickInfo {
 	//simulation delta time/tick rate, in seconds/tick.
 	//can be higher or lower than vsync refresh rate.
 	//too low feels kinda floaty, too high hurts performance
-	pub const SIM_DT: f32 = 1.0 / 30.0;
+	pub const SIM_DT: f32 = 1.0 / 60.0;
 
 	pub(crate) fn new(id_start: TickID, fast_forward_ticks: TickID) -> Self {
 		TickInfo {
@@ -105,10 +105,19 @@ impl TickInfo {
 		self.get_instant(self.id_cur)
 	}
 
-	//use if client is running behind server
+	//recalibration is needed when server and client have
+	//differing tick_id_target. this is unrelated to ping.
+	//it causes client to exist at the wrong time, either
+	//too far into the past or future
 	#[cfg(feature = "client")]
-	pub(crate) fn recalibrate(&mut self, offset: TickID) {
-		self.first -= Self::get_duration(offset);
+	pub(crate) fn recalibrate(&mut self, offset_from_server: i16) {
+		if offset_from_server >= 0 {
+			//early relative to server
+			self.first += Self::get_duration(offset_from_server as TickID);
+		} else {
+			//late relative to server
+			self.first -= Self::get_duration((-offset_from_server) as TickID);
+		}
 	}
 }
 

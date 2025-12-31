@@ -73,6 +73,8 @@ impl JSBindings {
 //relying on this, but boy oh boy it sure is nice to enjoy it while it lasts. otherwise, growing
 //the memory module would require rebinding every single matrix
 //happening in chrome+firefox on ubuntu
+//^ UPDATE ^ above is likely because of this
+//https://spidermonkey.dev/blog/2025/01/15/is-memory64-actually-worth-using.html#how-is-memory-really-implemented
 
 pub unsafe fn bind_matrix(
 	three_matrix: &JsValue, /*THREE.Matrix4*/

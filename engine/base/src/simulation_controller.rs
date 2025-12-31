@@ -11,6 +11,7 @@ use log::debug;
 use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::mpsc as sync_mpsc;
+use std::time::Duration;
 use wasm_thread as thread;
 use web_time::Instant;
 
@@ -24,7 +25,7 @@ use {
 
 #[cfg(feature = "client")]
 use {
-	crate::presentation_state::PresentationTick, crate::snapshot_serdes, atomicbox::AtomicOptionBox,
+	crate::presentation_state::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox,
 	std::sync::Arc,
 };
 
@@ -34,10 +35,16 @@ mod seek;
 #[cfg(feature = "server")]
 mod server;
 
+//recommend decreasing SIM_DT with this feature on
 #[cfg(feature = "server")]
 const TRACE_TICK_ADVANCEMENT: bool = false;
 #[cfg(feature = "client")]
 const TRACE_TICK_ADVANCEMENT: bool = false;
+
+//allow receiving client input state this early/late.
+#[cfg(feature = "server")]
+const INPUT_TOO_EARLY: Duration = Duration::from_secs(1); //too early = kick
+const INPUT_TOO_LATE: Duration = Duration::from_secs(3); //too late = server's prediction becomes final
 
 //communications between the simulation thread
 //and the owning parent thread
@@ -47,7 +54,7 @@ pub struct SimControllerExternals {
 	#[cfg(feature = "client")]
 	pub comms: PresentationToSimChannel,
 	#[cfg(feature = "client")]
-	pub presentation_receiver: Arc<AtomicOptionBox<PresentationTick>>,
+	pub presentation_receiver: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
 //data that needs to be moved across threads
@@ -64,12 +71,12 @@ struct SimulationMoveAcrossThreads {
 	#[cfg(feature = "client")]
 	comms: SimToPresentationChannel,
 	#[cfg(feature = "client")]
-	presentation_sender: Arc<AtomicOptionBox<PresentationTick>>,
+	presentation_sender: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
 //on client, owned by simulation thread
 pub(crate) struct SimControllerInternals {
-	pub ctx: GameContext<Impl>,
+	ctx: GameContext<Impl>,
 	cb: SimulationCallbacks,
 
 	//inputs associated with ticks that haven't reached consensus yet
@@ -88,13 +95,17 @@ pub(crate) struct SimControllerInternals {
 	#[cfg(feature = "client")]
 	comms: SimToPresentationChannel,
 	#[cfg(feature = "client")]
-	pub output_sender: Arc<AtomicOptionBox<PresentationTick>>,
+	output_sender: Arc<AtomicOptionBox<SimulationOutput>>,
 
 	#[cfg(feature = "server")]
 	net_events: VecDeque<UnrollbackableNetEvent>,
 
 	#[cfg(feature = "client")]
-	pub local_client_id: usize32,
+	local_client_id: usize32,
+	#[cfg(feature = "client")]
+	calibration_samples: VecDeque<i16>,
+	#[cfg(feature = "client")]
+	recalibrate_requested: bool,
 }
 
 #[derive(Default, Debug)]
@@ -115,10 +126,10 @@ struct InternalInputHistory {
 	//newly received inputs from pushing to the inputs
 	//buffer until there are no more missing
 	#[cfg(feature = "server")]
-	missing: u32,
+	timed_out: u32,
 
 	//the diff received from the client is always applied to
-	//this, regardless of whether there are .missing inputs
+	//this, regardless of whether there are .timed_out inputs
 	#[cfg(feature = "server")]
 	latest_receied: InputState,
 }
@@ -152,7 +163,7 @@ struct InternalInputEntry {
 	ping: bool, //whether waiting to be acked for the first time
 }
 
-pub fn init(
+pub(crate) fn init(
 	cb: SimulationCallbacks,
 
 	#[cfg(feature = "client")] new_client_snapshot: VecDeque<u8>,
@@ -244,6 +255,10 @@ fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
 
 		#[cfg(feature = "client")]
 		local_client_id: header.client_id,
+		#[cfg(feature = "client")]
+		calibration_samples: VecDeque::new(),
+		#[cfg(feature = "client")]
+		recalibrate_requested: true,
 	};
 
 	#[cfg(feature = "client")]
@@ -299,21 +314,19 @@ impl SimControllerInternals {
 		}
 
 		let next_tick_time = self.ctx.tick.get_now();
-
 		let now = Instant::now();
+
 		if next_tick_time > now {
 			//unfortunately this is blocking, so using repl console on this thread
 			//is probably a no go. not that you could do much anyway since it's
 			//written in rust. also seems to sleep too long+cause clock drift if
 			//tick rate is fast?
 			thread::sleep(next_tick_time - now);
-		} else if now > next_tick_time {
+		} else if TRACE_TICK_ADVANCEMENT && now > next_tick_time {
 			//simulation tick is running behind. possible death spiral.
 			//intentionally not handling this because game is unplayable
 			//and player will just quit
-			if TRACE_TICK_ADVANCEMENT {
-				debug!("simulation tick hiccuped");
-			}
+			debug!("simulation tick hiccuped");
 		}
 	}
 }

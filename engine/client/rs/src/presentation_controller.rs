@@ -1,6 +1,6 @@
 use base::js_bindings::{JSBindings, bind_camera};
 use base::networked_types::primitive::usize_to_32;
-use base::presentation_state::PresentationTick;
+use base::presentation_state::SimulationOutput;
 use base::simulation_controller::SimControllerExternals;
 use base::simulation_state::InputState;
 use base::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
@@ -24,7 +24,7 @@ pub struct PresentationController {
 	//must wait on the simulation thread to init
 	//before they can be used (hence option type)
 	pub is_ready: bool,
-	tick_buffers: [Option<PresentationTick>; 2],
+	tick_buffers: [Option<SimulationOutput>; 2],
 	next_tick_i: bool,
 }
 

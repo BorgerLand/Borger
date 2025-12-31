@@ -20,7 +20,7 @@ export default {
 					//keep in mind client-sided stuff like "mute" or "open
 					//inventory" generally don't belong here. only inputs
 					//that affect the multiplayer simulation should be
-					//listed here. input_ops.rs must be updated accordingly
+					//listed here. input.rs must be updated accordingly
 
 					//the camera's target spherical coordinate
 					cam_yaw: { netVisibility: "Owner", type: "f32" }, //horizontal,

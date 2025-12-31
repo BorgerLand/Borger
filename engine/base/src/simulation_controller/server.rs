@@ -1,16 +1,11 @@
 use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::simulation_controller::{InternalInputEntry, SimControllerInternals, TRACE_TICK_ADVANCEMENT};
+use crate::simulation_controller::*;
+use crate::snapshot_serdes;
 use crate::snapshot_serdes::NewClientHeader;
 use crate::tick::{TickID, TickInfo, TickType, UnrollbackableNetEvent};
 use crate::{ClientStateKind, diff_des};
-use crate::{snapshot_serdes, thread_comms::*};
 use log::debug;
 use std::sync::mpsc as sync_mpsc;
-use std::time::Duration;
-
-//allow receiving client input state this early/late.
-const INPUT_TOO_EARLY: Duration = Duration::from_secs(1); //too early = kick
-const INPUT_TOO_LATE: Duration = Duration::from_secs(3); //too late = server's prediction becomes final
 
 impl SimControllerInternals {
 	//receive and process data from server's main thread
@@ -50,7 +45,7 @@ impl SimControllerInternals {
 						match diff_des::des_rx_input(&mut new_input, ser_rx_buffer) {
 							Ok(_) => {
 								(self.cb.input_validate)(&mut new_input);
-								if history.missing == 0 {
+								if history.timed_out == 0 {
 									let tick_id_associated =
 										self.ctx.tick.id_consensus + history.entries.len() as TickID - 1;
 
@@ -67,7 +62,7 @@ impl SimControllerInternals {
 								} else {
 									//this tick has already reched consensus so the
 									//input is no longer needed for simulation
-									history.missing -= 1;
+									history.timed_out -= 1;
 								}
 
 								history.latest_receied = new_input;

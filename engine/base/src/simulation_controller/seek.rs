@@ -89,6 +89,8 @@ impl SimControllerInternals {
 			for (&client_id, input_history) in input_iter {
 				#[cfg(feature = "server")]
 				let mut buffer;
+				#[cfg(feature = "server")]
+				let acked_input;
 
 				let (input_prv, input_cur) = if has_consensus {
 					#[cfg(feature = "server")]
@@ -108,18 +110,18 @@ impl SimControllerInternals {
 						let prv = input_history.entries.pop_front().unwrap();
 
 						let cur = match input_history.entries.front().cloned() {
-							Some(acked) => {
-								true.ser_tx(buffer);
-								acked
+							Some(input) => {
+								acked_input = true;
+								input
 							}
 							None => {
 								//this client caused a consensus timeout
-								input_history.missing += 1;
+								input_history.timed_out += 1;
 
 								let finalized_prediction = InternalInputEntry {
 									input: (self.cb.input_predict_late)(
 										&prv.input,
-										input_history.missing as TickID,
+										input_history.timed_out as TickID,
 										&self.ctx.state,
 										client_id,
 									),
@@ -128,11 +130,12 @@ impl SimControllerInternals {
 
 								input_history.entries.push_back(finalized_prediction.clone());
 
-								false.ser_tx(buffer);
+								acked_input = false;
 								finalized_prediction
 							}
 						};
 
+						acked_input.ser_tx(buffer);
 						(prv, cur)
 					}
 
@@ -164,7 +167,8 @@ impl SimControllerInternals {
 
 					#[cfg(feature = "server")]
 					{
-						buffer = self.ctx.diff.tx_begin_tick(client_id, cur.is_ok());
+						acked_input = cur.is_ok();
+						buffer = self.ctx.diff.tx_begin_tick(client_id, acked_input);
 						if let Some(buffer) = &mut buffer {
 							tick_type.ser_tx(buffer);
 							self.ctx.tick.id_cur.ser_tx(buffer);
@@ -182,8 +186,11 @@ impl SimControllerInternals {
 				input.cur = input_cur.input;
 
 				#[cfg(feature = "server")]
-				if let Some(ping) = input_cur.ping {
-					ping.ser_tx(buffer.unwrap());
+				if let Some(server_offset_ping) = input_cur.ping {
+					//input_cur.ping.is_some() implies this is the first time
+					//this input is acked, so acked_input should be true
+					debug_assert_eq!(acked_input, true);
+					server_offset_ping.ser_tx(buffer.unwrap());
 				}
 			}
 

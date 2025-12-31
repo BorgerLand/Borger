@@ -1,36 +1,117 @@
 use crate::diff_des;
 use crate::diff_ser::ser_tx_input_diff;
 use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::presentation_state::output_presentation;
-use crate::simulation_controller::{InternalInputEntry, SimControllerInternals, TRACE_TICK_ADVANCEMENT};
+use crate::presentation_state::{CloneToPresentationState, SimulationOutput};
+use crate::simulation_controller::*;
 use crate::simulation_state::InputState;
-use crate::thread_comms::*;
 use crate::tick::TickID;
 use crate::tick::TickType;
 use log::debug;
 use std::collections::VecDeque;
+use std::i16;
+use std::sync::atomic::Ordering;
+
+//how many calibration samples to take before drawing conclusions
+const OFFSET_BUFFER_SIZE: usize = 50;
+
+//what constitutes a stable ping (+- half this amount)
+const JITTER_TOLERANCE: Duration = Duration::from_millis(50);
+
+//how far behind/ahead of the server the client can be before
+//triggering recalibration (+- this amount, NOT HALF)
+const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 
 impl SimControllerInternals {
 	//receive and process data from client's presentation thread
 	pub(super) fn scheduled_tick_impl(&mut self, tick_id_target: TickID) {
+		let rx_buffers = self.process_io(true);
+		let offset = self.reconcile(tick_id_target, rx_buffers);
+
+		if tick_id_target > self.ctx.tick.id_consensus {
+			debug_assert_eq!(offset, 0);
+			self.simulate(tick_id_target);
+		} else {
+			//received consensus tick that client hasn't simulated yet.
+			//client is running very behind. fast forward
+			debug_assert_eq!(self.ctx.tick.id_consensus, self.ctx.tick.id_cur);
+			debug_assert_eq!(offset, self.ctx.tick.id_consensus - tick_id_target);
+
+			if TRACE_TICK_ADVANCEMENT {
+				debug!("fell too far behind server. timed out {} ticks ago", offset);
+			}
+
+			//2 recalibrations required: 1 to account for reconcile()
+			//having forced tick.id_consensus forward, another to
+			//simulate() forward by INPUT_TOO_LATE, because the input
+			//buffer underflow and consensus timeouts imply client is at
+			//least that far behind
+
+			self.ctx.tick.recalibrate(-(offset as i16));
+			self.recalibrate(-(TickInfo::convert_duration(INPUT_TOO_LATE) as i16));
+
+			//this was just an emergency recalibration with a hardcoded
+			//amount. perform a recalibration once enough data builds up
+			self.recalibrate_requested = true;
+		}
+
+		//ping must be stable in order to recalibrate accurately.
+		//note that because ping is only sampled per tick, the data
+		//can be somewhat course and imprecise (to the nearest
+		//SIM_DT)
+		if self.calibration_samples.len() == OFFSET_BUFFER_SIZE
+			&& get_jitter(&self.calibration_samples) < JITTER_TOLERANCE
+		{
+			let average_offset = self.calibration_samples.iter().sum::<i16>() / OFFSET_BUFFER_SIZE as i16;
+			if self.recalibrate_requested
+				|| TickInfo::get_duration(average_offset.abs() as TickID) >= OFFSET_TOLERANCE
+			{
+				self.recalibrate(average_offset);
+			}
+		}
+
+		//whatever state the simulation is in at the end of the
+		//scheduled tick, render it. note there is no guarantee
+		//that every simulation tick is rendered, depending on
+		//whether presentation tick is able to keep up with SIM_DT
+		self.output_sender.store(
+			Some(std::boxed::Box::new(SimulationOutput {
+				time: self.ctx.tick.get_now(),
+				local_client_idx: self
+					.ctx
+					.state
+					.clients
+					.random_access(self.local_client_id)
+					.unwrap(),
+				state: self.ctx.state.clone_to_presentation(),
+			})),
+			Ordering::AcqRel,
+		);
+
+		if tick_id_target == 1000 {
+			self.recalibrate(-15);
+		}
+	}
+
+	fn process_io(&mut self, read_comms: bool) -> Vec<VecDeque<u8>> {
 		let mut input_is_late = true;
 		let mut new_input = InputState::default();
-
 		let mut rx_buffers: Vec<VecDeque<u8>> = Vec::new();
 
-		while let Ok(presentation_msg) = self.comms.from_presentation.try_recv() {
-			match presentation_msg {
-				PresentationToSimCommand::RawInput(raw_input) => {
-					//there can only be one input state per simulation tick,
-					//so merge together however many the presentation thread
-					//has produced
-					(self.cb.input_merge)(&mut new_input, &raw_input);
-					input_is_late = false;
-				}
-				PresentationToSimCommand::ReceiveState(buffer) => {
-					rx_buffers.push(buffer);
-				}
-			};
+		if read_comms {
+			while let Ok(presentation_msg) = self.comms.from_presentation.try_recv() {
+				match presentation_msg {
+					PresentationToSimCommand::RawInput(raw_input) => {
+						//there can only be one input state per simulation tick,
+						//so merge together however many the presentation thread
+						//has produced
+						(self.cb.input_merge)(&mut new_input, &raw_input);
+						input_is_late = false;
+					}
+					PresentationToSimCommand::ReceiveState(buffer) => {
+						rx_buffers.push(buffer);
+					}
+				};
+			}
 		}
 
 		if input_is_late {
@@ -54,59 +135,32 @@ impl SimControllerInternals {
 			ping: true,
 		});
 
+		//send to server
 		self.comms
 			.to_presentation
 			.send(SimToPresentationCommand::InputDiff(diff.tx_end_tick().unwrap()))
-			.unwrap(); //send to server
+			.unwrap();
 
-		self.reconcile(tick_id_target, rx_buffers);
-
-		if tick_id_target > self.ctx.tick.id_consensus {
-			self.simulate(tick_id_target);
-		} else {
-			//received consensus tick that client hasn't simulated yet.
-			//client is running very behind. fast forward
-			debug_assert_eq!(self.ctx.tick.id_consensus, self.ctx.tick.id_cur);
-			let offset = self.ctx.tick.id_consensus - tick_id_target;
-
-			if TRACE_TICK_ADVANCEMENT {
-				debug!("fell too far behind server. timed out {} ticks ago", offset);
-			}
-
-			self.ctx.tick.recalibrate(offset);
-
-			//for each tick that the client just fast forwarded through,
-			//send a blank input diff to the server. even though they've
-			//already reached consensus the server still needs an input
-			//for every tick in order to track association. by leaving
-			//the diff blank, every input will be the same. might cause
-			//some visual jank but this is ok because being multiple
-			//seconds behind is bound to be janky no matter what
-			for _ in 0..offset {
-				self.comms
-					.to_presentation
-					.send(SimToPresentationCommand::InputDiff(Vec::default()))
-					.unwrap(); //send to server
-			}
-		}
-
-		output_presentation(self);
+		rx_buffers
 	}
 
-	//returns how many ticks were reconciled, not including repeats
-	fn reconcile(&mut self, mut tick_id_target: TickID, buffers: Vec<VecDeque<u8>>) -> TickID {
+	//returns the number of buffers/ticks received that this client
+	//hasn't simulated yet. anything other than 0 indicates client's
+	//simulation is running very far behind
+	fn reconcile(&mut self, tick_id_target: TickID, buffers: Vec<VecDeque<u8>>) -> TickID {
 		let mut predicted_reconcile_amount = 0;
 		let mut consensus_reconcile_amount = 0;
+		let mut consensus_timeout_amount = 0;
+		let mut input_underflow = 0;
 
 		for mut buffer in buffers {
-			let mut measure_ping = false; //depends on whether this buffer acks client for the first time
+			let mut take_calibration_sample = false;
 			let tick_id_received;
 
 			let tick_type = TickType::des_rx(&mut buffer).unwrap();
 			match tick_type {
 				TickType::NetEvents => {
 					tick_id_received = self.ctx.tick.id_consensus;
-
 					self.rollback(tick_id_received);
 
 					predicted_reconcile_amount = 0;
@@ -118,7 +172,6 @@ impl SimControllerInternals {
 				TickType::Consensus => {
 					let input_acked = bool::des_rx(&mut buffer).unwrap();
 					tick_id_received = self.ctx.tick.id_consensus;
-
 					self.rollback(tick_id_received);
 
 					predicted_reconcile_amount = 0;
@@ -130,24 +183,38 @@ impl SimControllerInternals {
 						self.input_history.entries.pop_front().unwrap();
 
 						if input_acked {
-							measure_ping = self
+							take_calibration_sample = self
 								.input_history
 								.entries
-								.front_mut()
+								.front()
 								.map(|consensus_input| consensus_input.ping)
 								.unwrap_or(false);
 						}
 					} else {
 						//received consensus tick that client hasn't simulated yet.
 						//client is running very behind. let the remaining stale
-						//input stay in the buffer to uphold the len() > 0 invariant
+						//input stay in the buffer to uphold the len() > 0 invariant.
+						//each time this happens inside the reconciliation loop, the
+						//number of offset ticks to recalibrate by increments
 						debug_assert_eq!(input_acked, false);
-						tick_id_target += 1;
+						input_underflow += 1;
+
+						//can't skip sending any inputs even after timeout. by
+						//leaving the diff blank, every input will be the same.
+						//server will just discard these and decrement this client's
+						//.timed_out
+						self.comms
+							.to_presentation
+							.send(SimToPresentationCommand::InputDiff(Vec::default()))
+							.unwrap();
+					}
+
+					if !input_acked {
+						consensus_timeout_amount += 1;
 					}
 				}
 				TickType::Predicted => {
 					tick_id_received = TickID::des_rx(&mut buffer).unwrap();
-
 					self.rollback(tick_id_received);
 
 					if tick_id_received < self.ctx.tick.id_cur {
@@ -162,26 +229,28 @@ impl SimControllerInternals {
 						[(1 + tick_id_received - self.ctx.tick.id_consensus) as usize]
 						.ping;
 
-					measure_ping = *associated_ping;
+					take_calibration_sample = *associated_ping;
 					*associated_ping = false;
 				}
 			};
 
-			//measure ping - see comment in struct InternalInputEntry
-			if measure_ping {
-				let input_rtt_ping = (tick_id_target - tick_id_received - 1) as i16;
-				let server_offset_ping = i16::des_rx(&mut buffer).unwrap();
+			if take_calibration_sample {
+				//measure ping - see comment in struct InternalInputEntry
 
 				//example:
-				//input_rtt_ping = 3 ticks (divide by 2, assume it takes 5 ticks to travel from client to server)
-				//server_offset_ping = -1 tick (negative means late, positive would mean early)
-				//round(input_rtt_ping / 2) + server_offset_ping = round(3 / 2) + -1 = 1 tick
-				//client is 2 ticks ahead of server in real world time, must slow down
+				//input_rtt_ping = 5 ticks (divide by 2, assume it takes 2.5 ticks to travel from client to server)
+				//server_offset_ping = -8 ticks (negative means late, positive would mean early)
+				//offset_estimate = round(input_rtt_ping / 2) + server_offset_ping = round(5 / 2) + -8 = -5 ticks
+				//client is 5 ticks behind of server in real world time, must speed up
+				//positive number would mean ahead of server, must slow down
+				let input_rtt_ping = (tick_id_target + input_underflow - tick_id_received - 1) as i16;
+				let server_offset_ping = i16::des_rx(&mut buffer).unwrap();
 				let offset_estimate = (input_rtt_ping + 1) / 2 + server_offset_ping;
-				debug!(
-					"tick id {} has offset estimate {} ({}, {})",
-					tick_id_received, offset_estimate, input_rtt_ping, server_offset_ping
-				);
+
+				self.calibration_samples.push_back(offset_estimate);
+				if self.calibration_samples.len() > OFFSET_BUFFER_SIZE {
+					self.calibration_samples.pop_front();
+				}
 			}
 
 			//yes it is correct to ser+des at the same
@@ -193,14 +262,62 @@ impl SimControllerInternals {
 			self.ctx.diff.rollback_end_tick();
 		}
 
-		let total_reconcile_amount = consensus_reconcile_amount + predicted_reconcile_amount;
-		if TRACE_TICK_ADVANCEMENT && total_reconcile_amount > 0 {
-			debug!(
-				"reconcile {} ticks ({} consensus+{} predicted)",
-				total_reconcile_amount, consensus_reconcile_amount, predicted_reconcile_amount,
-			);
+		if consensus_timeout_amount > 0 {
+			//data is borked from large lag spike
+			self.calibration_samples.clear();
+			if TRACE_TICK_ADVANCEMENT {
+				debug!("{} ticks experienced consensus timeout", consensus_timeout_amount);
+			}
 		}
 
-		total_reconcile_amount
+		if TRACE_TICK_ADVANCEMENT {
+			//note this number does not count repeats. eg. if 2
+			//different buffers both contain tick 100 only 1 will
+			//be counted. caused by predicted_reconcile_amount = 0
+			let total_reconcile_amount = consensus_reconcile_amount + predicted_reconcile_amount;
+			if total_reconcile_amount > 0 {
+				debug!(
+					"reconcile {} ticks ({} consensus+{} predicted)",
+					total_reconcile_amount, consensus_reconcile_amount, predicted_reconcile_amount,
+				);
+			}
+		}
+
+		input_underflow
 	}
+
+	fn recalibrate(&mut self, offset_from_server: i16) {
+		if TRACE_TICK_ADVANCEMENT {
+			debug!("recalibrating by {} ticks", offset_from_server);
+		}
+
+		self.calibration_samples.clear();
+		self.recalibrate_requested = false;
+
+		if offset_from_server == 0 {
+			return;
+		}
+
+		self.ctx.tick.recalibrate(offset_from_server);
+
+		if offset_from_server < 0 {
+			for _ in offset_from_server..0 {
+				self.process_io(false);
+				self.simulate(self.ctx.tick.id_cur + 1);
+			}
+		}
+		//else not much we can do here except freeze the simulation.
+		//can't rewind because inputs have already been sent.
+		//theoretically should not be frozen any longer than
+		//INPUT_TOO_EARLY or else the server would have kicked you.
+		//this should also be logically impossible unless the client
+		//isn't sleeping as much as it should between ticks
+	}
+}
+
+fn get_jitter(samples: &VecDeque<i16>) -> Duration {
+	let min = samples.iter().copied().fold(i16::MAX, i16::min);
+	let max = samples.iter().copied().fold(i16::MIN, i16::max);
+	let jitter = TickInfo::get_duration((max - min).abs() as TickID);
+	jitter
 }

@@ -3,7 +3,7 @@ use crate::presentation_state::*;
 use crate::simulation_state;
 
 #[cfg(feature = "client")]
-use {crate::simulation_controller::SimControllerInternals, std::sync::atomic::Ordering, web_time::Instant};
+use web_time::Instant;
 
 pub type ClientState = ClientStateGeneric<ClientState_owned, ClientState_remote>;
 
@@ -31,20 +31,8 @@ impl CloneToPresentationState for simulation_state::ClientState {
 }
 
 #[cfg(feature = "client")]
-pub struct PresentationTick {
+pub struct SimulationOutput {
 	pub time: Instant,
 	pub local_client_idx: usize, //use me to index the clients array
 	pub state: PresentationState,
-}
-
-#[cfg(feature = "client")]
-pub(crate) fn output_presentation(sim: &mut SimControllerInternals) {
-	sim.output_sender.store(
-		Some(std::boxed::Box::new(PresentationTick {
-			time: sim.ctx.tick.get_now(),
-			local_client_idx: sim.ctx.state.clients.random_access(sim.local_client_id).unwrap(),
-			state: sim.ctx.state.clone_to_presentation(),
-		})),
-		Ordering::AcqRel,
-	);
 }

@@ -159,14 +159,14 @@ pub mod prelude {
 	pub use log::*;
 
 	#[cfg(feature = "client")]
-	pub use {crate::js_bindings::JSBindings, crate::presentation_state::PresentationTick};
+	pub use {crate::js_bindings::JSBindings, crate::presentation_state::SimulationOutput};
 }
 
 pub struct SimulationCallbacks {
 	//pipeline
 	pub simulation_tick: fn(/*ctx*/ &mut GameContext<Immediate>),
 
-	//input_ops
+	//input operations
 	pub input_validate: fn(/*sus*/ &mut InputState),
 	pub input_predict_late: fn(
 		/*last_known*/ &InputState,

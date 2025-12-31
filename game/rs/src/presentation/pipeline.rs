@@ -4,8 +4,8 @@ use base::{entities, prelude::*};
 //see comments in Pipeline.ts: this allows calling
 //rust code during the js-driven presentation loop
 pub fn presentation_tick(
-	prv_tick: Option<&PresentationTick>,
-	cur_tick: &PresentationTick,
+	prv_tick: Option<&SimulationOutput>,
+	cur_tick: &SimulationOutput,
 	received_new_tick: bool,
 	interpolation_amount: f32,
 	input: &InputState,

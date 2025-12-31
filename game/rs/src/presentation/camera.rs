@@ -2,7 +2,7 @@ use crate::simulation::character::get_camera_rot;
 use base::prelude::*;
 use glam::Mat4;
 
-pub fn update(tick: &PresentationTick, input: &InputState, bindings: &mut JSBindings) {
+pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBindings) {
 	//treasure hunt for the position of this client's character
 	let cam_target = bindings
 		.entities

@@ -57,8 +57,8 @@ ${entities
 
 pub fn interpolate
 (
-	prv_tick: Option<&PresentationTick>,
-	cur_tick: &PresentationTick,
+	prv_tick: Option<&SimulationOutput>,
+	cur_tick: &SimulationOutput,
 	received_new_tick: bool,
 	amount: f32,
 	bindings: &mut JSBindings,
