@@ -117,7 +117,6 @@ impl SimControllerInternals {
 		if input_is_late {
 			new_input = (self.cb.input_predict_late)(
 				&self.input_history.entries.back().unwrap().input,
-				1,
 				&self.ctx.state,
 				self.local_client_id,
 			);

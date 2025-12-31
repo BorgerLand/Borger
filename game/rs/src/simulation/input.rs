@@ -2,7 +2,6 @@ use base::math::wrap_angle;
 use base::networked_types::primitive::usize32;
 use base::simulation_state::InputState;
 use base::simulation_state::SimulationState;
-use base::tick::TickID;
 use glam::Vec3A;
 
 #[cfg(feature = "client")]
@@ -85,19 +84,10 @@ pub fn validate(sus: &mut InputState) {
 //to continue simulating even if it hasn't received a new
 //input from the presentation thread yet. this function lets
 //you choose how the engine fabricates an input, given the
-//most recently received input from an older tick. age is
-//how many ticks ago the provided last input was received
-//and will always be at least 1 (0 would hypothetically mean
-//it's right on time). on client it is always 1. if accessing
-//state.clients[client_id]: the clientstate will always be
-//owned. do not access client.input; it will be wrong; use
-//last_known instead
-pub fn predict_late(
-	last_known: &InputState,
-	_age: TickID,
-	_state: &SimulationState,
-	_client_id: usize32,
-) -> InputState {
+//previous tick's input. if accessing state.clients[client_id]:
+//the clientstate will always be owned. do not access
+//client.input; it will be wrong; use last_known instead
+pub fn predict_late(last_known: &InputState, _state: &SimulationState, _client_id: usize32) -> InputState {
 	//default to assuming the client stopped pressing
 	//anything, and the camera hasn't moved. in racing/
 	//vehicle games it's more common to assume they

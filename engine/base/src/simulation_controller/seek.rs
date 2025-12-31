@@ -121,7 +121,6 @@ impl SimControllerInternals {
 								let finalized_prediction = InternalInputEntry {
 									input: (self.cb.input_predict_late)(
 										&prv.input,
-										input_history.timed_out as TickID,
 										&self.ctx.state,
 										client_id,
 									),
@@ -215,7 +214,6 @@ fn get_input(
 
 	#[cfg(feature = "server")] predict_late: fn(
 		/*last_known*/ &InputState,
-		/*age*/ TickID,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
 	) -> InputState,
@@ -239,15 +237,15 @@ fn get_input(
 
 		//input hasn't arrived for this tick yet (not acked)
 		#[cfg(feature = "server")]
-		None => Err(InternalInputEntry {
-			input: predict_late(
-				&history.back().unwrap().input,
-				1 + input_idx - (history.len() as TickID),
-				&ctx.state,
-				client_id,
-			),
-			ping: None,
-		}),
+		None => {
+			let age = 1 + input_idx - (history.len() as TickID);
+			let mut input = history.back().unwrap().input.clone();
+			for _ in 0..age {
+				input = predict_late(&input, &ctx.state, client_id);
+			}
+
+			Err(InternalInputEntry { input, ping: None })
+		}
 
 		//client locally will always have its own inputs. 0 latency!
 		#[cfg(feature = "client")]
