@@ -144,7 +144,7 @@ impl SimControllerInternals {
 		}
 
 		//handle timeout
-		let tick_id_timeout = tick_id_target.saturating_sub(TickInfo::convert_duration(INPUT_TOO_LATE));
+		let tick_id_timeout = tick_id_target.saturating_sub(TickInfo::get_ticks(INPUT_TOO_LATE));
 		if self.ctx.tick.id_consensus < tick_id_timeout {
 			if TRACE_TICK_ADVANCEMENT {
 				debug!(

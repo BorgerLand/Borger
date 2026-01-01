@@ -89,7 +89,7 @@ impl TickInfo {
 		self.id_consensus > self.id_cur
 	}
 
-	pub const fn convert_duration(dur: Duration) -> TickID {
+	pub const fn get_ticks(dur: Duration) -> TickID {
 		f32::round(dur.as_secs_f32() / Self::SIM_DT) as TickID
 	}
 

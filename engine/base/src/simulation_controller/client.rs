@@ -47,7 +47,7 @@ impl SimControllerInternals {
 			//least that far behind
 
 			self.ctx.tick.recalibrate(-(offset as i16));
-			self.recalibrate(-(TickInfo::convert_duration(INPUT_TOO_LATE) as i16));
+			self.recalibrate(-(TickInfo::get_ticks(INPUT_TOO_LATE) as i16));
 
 			//this was just an emergency recalibration with a hardcoded
 			//amount. perform a recalibration once enough data builds up
