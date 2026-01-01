@@ -64,7 +64,7 @@ struct SimulationMoveAcrossThreads {
 	cb: SimulationCallbacks,
 
 	#[cfg(feature = "client")]
-	new_client_snapshot: VecDeque<u8>,
+	new_client_snapshot: Vec<u8>,
 
 	#[cfg(feature = "server")]
 	new_connection_receiver: SyncReceiver<AsyncSender<SimToClientCommand>>,
@@ -166,7 +166,7 @@ struct InternalInputEntry {
 pub(crate) fn init(
 	cb: SimulationCallbacks,
 
-	#[cfg(feature = "client")] new_client_snapshot: VecDeque<u8>,
+	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> SimControllerExternals {
 	#[cfg(feature = "server")]
 	let (new_connection_sender, new_connection_receiver) = sync_mpsc::channel();

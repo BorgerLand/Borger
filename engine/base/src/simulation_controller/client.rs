@@ -92,10 +92,10 @@ impl SimControllerInternals {
 		}
 	}
 
-	fn process_io(&mut self, read_comms: bool) -> Vec<VecDeque<u8>> {
+	fn process_io(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
 		let mut input_is_late = true;
 		let mut new_input = InputState::default();
-		let mut rx_buffers: Vec<VecDeque<u8>> = Vec::new();
+		let mut rx_buffers: Vec<Vec<u8>> = Vec::new();
 
 		if read_comms {
 			while let Ok(presentation_msg) = self.comms.from_presentation.try_recv() {
@@ -146,17 +146,18 @@ impl SimControllerInternals {
 	//returns the number of buffers/ticks received that this client
 	//hasn't simulated yet. anything other than 0 indicates client's
 	//simulation is running very far behind
-	fn reconcile(&mut self, tick_id_target: TickID, buffers: Vec<VecDeque<u8>>) -> TickID {
+	fn reconcile(&mut self, tick_id_target: TickID, buffers: Vec<Vec<u8>>) -> TickID {
 		let mut predicted_reconcile_amount = 0;
 		let mut consensus_reconcile_amount = 0;
 		let mut consensus_timeout_amount = 0;
 		let mut input_underflow = 0;
 
-		for mut buffer in buffers {
+		for buffer in buffers {
+			let buffer = &mut buffer.into_iter();
 			let mut take_calibration_sample = false;
 			let tick_id_received;
 
-			let tick_type = TickType::des_rx(&mut buffer).unwrap();
+			let tick_type = TickType::des_rx(buffer).unwrap();
 			match tick_type {
 				TickType::NetEvents => {
 					tick_id_received = self.ctx.tick.id_consensus;
@@ -169,7 +170,7 @@ impl SimControllerInternals {
 					}
 				}
 				TickType::Consensus => {
-					let input_acked = bool::des_rx(&mut buffer).unwrap();
+					let input_acked = bool::des_rx(buffer).unwrap();
 					tick_id_received = self.ctx.tick.id_consensus;
 					self.rollback(tick_id_received);
 
@@ -213,7 +214,7 @@ impl SimControllerInternals {
 					}
 				}
 				TickType::Predicted => {
-					tick_id_received = TickID::des_rx(&mut buffer).unwrap();
+					tick_id_received = TickID::des_rx(buffer).unwrap();
 					self.rollback(tick_id_received);
 
 					if tick_id_received < self.ctx.tick.id_cur {
@@ -243,7 +244,7 @@ impl SimControllerInternals {
 				//client is 5 ticks behind of server in real world time, must speed up
 				//positive number would mean ahead of server, must slow down
 				let input_rtt_ping = (tick_id_target + input_underflow - tick_id_received - 1) as i16;
-				let server_offset_ping = i16::des_rx(&mut buffer).unwrap();
+				let server_offset_ping = i16::des_rx(buffer).unwrap();
 				let offset_estimate = (input_rtt_ping + 1) / 2 + server_offset_ping;
 
 				self.calibration_samples.push_back(offset_estimate);

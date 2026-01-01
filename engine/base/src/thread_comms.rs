@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver as SyncReceiver, Sender as SyncSender};
 
 #[cfg(feature = "server")]
@@ -12,7 +11,7 @@ use crate::simulation_state::InputState;
 //and the simulation thread
 #[cfg(feature = "server")]
 pub enum ClientToSimCommand {
-	ReceiveInput(VecDeque<u8>), //received input from a client
+	ReceiveInput(Vec<u8>), //received input from a client
 	Disconnect,
 }
 
@@ -34,8 +33,8 @@ pub struct SimToClientChannel {
 //main/presentation thread and simulation thread
 #[cfg(feature = "client")]
 pub enum PresentationToSimCommand {
-	RawInput(InputState),       //presentation thread sends hot fresh inputs here
-	ReceiveState(VecDeque<u8>), //received state from the server
+	RawInput(InputState),  //presentation thread sends hot fresh inputs here
+	ReceiveState(Vec<u8>), //received state from the server
 }
 
 #[cfg(feature = "client")]

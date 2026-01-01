@@ -4,13 +4,9 @@ use crate::context::{GameContext, Immediate};
 use crate::networked_types::primitive::usize32;
 use crate::simulation_controller::SimControllerExternals;
 use crate::simulation_state::{InputState, SimulationState};
-use crate::tick::TickID;
 
 #[cfg(feature = "server")]
-use {crate::context::WaitForConsensus, crate::diff_ser::DiffSerializer};
-
-#[cfg(feature = "client")]
-use std::collections::VecDeque;
+use {crate::context::WaitForConsensus, crate::diff_ser::DiffSerializer, crate::tick::TickID};
 
 pub mod macros;
 pub mod math;
@@ -200,7 +196,7 @@ pub struct SimulationCallbacks {
 pub fn init(
 	cb: SimulationCallbacks,
 
-	#[cfg(feature = "client")] new_client_snapshot: VecDeque<u8>,
+	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> SimControllerExternals {
 	#[cfg(debug_assertions)]
 	log::set_max_level(log::LevelFilter::Debug);

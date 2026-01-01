@@ -5,9 +5,6 @@ use crate::simulation_state::ClientState;
 use crate::simulation_state::SimulationState;
 use crate::tick::TickID;
 
-#[cfg(feature = "client")]
-use std::collections::VecDeque;
-
 pub trait SnapshotState {
 	#[cfg(feature = "server")]
 	fn ser_tx_new_client(&self, client_id: usize32, buffer: &mut Vec<u8>);
@@ -15,7 +12,7 @@ pub trait SnapshotState {
 	fn des_rx_new_client(
 		&mut self,
 		client_id: usize32,
-		buffer: &mut VecDeque<u8>,
+		buffer: &mut impl Iterator<Item = u8>,
 	) -> Result<(), DeserializeOopsy>;
 
 	fn ser_rollback_predict_remove(&self, buffer: &mut Vec<u8>); //<-- this one needs to be rewritten in "reverse" compared to other 3
@@ -35,7 +32,7 @@ impl SnapshotState for ClientState {
 	fn des_rx_new_client(
 		&mut self,
 		client_id: usize32,
-		buffer: &mut VecDeque<u8>,
+		buffer: &mut impl Iterator<Item = u8>,
 	) -> Result<(), DeserializeOopsy> {
 		match self {
 			ClientState::Owned(client) => client.des_rx_new_client(client_id, buffer),
@@ -75,9 +72,9 @@ pub fn ser_new_client(state: &SimulationState, header: NewClientHeader) -> Vec<u
 #[cfg(feature = "client")]
 pub fn des_new_client(
 	state: &mut SimulationState,
-	mut buffer: VecDeque<u8>,
+	buffer: Vec<u8>,
 ) -> Result<NewClientHeader, DeserializeOopsy> {
-	let buffer = &mut buffer;
+	let buffer = &mut buffer.into_iter();
 
 	let header = NewClientHeader {
 		client_id: PrimitiveSerDes::des_rx(buffer)?,

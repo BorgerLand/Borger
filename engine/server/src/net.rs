@@ -4,7 +4,6 @@ use base::networked_types::primitive::usize32;
 use base::thread_comms::{ClientToSimCommand, SimToClientCommand};
 use log::info;
 use std::array::TryFromSliceError;
-use std::collections::VecDeque;
 use std::net::IpAddr;
 use std::sync::mpsc::Sender as SyncSender;
 use std::time::Duration;
@@ -140,7 +139,7 @@ async fn listen_for_input(mut input_stream: RecvStream, to_sim: &SyncSender<Clie
 			let input_size_bytes =
 				&mut receive_packet(&mut input_stream, size_of::<usize32>() as usize32).await?;
 			let input_size = usize32::from_le_bytes(
-				input_size_bytes.as_slices().0[..4]
+				input_size_bytes.as_slice()[..4]
 					.try_into()
 					.map_err(|oops: TryFromSliceError| oops.to_string())?,
 			);
@@ -182,7 +181,7 @@ fn listen_on_disconnect(ip: IpAddr, disconnect_reason: String, to_sim: SyncSende
 	info!("[{}] Client disconnected ({})", ip, disconnect_reason);
 }
 
-async fn receive_packet(stream: &mut RecvStream, size: usize32) -> Result<VecDeque<u8>, String> {
+async fn receive_packet(stream: &mut RecvStream, size: usize32) -> Result<Vec<u8>, String> {
 	let mut packet = vec![0_u8; size as usize];
 	match stream.read_exact(&mut packet).await {
 		Ok(()) => Ok(packet.into()),

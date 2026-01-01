@@ -53,7 +53,7 @@ impl PresentationController {
 		console_log::init().unwrap();
 
 		Self {
-			sim: game_rs::simulation::init(new_client_snapshot.to_vec().into()),
+			sim: game_rs::simulation::init(new_client_snapshot.to_vec()),
 			now: Instant::now(),
 			bindings: JSBindings::new(input_stream, scene, spawn_entity_cb, dispose_entity_cb),
 

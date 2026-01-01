@@ -3,7 +3,7 @@ use crate::diff_ser::DiffSerializer;
 use crate::tick::TickType;
 use crate::{DeserializeOopsy, DiffOperation};
 use glam::{DQuat, DVec2, DVec3, Quat, Vec2, Vec3, Vec3A};
-use std::collections::VecDeque;
+use std::mem::MaybeUninit;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
@@ -115,22 +115,16 @@ pub(crate) trait PrimitiveSerDes: Copy + 'static {
 		self.ser_rollback(buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
-		let slices = buffer.as_slices();
-		assert!(slices.1.len() == 0); //disallow wrapped vecdeque for safety invariant
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
+		let mut data = MaybeUninit::<Self>::uninit();
+		let bytes =
+			unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, size_of::<Self>()) };
 
-		let old_len = buffer.len();
-		let read = size_of::<Self>();
-
-		if old_len < read {
-			return Err(DeserializeOopsy::BufferUnderflow);
+		for byte in bytes.iter_mut() {
+			*byte = buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)?;
 		}
 
-		let new_len = old_len - read;
-		let data = unsafe { (slices.0.as_ptr() as *const Self).read_unaligned() };
-		buffer.truncate_front(new_len);
-
-		Ok(data)
+		Ok(unsafe { data.assume_init() })
 	}
 }
 
@@ -152,8 +146,8 @@ impl PrimitiveSerDes for bool {
 		des_bool(buffer.pop().ok_or(DeserializeOopsy::BufferUnderflow)?)
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
-		des_bool(buffer.pop_front().ok_or(DeserializeOopsy::BufferUnderflow)?)
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
+		des_bool(buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)?)
 	}
 }
 
@@ -174,8 +168,8 @@ impl PrimitiveSerDes for u8 {
 		buffer.pop().ok_or(DeserializeOopsy::BufferUnderflow)
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
-		buffer.pop_front().ok_or(DeserializeOopsy::BufferUnderflow)
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
+		buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)
 	}
 }
 
@@ -188,8 +182,8 @@ impl PrimitiveSerDes for i8 {
 		Ok(buffer.pop().ok_or(DeserializeOopsy::BufferUnderflow)? as i8)
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
-		Ok(buffer.pop_front().ok_or(DeserializeOopsy::BufferUnderflow)? as i8)
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
+		Ok(buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)? as i8)
 	}
 }
 
@@ -206,9 +200,9 @@ impl PrimitiveSerDes for DiffOperation {
 			.map_err(|_| DeserializeOopsy::CorruptDiffOperation)
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		buffer
-			.pop_front()
+			.next()
 			.ok_or(DeserializeOopsy::BufferUnderflow)?
 			.try_into()
 			.map_err(|_| DeserializeOopsy::CorruptDiffOperation)
@@ -228,9 +222,9 @@ impl PrimitiveSerDes for TickType {
 			.map_err(|_| DeserializeOopsy::CorruptTickType)
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		buffer
-			.pop_front()
+			.next()
 			.ok_or(DeserializeOopsy::BufferUnderflow)?
 			.try_into()
 			.map_err(|_| DeserializeOopsy::CorruptTickType)
@@ -242,7 +236,7 @@ impl PrimitiveSerDes for u16 {
 		ser_varint_u(self.into(), buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_u(buffer)?
 			.try_into()
 			.map_err(|_| DeserializeOopsy::ObeseVarInt)
@@ -254,7 +248,7 @@ impl PrimitiveSerDes for i16 {
 		ser_varint_i(self.into(), buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_i(buffer)?
 			.try_into()
 			.map_err(|_| DeserializeOopsy::ObeseVarInt)
@@ -266,7 +260,7 @@ impl PrimitiveSerDes for u32 {
 		ser_varint_u(self.into(), buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_u(buffer)?
 			.try_into()
 			.map_err(|_| DeserializeOopsy::ObeseVarInt)
@@ -278,7 +272,7 @@ impl PrimitiveSerDes for i32 {
 		ser_varint_i(self.into(), buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_i(buffer)?
 			.try_into()
 			.map_err(|_| DeserializeOopsy::ObeseVarInt)
@@ -290,7 +284,7 @@ impl PrimitiveSerDes for u64 {
 		ser_varint_u(self, buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_u(buffer)
 	}
 }
@@ -300,7 +294,7 @@ impl PrimitiveSerDes for i64 {
 		ser_varint_i(self, buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_i(buffer)
 	}
 }
@@ -321,12 +315,12 @@ fn ser_varint_u(mut data: u64, buffer: &mut Vec<u8>) {
 
 //unsigned varint deserialization/decoding/decompression
 //https://docs.rs/integer-encoding/4.0.2/src/integer_encoding/varint.rs.html#132
-fn des_varint_u(buffer: &mut VecDeque<u8>) -> Result<u64, DeserializeOopsy> {
+fn des_varint_u(buffer: &mut impl Iterator<Item = u8>) -> Result<u64, DeserializeOopsy> {
 	let mut result: u64 = 0;
 	let mut shift = 0;
 
 	let mut success = false;
-	while let Some(b) = buffer.pop_front() {
+	while let Some(b) = buffer.next() {
 		let msb_dropped = b & DROP_MSB;
 		result |= (msb_dropped as u64) << shift;
 		shift += 7;
@@ -353,7 +347,7 @@ fn ser_varint_i(data: i64, buffer: &mut Vec<u8>) {
 
 //signed varint+zigzag/encoding/compression
 //https://docs.rs/integer-encoding/4.0.2/src/integer_encoding/varint.rs.html#65
-fn des_varint_i(buffer: &mut VecDeque<u8>) -> Result<i64, DeserializeOopsy> {
+fn des_varint_i(buffer: &mut impl Iterator<Item = u8>) -> Result<i64, DeserializeOopsy> {
 	let data = des_varint_u(buffer)?;
 	Ok(((data >> 1) ^ (-((data & 1) as i64)) as u64) as i64)
 }
@@ -366,7 +360,7 @@ impl PrimitiveSerDes for char {
 		ser_varint_u(self.into(), buffer);
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		let as_u64 = des_varint_u(buffer)?;
 		let as_u32: u32 = as_u64.try_into().map_err(|_| DeserializeOopsy::ObeseVarInt)?;
 		let as_char: char = as_u32.try_into().map_err(|_| DeserializeOopsy::CorruptChar)?;
@@ -387,7 +381,7 @@ impl PrimitiveSerDes for Vec3A {
 		Vec3::des_rollback(buffer).map(|v| v.into())
 	}
 
-	fn des_rx(buffer: &mut VecDeque<u8>) -> Result<Self, DeserializeOopsy> {
+	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		Vec3::des_rx(buffer).map(|v| v.into())
 	}
 }
@@ -421,7 +415,7 @@ pub(crate) trait SliceSerDes<T: PrimitiveSerDes>: AsRef<[T]> {
 	}
 
 	#[allow(dead_code)]
-	fn des_rx(len: usize32, buffer: &mut VecDeque<u8>) -> Result<Vec<T>, DeserializeOopsy> {
+	fn des_rx(len: usize32, buffer: &mut impl Iterator<Item = u8>) -> Result<Vec<T>, DeserializeOopsy> {
 		let mut out = Vec::with_capacity(len as usize);
 		for _ in 0..len {
 			out.push(T::des_rx(buffer)?);
@@ -444,13 +438,16 @@ impl SliceSerDes<bool> for [bool] {
 		}
 	}
 
-	fn des_rx(bool_len: usize32, buffer: &mut VecDeque<u8>) -> Result<Vec<bool>, DeserializeOopsy> {
+	fn des_rx(
+		bool_len: usize32,
+		buffer: &mut impl Iterator<Item = u8>,
+	) -> Result<Vec<bool>, DeserializeOopsy> {
 		let bool_len = bool_len as usize;
 		let byte_len = bool_len.div_ceil(8);
 		let mut out = Vec::with_capacity(bool_len);
 
 		for _ in 0..byte_len {
-			let byte = buffer.pop_front().ok_or(DeserializeOopsy::BufferUnderflow)?;
+			let byte = buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)?;
 			for i in 0..8 {
 				if out.len() == bool_len
 				//only extract bits up to the original length

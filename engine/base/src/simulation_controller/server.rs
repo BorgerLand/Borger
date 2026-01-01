@@ -42,7 +42,7 @@ impl SimControllerInternals {
 						//treated with care because the inputs aren't
 						//trusted. an evil client could otherwise crash
 						//the server by sending a corrupt input
-						match diff_des::des_rx_input(&mut new_input, ser_rx_buffer) {
+						match diff_des::des_rx_input(&mut new_input, ser_rx_buffer.into_iter()) {
 							Ok(_) => {
 								(self.cb.input_validate)(&mut new_input);
 								if history.timed_out == 0 {

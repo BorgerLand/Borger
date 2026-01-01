@@ -20,9 +20,6 @@ use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::snapshot_serdes::SnapshotState;
 use crate::networked_types::primitive::usize32;
 
-#[cfg(feature = "client")]
-use std::collections::VecDeque;
-
 ${simStructs
 	.map(function generatePredictRemoveImpl(group) {
 		const rootStruct = group[0];
@@ -67,7 +64,7 @@ ${group
 	}
 	
 	#[cfg(feature = "client")]
-	fn des_rx_new_client(&mut self, _client_id: usize32, _buffer: &mut VecDeque<u8>) -> Result<(), DeserializeOopsy>
+	fn des_rx_new_client(&mut self, _client_id: usize32, _buffer: &mut impl Iterator<Item = u8>) -> Result<(), DeserializeOopsy>
 	{
 ${group
 	.map((struct) =>

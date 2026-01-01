@@ -5,7 +5,7 @@ use crate::{DeserializeOopsy, DiffOperation};
 use std::collections::VecDeque;
 
 #[cfg(feature = "client")]
-use {crate::context::Impl, crate::diff_ser::DiffSerializer};
+use {crate::context::Impl, crate::diff_ser::DiffSerializer, std::vec};
 
 pub(crate) trait DiffDeserializeState {
 	fn set_field_rollback(&mut self, field_id: usize32, buffer: &mut Vec<u8>)
@@ -15,7 +15,7 @@ pub(crate) trait DiffDeserializeState {
 	fn set_field_rx(
 		&mut self,
 		field_id: usize32,
-		buffer: &mut VecDeque<u8>,
+		buffer: &mut vec::IntoIter<u8>,
 		diff: &mut DiffSerializer<Impl>,
 	) -> Result<(), DeserializeOopsy>;
 
@@ -39,7 +39,7 @@ impl DiffDeserializeState for ClientState {
 	fn set_field_rx(
 		&mut self,
 		field_id: usize32,
-		buffer: &mut VecDeque<u8>,
+		buffer: &mut vec::IntoIter<u8>,
 		diff: &mut DiffSerializer<Impl>,
 	) -> Result<(), DeserializeOopsy> {
 		match self {
@@ -126,7 +126,7 @@ pub fn des_rollback(state: &mut SimulationState, buffer: &mut Vec<u8>) -> Result
 #[cfg(feature = "client")]
 pub fn des_rx_state(
 	state: &mut SimulationState,
-	mut ser_rx_buffer: VecDeque<u8>,
+	buffer: &mut vec::IntoIter<u8>,
 	diff: &mut DiffSerializer<Impl>,
 ) -> Result<(), DeserializeOopsy> {
 	//safety: the current iteration of the loop may
@@ -137,7 +137,6 @@ pub fn des_rx_state(
 	let root_path = state as *mut dyn DiffDeserializeState;
 	let mut cur_path = root_path;
 
-	let buffer = &mut ser_rx_buffer;
 	loop {
 		let cur_nav_state = unsafe { cur_path.as_mut() }.unwrap();
 

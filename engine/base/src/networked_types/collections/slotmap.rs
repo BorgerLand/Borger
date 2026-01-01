@@ -15,9 +15,7 @@ use std::rc::Rc;
 use crate::NetVisibility;
 
 #[cfg(feature = "client")]
-use {
-	crate::context::Impl, crate::simulation_state::ClientState, std::any::TypeId, std::collections::VecDeque,
-};
+use {crate::context::Impl, crate::simulation_state::ClientState, std::any::TypeId, std::vec};
 
 //like a hashmap, except the key is an internally generated, unique, numeric id.
 //currently does not do any sort of generational tracking
@@ -259,7 +257,7 @@ pub(crate) trait SlotMapDynCompat {
 	#[cfg(feature = "client")]
 	fn rx_remove(
 		&mut self,
-		buffer: &mut VecDeque<u8>,
+		buffer: &mut vec::IntoIter<u8>,
 		diff: &mut DiffSerializer<Impl>,
 	) -> Result<(), DeserializeOopsy>;
 	#[cfg(feature = "client")]
@@ -316,7 +314,7 @@ impl<V: NetState> SlotMapDynCompat for SlotMap<V> {
 	#[cfg(feature = "client")]
 	fn rx_remove(
 		&mut self,
-		buffer: &mut VecDeque<u8>,
+		buffer: &mut vec::IntoIter<u8>,
 		diff: &mut DiffSerializer<Impl>,
 	) -> Result<(), DeserializeOopsy> {
 		let id = usize32::des_rx(buffer)?;
@@ -349,7 +347,7 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 	fn des_rx_new_client(
 		&mut self,
 		client_id: usize32,
-		buffer: &mut VecDeque<u8>,
+		buffer: &mut impl Iterator<Item = u8>,
 	) -> Result<(), DeserializeOopsy> {
 		let reclaimed_ids_len = usize32::des_rx(buffer)?;
 		self.reclaimed_ids = <[usize32]>::des_rx(reclaimed_ids_len, buffer)?;

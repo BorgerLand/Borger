@@ -23,7 +23,6 @@ use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::diff_des::DiffDeserializeState;
 use crate::DeserializeOopsy;
 use crate::networked_types::collections::slotmap::SlotMapDynCompat;
-use std::collections::VecDeque;
 
 #[cfg(feature = "server")]
 use crate::simulation_state::InputState;
@@ -33,12 +32,13 @@ use
 {
 	crate::diff_ser::DiffSerializer,
 	crate::context::Impl,
+	std::vec,
 };
 
 ${VALID_TYPES}
 
 #[cfg(feature = "server")]
-pub fn des_rx_input(input: &mut InputState, mut ser_rx_buffer: VecDeque<u8>) -> Result<(), DeserializeOopsy>
+pub fn des_rx_input(input: &mut InputState, mut ser_rx_buffer: impl ExactSizeIterator<Item = u8>) -> Result<(), DeserializeOopsy>
 {
 	let buffer = &mut ser_rx_buffer;
 	while buffer.len() > 0
@@ -97,7 +97,7 @@ ${group
 	}
 	
 	#[cfg(feature = "client")]
-	fn set_field_rx(&mut self, field_id: usize32, _buffer: &mut VecDeque<u8>, _diff: &mut DiffSerializer<Impl>) -> Result<(), DeserializeOopsy>
+	fn set_field_rx(&mut self, field_id: usize32, _buffer: &mut vec::IntoIter<u8>, _diff: &mut DiffSerializer<Impl>) -> Result<(), DeserializeOopsy>
 	{
 		match field_id
 		{
