@@ -97,7 +97,7 @@ pub fn des_rollback(state: &mut SimulationState, buffer: &mut Vec<u8>) -> Result
 				let nav_down_len = u8::des_rollback(buffer)? as usize32;
 				let mut nav_down: VecDeque<usize32> =
 					<[usize32]>::des_rollback(nav_down_len * 2, buffer)?.into();
-				while nav_down.len() > 0 {
+				while !nav_down.is_empty() {
 					let field_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
 					let element_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
 
@@ -167,7 +167,7 @@ pub fn des_rx_state(
 			Ok(DiffOperation::NavigateDown) => {
 				let nav_down_len = u8::des_rx(buffer)? as usize32;
 				let mut nav_down: VecDeque<usize32> = <[usize32]>::des_rx(nav_down_len * 2, buffer)?.into();
-				while nav_down.len() > 0 {
+				while !nav_down.is_empty() {
 					let field_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
 					let element_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
 

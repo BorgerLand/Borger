@@ -162,7 +162,7 @@ impl DiffSerializer<Impl> {
 			//nothing has changed since the last tick
 			#[cfg(feature = "server")]
 			{
-				debug_assert!(tx.buffer.len() > 0);
+				debug_assert!(!tx.buffer.is_empty());
 
 				tx.cur_path = Rc::default();
 			}
@@ -170,7 +170,7 @@ impl DiffSerializer<Impl> {
 			let ret = mem::take(&mut tx.buffer);
 			Some(ret)
 		} else {
-			debug_assert_eq!(tx.buffer.len(), 0);
+			debug_assert!(tx.buffer.is_empty());
 			None
 		}
 	}
