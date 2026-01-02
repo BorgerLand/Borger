@@ -86,10 +86,6 @@ impl SimControllerInternals {
 			})),
 			Ordering::AcqRel,
 		);
-
-		if tick_id_target == 1000 {
-			self.recalibrate(-15);
-		}
 	}
 
 	fn process_io(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
@@ -146,13 +142,49 @@ impl SimControllerInternals {
 	//returns the number of buffers/ticks received that this client
 	//hasn't simulated yet. anything other than 0 indicates client's
 	//simulation is running very far behind
-	fn reconcile(&mut self, tick_id_target: TickID, buffers: Vec<Vec<u8>>) -> TickID {
+	fn reconcile(&mut self, tick_id_target: TickID, received: Vec<Vec<u8>>) -> TickID {
+		//build the list of buffers that will actually be reconciled.
+		//because the server can jump back in time and overwrite its own
+		//previous predictions, there is a risk of seeing other clients'
+		//players appear to jump backwards. this loop blocks buffers from
+		//reconciling until it's proven that time has advanced forward
+		//(tick_id_received >= self.ctx.tick.id_received)
+		let mut safe_buffers = Vec::new();
+
+		//while building the list, simulate what would happen to
+		//tick.id_consensus if the received buffer were to go through
+		let mut tick_id_consensus_simulated = self.ctx.tick.id_consensus;
+
+		for buffer in received {
+			let buffer_iter = &mut buffer.iter().cloned();
+			let tick_type = TickType::des_rx(buffer_iter).unwrap();
+			let tick_id_received = match tick_type {
+				TickType::NetEvents => tick_id_consensus_simulated,
+				TickType::Consensus => {
+					tick_id_consensus_simulated += 1;
+					tick_id_consensus_simulated - 1
+				}
+				TickType::Predicted => TickID::des_rx(buffer_iter).unwrap(),
+			};
+
+			if tick_id_received >= self.ctx.tick.id_received {
+				self.ctx.tick.id_received = tick_id_received;
+				safe_buffers.append(&mut self.ctx.tick.received_buffers);
+				safe_buffers.push(buffer);
+			} else {
+				//not enough buffers have been received yet to advance the
+				//simulation forward. store the packet for later reconciliation
+				self.ctx.tick.received_buffers.push(buffer);
+			}
+		}
+
 		let mut predicted_reconcile_amount = 0;
 		let mut consensus_reconcile_amount = 0;
 		let mut consensus_timeout_amount = 0;
 		let mut input_underflow = 0;
 
-		for buffer in buffers {
+		//now do it for real
+		for buffer in safe_buffers {
 			let buffer = &mut buffer.into_iter();
 			let mut take_calibration_sample = false;
 			let tick_id_received;

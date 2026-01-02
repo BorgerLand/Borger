@@ -36,7 +36,7 @@ impl SimControllerInternals {
 				match client_msg {
 					ClientToSimCommand::ReceiveInput(ser_rx_buffer) => {
 						let history = self.input_history.get_mut(&id).unwrap();
-						let mut new_input = history.latest_receied.clone();
+						let mut new_input = history.latest_received.clone();
 
 						//this occurrence of deserialization needs to be
 						//treated with care because the inputs aren't
@@ -65,7 +65,7 @@ impl SimControllerInternals {
 									history.timed_out -= 1;
 								}
 
-								history.latest_receied = new_input;
+								history.latest_received = new_input;
 							}
 							Err(oops) => {
 								//connection must be killed. this should never

@@ -131,7 +131,7 @@ struct InternalInputHistory {
 	//the diff received from the client is always applied to
 	//this, regardless of whether there are .timed_out inputs
 	#[cfg(feature = "server")]
-	latest_receied: InputState,
+	latest_received: InputState,
 }
 
 #[derive(Default, Debug, Clone)]

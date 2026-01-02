@@ -39,11 +39,19 @@ pub struct TickInfo {
 
 	//all of these id's are incremental
 
-	//consensus: oldest tick that can still be rolled back and
-	//(as in, rewind simulation state to right before this tick
-	//happened). controls the amount of state history that must be
-	//stored for rollback. will only ever increase
+	//oldest tick that can still be rolled back and (as in, rewind
+	//simulation state to right before this tick happened). controls
+	//the amount of state history that must be stored for rollback.
+	//will only ever increase
 	pub(crate) id_consensus: TickID,
+
+	//highest tick id received from the server so far. will only ever
+	//increase. used to block reconciliation until receiving an equal
+	//or higher tick id from the server. fixes severe visual glitching
+	//caused by receiving wildly fluctuating tick id's during
+	//consensus timeouts
+	#[cfg(feature = "client")]
+	pub(crate) id_received: TickID,
 
 	//another way of looking at this number is "how many ticks have
 	//completed start to finish" or "tick.id_unfinished". may increase
@@ -51,11 +59,18 @@ pub struct TickInfo {
 	//resimulated
 	pub(crate) id_cur: TickID,
 	//
-	//id_consensus <= id_cur
-	//the wider the gap between id's, the worse the performance
-	//due to more rollbacks and retransmitting old ticks. this
-	//also means that the laggiest client will hurt performance
-	//for everyone, including the server. we don't like that guy
+	//id_consensus <= id_received <= id_cur
+	//the wider the gap between id's (particularly consensus+cur),
+	//the worse the performance due to more rollbacks and
+	//retransmitting old ticks. this also means that the laggiest
+	//client will hurt performance for everyone, including the server.
+	//we don't like that guy
+
+	//server authoritative data that can't be reconciled yet due to
+	//none of the received_buffers having a tick id higher than
+	//id_received
+	#[cfg(feature = "client")]
+	pub(crate) received_buffers: Vec<Vec<u8>>,
 }
 
 impl TickInfo {
@@ -69,7 +84,14 @@ impl TickInfo {
 			first: Instant::now()
 				- Duration::from_secs_f64((id_start + fast_forward_ticks) as f64 * Self::SIM_DT as f64),
 			id_consensus: id_start,
+
+			#[cfg(feature = "client")]
+			id_received: id_start,
+
 			id_cur: id_start,
+
+			#[cfg(feature = "client")]
+			received_buffers: Vec::new(),
 		}
 	}
 
