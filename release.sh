@@ -27,6 +27,7 @@ bun rolldown --minify client_rs.js -o client_rs.js
 mv client_rs.js client_rs_bg.wasm ../../../../release/client/assets
 cd  ../../../..
 bun vite build
+rm -f release/client/devcert.json
 mv target/server-release/server release
 cd release/client/assets
 find . -name "*.js" -type f -exec sed -i 's/from\s*["'\''"]@engine\/client_rs["'\''\"]/from".\/client_rs.js"/g' {} \;
