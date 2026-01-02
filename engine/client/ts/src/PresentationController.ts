@@ -3,6 +3,8 @@ import * as Net from "@engine/client_ts/Net.ts";
 import ClientRSInit, * as ClientRS from "@engine/client_rs";
 import * as ConsoleLog from "@engine/client_ts/ConsoleLog.ts";
 import { Object3D } from "three";
+import { testCompat } from "@engine/client_ts/Compat.ts";
+
 export type EngineState = Awaited<ReturnType<typeof init>>;
 
 export async function init(cb: {
@@ -13,6 +15,8 @@ export async function init(cb: {
 	onResolutionChange?: (state: Renderer.RendererState) => void;
 	onDisconnect?: () => void;
 }) {
+	await testCompat();
+
 	//init procedure has been parallelized as much as possible
 	const state = {
 		dt: 0,
@@ -36,7 +40,11 @@ export async function init(cb: {
 					net.newClientSnapshot,
 					net.inputStream,
 					renderer.scene3D,
-					cb?.onSpawnEntity ?? (() => new Object3D()),
+					function (type: ClientRS.EntityKind) {
+						const o3d = cb?.onSpawnEntity?.(type) ?? new Object3D();
+						Renderer.blockMatrixWorldUpdate(o3d);
+						return o3d;
+					},
 					cb?.onDisposeEntity ?? (() => {}),
 				);
 				rsController.init_pinned(renderer.camera3D);

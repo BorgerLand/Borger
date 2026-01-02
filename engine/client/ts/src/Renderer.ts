@@ -1,13 +1,9 @@
-import { PerspectiveCamera, Scene, Object3D, OrthographicCamera } from "three";
+import { PerspectiveCamera, Scene, OrthographicCamera, type Object3D } from "three";
 import { WebGPURenderer } from "three/webgpu";
 export type RendererState = Awaited<ReturnType<typeof init>>;
 export type ResolutionChangeHook = (state: RendererState) => void;
 
 export async function init(canvas: HTMLCanvasElement, onResolutionChange: ResolutionChangeHook) {
-	//tweak some default three.js settings for better performance
-	Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false;
-	Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false;
-
 	const state = {
 		renderer: new WebGPURenderer({
 			canvas,
@@ -20,6 +16,8 @@ export async function init(canvas: HTMLCanvasElement, onResolutionChange: Resolu
 		camera2D: new OrthographicCamera(0, 1, 1, 0, -1, 1),
 		scene2D: new Scene(),
 	};
+
+	blockMatrixWorldUpdate(state.camera3D);
 
 	await state.renderer.init();
 
@@ -52,4 +50,16 @@ function onresize(state: RendererState) {
 	state.camera2D.updateProjectionMatrix();
 
 	state.onResolutionChange(state);
+}
+
+export function blockMatrixWorldUpdate(o3d: Object3D) {
+	o3d.matrix = o3d.matrixWorld;
+
+	//modified version of three.js source code that disables
+	//automagic matrix multiplications for objects whose transform
+	//is managed by rust
+	o3d.updateMatrixWorld = function updateMatrixWorld() {
+		// make sure descendants are updated if required
+		for (const child of this.children) child.updateMatrixWorld(true);
+	};
 }

@@ -14,7 +14,6 @@ export function init() {
 		const mat = new SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true });
 		spr = new Sprite(mat);
 		spr.center.set(0, 0);
-		spr.matrixWorld = spr.matrix;
 		spr.frustumCulled = false;
 	});
 }
@@ -25,5 +24,4 @@ export async function onResolutionChange(state: RendererState) {
 	state.scene2D.add(spr);
 	spr.position.x = Math.ceil((state.renderer.domElement.width - spr.scale.x) / 2);
 	spr.position.y = Math.ceil((state.renderer.domElement.height - spr.scale.y) / 2);
-	spr.updateMatrix();
 }

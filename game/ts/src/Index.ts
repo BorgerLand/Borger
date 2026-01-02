@@ -40,11 +40,9 @@ scene.add(new LightProbe(sh, 2));
 
 const directionalLight = new DirectionalLight(0xffffff, 3);
 directionalLight.position.set(1, 1, 1);
-directionalLight.updateMatrix();
-directionalLight.matrixWorld = directionalLight.matrix;
 scene.add(directionalLight);
 
 //point of reference
 const box = new Mesh(new BoxGeometry());
-box.matrixWorld.setPosition(0, 0, -5);
+box.position.set(0, 0, -5);
 scene.add(box);

@@ -1,6 +1,6 @@
 export function styledLog(
 	spaceBetweenSegments: boolean,
-	...segments: [text: string | number, styles: string[]][]
+	...segments: [text: string | number | boolean, styles: string[]][]
 ) {
 	const text = segments.map((segment) => `%c${segment[0]}`).join(spaceBetweenSegments ? " " : "");
 	const styles = segments.map((segment) => segment[1].join(" "));
@@ -11,6 +11,7 @@ export function styledLog(
 }
 
 export const BROWN = "color: #7f3a00;";
+export const BLUE = "color: #0000c0;";
 export const BOLD = "font-weight: bold;";
 export const ITALIC = "font-style: italic;";
 export const TITLE = [BOLD, ITALIC, "font-size: 57px;"];
