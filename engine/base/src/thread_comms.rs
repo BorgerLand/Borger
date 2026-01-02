@@ -35,6 +35,7 @@ pub struct SimToClientChannel {
 pub enum PresentationToSimCommand {
 	RawInput(InputState),  //presentation thread sends hot fresh inputs here
 	ReceiveState(Vec<u8>), //received state from the server
+	Abort,
 }
 
 #[cfg(feature = "client")]

@@ -51,3 +51,7 @@ export function update() {
 
 	poll.update();
 }
+
+export function dispose() {
+	poll.dispose();
+}

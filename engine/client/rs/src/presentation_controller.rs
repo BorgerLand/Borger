@@ -164,4 +164,12 @@ impl PresentationController {
 			.send(PresentationToSimCommand::ReceiveState(state.to_vec().into()))
 			.unwrap();
 	}
+
+	pub fn abort_simulation(&self) {
+		self.sim
+			.comms
+			.to_sim
+			.send(PresentationToSimCommand::Abort)
+			.unwrap();
+	}
 }

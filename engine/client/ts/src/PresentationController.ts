@@ -11,6 +11,7 @@ export async function init(cb: {
 	onSpawnEntity?: (type: ClientRS.EntityKind) => Object3D;
 	onDisposeEntity?: (type: ClientRS.EntityKind, entity: Object3D) => true;
 	onResolutionChange?: (state: Renderer.RendererState) => void;
+	onDisconnect?: () => void;
 }) {
 	//init procedure has been parallelized as much as possible
 	const state = {
@@ -42,6 +43,11 @@ export async function init(cb: {
 
 				const rsInput = new ClientRS.InputState();
 				Net.onStateReceived(net, (buffer) => rsController.listen_for_state(buffer));
+				Net.onDisconnect(net, function () {
+					renderer.renderer.setAnimationLoop(null);
+					rsController.abort_simulation();
+					cb?.onDisconnect?.();
+				});
 
 				//launch the simulation thread (by constructing ClientLocalEngineState),
 				//then determine when it's ready by polling for a completed output.

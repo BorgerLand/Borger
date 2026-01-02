@@ -14,6 +14,7 @@ const engine = await init({
 	onSpawnEntity: Entities.spawnEntity,
 	onDisposeEntity: Entities.disposeEntity,
 	onResolutionChange: Crosshair.onResolutionChange,
+	onDisconnect: Input.dispose,
 });
 
 Input.init(engine.renderer.renderer.domElement, engine.rsInput);

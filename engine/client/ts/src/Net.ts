@@ -4,6 +4,7 @@ const SIZEOF_USIZE32 = 4; //32 bits = 4 bytes
 type InitializingNetState = {
 	transport: WebTransport;
 	open: boolean;
+	onDisconnect: [() => void];
 };
 
 export type NetState = Awaited<ReturnType<typeof init>>;
@@ -22,6 +23,7 @@ export async function init() {
 	const uninitNet: InitializingNetState = {
 		transport,
 		open: true,
+		onDisconnect: [() => {}],
 	};
 
 	listenOnClose(uninitNet);
@@ -54,6 +56,12 @@ export async function init() {
 //do not await this. it is an infinite loop
 export async function onStateReceived(net: NetState, cb: (stateBuffer: Uint8Array) => void) {
 	while (true) cb((await net.stateStream.next()).value!);
+}
+
+export function onDisconnect(net: NetState, cb: () => void) {
+	//note this is a tuple so that the change propogates to both
+	//the current NetState and the original InitializingNetState
+	net.onDisconnect[0] = cb;
 }
 
 async function listenOnOpen(net: InitializingNetState) {
@@ -96,6 +104,7 @@ function onClose(net: InitializingNetState, oops: WebTransportCloseInfo) {
 	if (!net.open) return;
 	net.open = false;
 	net.transport.close();
+	net.onDisconnect[0]();
 
 	oops.reason = oops.reason?.trim(); //sometimes it's nothing but whitespace?
 	const reason = oops.reason ? `: ${oops.reason ?? ""}` : "";

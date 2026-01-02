@@ -106,6 +106,9 @@ impl SimControllerInternals {
 					PresentationToSimCommand::ReceiveState(buffer) => {
 						rx_buffers.push(buffer);
 					}
+					PresentationToSimCommand::Abort => {
+						panic!("Simulation received abort signal");
+					}
 				};
 			}
 		}
