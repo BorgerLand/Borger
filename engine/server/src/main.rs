@@ -13,6 +13,15 @@ pub async fn main() {
 		SimpleLogger::new().init().unwrap();
 		let flags = flags::Flags::parse();
 		let sim = game_rs::simulation::init();
-		net::init(sim.new_connection_sender, &flags).await;
+		let sim_loop = tokio::task::spawn_blocking(move || sim.thread.join().unwrap());
+		let net_loop = net::init(sim.new_connection_sender, &flags);
+
+		//both of these are infinite loops and should never fail.
+		//they are wrapped in tokio select in order to crash the
+		//entire program if either actually does fail
+		tokio::select! {
+			_ = sim_loop => {}
+			_ = net_loop => {}
+		}
 	}
 }

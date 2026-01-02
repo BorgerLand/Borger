@@ -49,10 +49,13 @@ const INPUT_TOO_LATE: Duration = Duration::from_secs(3); //too late = server's p
 //communications between the simulation thread
 //and the owning parent thread
 pub struct SimControllerExternals {
+	pub thread: thread::JoinHandle<()>,
+
 	#[cfg(feature = "server")]
 	pub new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>,
 	#[cfg(feature = "client")]
 	pub comms: PresentationToSimChannel,
+
 	#[cfg(feature = "client")]
 	pub presentation_receiver: Arc<AtomicOptionBox<SimulationOutput>>,
 }
@@ -60,7 +63,7 @@ pub struct SimControllerExternals {
 //data that needs to be moved across threads
 //during initialization of simulation thread.
 //all fields must be Send
-struct SimulationMoveAcrossThreads {
+struct SimMoveAcrossThreads {
 	cb: SimulationCallbacks,
 
 	#[cfg(feature = "client")]
@@ -188,8 +191,8 @@ pub(crate) fn init(
 	#[cfg(feature = "client")]
 	let output_receiver = output_sender.clone();
 
-	thread::spawn(move || {
-		run_simulation(SimulationMoveAcrossThreads {
+	let thread = thread::spawn(move || {
+		run_simulation(SimMoveAcrossThreads {
 			cb,
 
 			#[cfg(feature = "client")]
@@ -205,6 +208,8 @@ pub(crate) fn init(
 	});
 
 	SimControllerExternals {
+		thread,
+
 		#[cfg(feature = "server")]
 		new_connection_sender,
 		#[cfg(feature = "client")]
@@ -215,7 +220,7 @@ pub(crate) fn init(
 	}
 }
 
-fn run_simulation(moved_data: SimulationMoveAcrossThreads) {
+fn run_simulation(moved_data: SimMoveAcrossThreads) {
 	#[allow(unused_mut)]
 	let mut state = SimulationState::construct(&Rc::default(), ClientStateKind::NA);
 
