@@ -34,8 +34,6 @@ export async function init(cb: {
 				rsInput: ClientRS.InputState;
 				rsController: ClientRS.PresentationController;
 			}>(function (resolve) {
-				//await new Promise((resolve) => setTimeout(resolve, 5000));
-
 				const rsController = new ClientRS.PresentationController(
 					net.newClientSnapshot,
 					net.inputStream,
