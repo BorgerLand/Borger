@@ -32,6 +32,6 @@
 		"zod": "*"
 	},
 	"patchedDependencies": {
-		"rolldown-vite@7.2.10": "patches/rolldown-vite@7.2.10.patch"
+		"rolldown-vite@7.3.0": "patches/rolldown-vite@7.3.0.patch"
 	}
 }
