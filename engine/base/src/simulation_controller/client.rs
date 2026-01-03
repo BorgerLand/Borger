@@ -24,7 +24,7 @@ const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 impl SimControllerInternals {
 	//receive and process data from client's presentation thread
 	pub(super) fn scheduled_tick_impl(&mut self, tick_id_target: TickID) {
-		let rx_buffers = self.process_io(true);
+		let rx_buffers = self.propogate_input(true);
 		let offset = self.reconcile(tick_id_target, rx_buffers);
 
 		if tick_id_target > self.ctx.tick.id_consensus {
@@ -88,7 +88,7 @@ impl SimControllerInternals {
 		);
 	}
 
-	fn process_io(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
+	fn propogate_input(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
 		let mut input_is_late = true;
 		let mut new_input = InputState::default();
 		let mut rx_buffers: Vec<Vec<u8>> = Vec::new();
@@ -214,16 +214,11 @@ impl SimControllerInternals {
 					self.ctx.tick.id_consensus += 1;
 					self.ctx.tick.id_cur += 1;
 
-					if self.input_history.entries.len() > 1 {
+					if self.input_history.entries.len() >= 2 {
 						self.input_history.entries.pop_front().unwrap();
 
 						if input_acked {
-							take_calibration_sample = self
-								.input_history
-								.entries
-								.front()
-								.map(|consensus_input| consensus_input.ping)
-								.unwrap_or(false);
+							take_calibration_sample = self.input_history.entries.front().unwrap().ping;
 						}
 					} else {
 						//received consensus tick that client hasn't simulated yet.
@@ -337,7 +332,7 @@ impl SimControllerInternals {
 
 		if offset_from_server < 0 {
 			for _ in offset_from_server..0 {
-				self.process_io(false);
+				self.propogate_input(false);
 				self.simulate(self.ctx.tick.id_cur + 1);
 			}
 		}
@@ -345,8 +340,8 @@ impl SimControllerInternals {
 		//can't rewind because inputs have already been sent.
 		//theoretically should not be frozen any longer than
 		//INPUT_TOO_EARLY or else the server would have kicked you.
-		//this should also be logically impossible unless the client
-		//isn't sleeping as much as it should between ticks
+		//being too early is also be logically impossible unless the
+		//client isn't sleeping as much as it should between ticks
 	}
 }
 
