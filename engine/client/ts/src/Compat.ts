@@ -5,7 +5,6 @@ export async function testCompat() {
 	//luckly each of these tests has a workaround if browser
 	//doesn't support the requested feature
 	logResult("SIMD", testSIMD());
-	logResult("OGG", testOGG());
 	logResult("WebGPU", await testWebGPU());
 	logResult("WebTransport", testWebTransport());
 }
@@ -21,10 +20,6 @@ function testSIMD() {
 			253, 98, 11,
 		]),
 	);
-}
-
-function testOGG() {
-	return new Audio().canPlayType('audio/ogg; codecs="vorbis"') === "probably";
 }
 
 async function testWebGPU() {
