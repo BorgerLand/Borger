@@ -1,30 +1,36 @@
 # <img src="game/assets/favicon.webp" height="30"> BORGER <img src="game/assets/favicon.webp" height="30">
 
-### _⚠️ This is an ongoing R&D project. Many essential features don't exist yet. ⚠️_
+### _⚠️ This is an ongoing R&D project. Many essential features don't exist yet: ⚠️_
+
+- _Documentation_
+- _Rapier/physics integration_
+- _Triggering of VFX/SFX events_
+- _Access game state from React_
+- _WebSocket fallback_
 
 [Follow my unhinged gamedev journey for updates!](https://www.youtube.com/@borgerland)
 
 <div style="display: flex; gap: 10px;">
-	<img src="game/assets/flintlockwood1.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">
-	<img src="game/assets/flintlockwood2.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">
+	<img src="readme/flintlockwood1.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">
+	<img src="readme/flintlockwood2.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">
 </div>
+<br />
 
 **Borger** is an open source, multiplayer-first game engine built from the ground up to take full advantage of the web ecosystem.
 
 - 🕸️ Click to play instantly. No downloads, no app stores, no waiting. <2MB base bundle size
-- 🤖 LLM-friendly: composed of declarative frameworks that AI assistance excels at
 - 🛆 Three.js (3D rendering) featuring 0 overhead, 0 copy Rust bindings
 - ⚛️ React, Vite, and Tailwind (Standard UI stack) featuring instant hot reload
 - 🦀 Rust and WebAssembly (multithreaded game logic) featuring ~10 second recompilation time/iteration speed
-- 🛜 Multiplayer over the WebTransport protocol (WebSocket fallback on Safari 🖕🍎)
+- 🤖 LLM-friendly: composed of declarative frameworks that AI assistance excels at
 
-Borger's flagship innovation is a beginner-friendly mental model that empowers "multiplayer on rails", allowing you to write fully server-authoritative game logic as if it's a single player game. Then, for each of your game mechanics, simply tune the setting dial between "snappy" or "correct" using the magic `multiplayer_tradeoff!()` macro.
+Borger's bodacious gambit is a beginner-friendly mental model that empowers "multiplayer on rails". Write netcode-free game logic, annotate it with either "snappy" or "correct" using the magic [`multiplayer_tradeoff!()` macro](https://github.com/BorgerLand/Borger/blob/main/engine/base/src/macros.rs), and get multiplayer for free: server authority, client prediction, rollback, and reconciliation. Relaxed determinism requirements allow for private server-only state and regular old IEEE 754 floating point. Just as Rust is known for memory safety, Borger aims to introduce multiplayer safety.
 
 The framework:
 
 - Applies "make impossible states unrepresentable" to networking, enforced by Rust's type system
 - Prevents several classes of multiplayer cheats, desyncs, bugs, and other vulnerabilities at compile time
-- Replaces brittle, implicit netcode architecture with explicit annotations declaring "when and where"
+- Replaces brittle, willy-nilly, architecture-aware code with explicit, composable annotations declaring "when and where"
 - Automatically generates both OS-native server + WASM client binaries from a unified codebase
 - You couldn't write netcode spaghetti even if you tried!
 
@@ -74,8 +80,8 @@ pub fn simulation_tick(ctx: &mut GameContext<Immediate>) {
 		}
 	});
 
-	//different multiplayer_tradeoffs can co-exist in the same
-	//function, or be nested inside each other. fully composable
+	//different multiplayer_tradeoffs can co-exist in the same function,
+	//or be nested inside each other. always cheat-proof and fully composable
 }
 ```
 
@@ -90,7 +96,7 @@ scene.add(new DirectionalLight(0xffffff, 1));
 const loader = new GLTFLoader();
 const itemModel = await loader.loadAsync("item.glb");
 
-//this happens automatically via callback when you call
+//this callback happens automatically when you call
 //ctx.state.items.add(diff);
 //in rust
 export function spawnItem() {
@@ -100,11 +106,13 @@ export function spawnItem() {
 
 ### lol why
 
+Practically speaking, I built Borger to power [Borger Land](https://borger.land), a for-profit web portal of absurdist comedy video games satirizing food culture. Borger Land will also double as a showcase for what its engine is capable of. Personally, I believe that tools for creative expression should be free, accessible, and make my résumé look good.
+
 Technically speaking, I am fully aware the stack is ~~truly rancid~~ unconventional and requires some beast mode polyglotting. Yeah, she's not like the other girls. But in her defense:
 
 - Needing to have familiarity with multiple languages is the norm in the gamedev world, especially for indie. Take Unreal for example: Blueprints for game logic, C++ for engine tweaks, HLSL for shaders, maybe a Typescript+Postgres backend service. Borger defines its split where it makes sense for web: simulation (Rust) and presentation (Typescript).
-- On the client side, resimulating each tick multiple times due to rollback × (game logic + binary diff serialization) + in the same thread as three.js + written in javascript = really stankin' slow. It matters on the server side, too, because hosting costs YOU money every month, and Bun-based game servers require significantly more RAM.
-- Rust gamedev can only mature if it is willing to accept that Rust isn't the perfect solution to every problem. React+Vite conquered the UI world for a reason. Rust efficiently tackles the concern of game logic using only basic C-like getters and setters syntax. No lifetimes, traits, ECS queries, etc. required. Keep it simple; let generalists win.
+- On the client side, resimulating each tick multiple times due to rollback × (game logic + binary diff serialization) + in the same thread as three.js + written in javascript = [really stankin' slow](https://gamecreatorsclub.com/blog/deterministic-lockstep#:~:text=serializing%20to%20a%20byte%20array%20%28too%20much%20of%20a%20perf%20hit%29). It matters on the server side, too, because hosting costs YOU money every month, and Bun-based game servers require [significantly more RAM](https://en.wikipedia.org/wiki/2024%E2%80%932026_global_memory_supply_shortage).
+- Rust gamedev can only mature if it is willing to accept that Rust isn't the perfect solution to every problem. React+Vite [conquered](https://trends.builtwith.com/javascript/React) the UI world for a reason. Rust efficiently tackles the concern of game logic using only basic C-like getters and setters syntax. No lifetimes, traits, ECS queries, etc. required. Keep it simple; let generalists win. We've got games to make.
 
 ```Rust
 let old_pos = character.get_pos();
@@ -113,8 +121,6 @@ character.set_pos(new_pos, diff);
 ```
 
 - Most importantly: science isn't about why; it's about why not.
-
-Practically speaking, I built Borger to power [Borger Land](https://borger.land), a for-profit web portal of absurdist comedy video games satirizing food culture. Borger Land also doubles as a showcase for what its engine is capable of. Personally, I believe that tools for creative expression should be free, accessible, and make my résumé look good. If you like what you see, this repo offers you the opportunity to do the same, no strings attached.
 
 ### Getting started:
 
@@ -155,3 +161,23 @@ cd MyGame
 ```
 
 Now visit http://localhost:5173 for a good meal
+
+![4 Clients](readme/itworks.webp)
+
+Files of interest:
+
+- `game/ts/src/Index.ts` - Client entry point
+- `game/State.ts` - Defines the data structure representing the entire networked scene/world
+- `game/rs/src/simulation/pipeline.rs` - Entry point for the game logic simulation loop (30Hz fixed)
+- `game/ts/src/presentation/Pipeline.ts` - Entry point for the rendering loop (VSync)
+
+### Acknowledgements & Inspirations
+
+- [Fast-Paced Multiplayer](https://www.gabrielgambetta.com/client-server-game-architecture.html) - Gabriel Gambetta
+- [Overwatch GDC Talk](https://www.gdcvault.com/play/1024001/-Overwatch-Gameplay-Architecture-and) - Timothy Ford
+- [Photon Quantum](https://doc.photonengine.com/quantum/current/quantum-intro) - Exit Games
+- [Quake 3 Network Protocol](https://www.jfedor.org/quake3/) - John Carmack, Jacek Fedoryński
+- [Dealing with Latency](https://docs.unity3d.com/Packages/com.unity.netcode.gameobjects@2.5/manual/learn/dealing-with-latency.html) - Unity 3D
+- [Source Multiplayer Networking](http://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking) - Valve
+- [Tribes/Torque network model](https://www.gamedevs.org/uploads/tribes-networking-model.pdf) - Mark Frohnmayer, Tim Gift
+- http://dek.engineer/ - Insights from a colleague of mine
