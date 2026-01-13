@@ -3,7 +3,6 @@
 ### _⚠️ This is an ongoing R&D project. Many essential features don't exist yet: ⚠️_
 
 - _Documentation_
-- _Rapier/physics integration_
 - _Triggering of VFX/SFX events_
 - _Access game state from React_
 - _WebSocket fallback_
