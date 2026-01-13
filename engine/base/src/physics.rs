@@ -14,9 +14,6 @@ pub struct Physics {
 
 	//stable
 	integration_parameters: IntegrationParameters,
-	physics_pipeline: PhysicsPipeline,
-	broad_phase: DefaultBroadPhase,
-	narrow_phase: NarrowPhase,
 	ccd_solver: CCDSolver,
 
 	level_collider: Option<Collider>,
@@ -34,9 +31,6 @@ impl Physics {
 			colliders: ColliderSet::new(),
 
 			integration_parameters: params,
-			physics_pipeline: PhysicsPipeline::new(),
-			broad_phase: DefaultBroadPhase::new(),
-			narrow_phase: NarrowPhase::new(),
 			ccd_solver: CCDSolver::new(),
 
 			level_collider: Some(
@@ -49,12 +43,12 @@ impl Physics {
 	}
 
 	pub fn step(&mut self, gravity: Vec3) {
-		self.physics_pipeline.step(
+		PhysicsPipeline::new().step(
 			gravity,
 			&self.integration_parameters,
 			&mut self.islands,
-			&mut self.broad_phase,
-			&mut self.narrow_phase,
+			&mut DefaultBroadPhase::new(),
+			&mut NarrowPhase::new(),
 			&mut self.rigid_bodies,
 			&mut self.colliders,
 			&mut ImpulseJointSet::new(),
