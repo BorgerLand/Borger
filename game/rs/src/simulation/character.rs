@@ -5,7 +5,7 @@ use glam::{EulerRot, Quat, Vec3, Vec3A};
 #[cfg(feature = "server")]
 use base::networked_types::primitive::usize32;
 
-const SPEED: f32 = 6.0; //units/sec
+const SPEED: f32 = 12.0; //units/sec
 
 #[cfg(feature = "server")]
 pub fn on_client_connect(

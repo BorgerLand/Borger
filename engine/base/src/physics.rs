@@ -4,20 +4,35 @@ use glam::Vec3;
 use rapier3d::prelude::*;
 use std::fmt::{Debug, Error, Formatter};
 
-//due to time constraints, the entire physics scene must be rebuilt
-//at the start of every tick. all rigid bodies are discarded at the
-//end of the tick. will revisit someday to make this less awful
-
+///Wrapper around all types required to step the Rapier simulation.
+///Due to time constraints, the entire physics scene must be rebuilt
+///at the start of every tick. All rigid bodies are discarded at the
+///end of the tick. Will revisit someday to make this less awful.
 pub struct Physics {
-	//reset every tick
+	///Resets every tick
+	pub integration_parameters: IntegrationParameters,
+	///Resets every tick
 	pub islands: IslandManager,
+	///Resets every tick
+	pub broad_phase: BroadPhaseBvh,
+	///Resets every tick
+	pub narrow_phase: NarrowPhase,
+	///Resets every tick
 	pub rigid_bodies: RigidBodySet,
+	///Resets every tick
 	pub colliders: ColliderSet,
-	level_col_handle: ColliderHandle,
+	///Resets every tick
+	pub impulse_joints: ImpulseJointSet,
+	///Resets every tick
+	pub multibody_joints: MultibodyJointSet,
+	///Resets every tick
+	pub ccd_solver: CCDSolver,
+	///Resets every tick
+	pub hooks: Box<dyn PhysicsHooks>,
+	///Resets every tick
+	pub events: Box<dyn EventHandler>,
 
-	//stable
-	integration_parameters: IntegrationParameters,
-	ccd_solver: CCDSolver,
+	level_col_handle: ColliderHandle,
 }
 
 impl UntrackedState for Physics {
@@ -32,9 +47,19 @@ impl UntrackedState for Physics {
 			)
 			.unwrap();
 
+		self.integration_parameters = IntegrationParameters::default();
+		self.integration_parameters.dt = TickInfo::SIM_DT;
+
 		self.islands = IslandManager::new();
+		self.broad_phase = BroadPhaseBvh::new();
+		self.narrow_phase = NarrowPhase::new();
 		self.rigid_bodies = RigidBodySet::new();
 		self.colliders = ColliderSet::new();
+		self.impulse_joints = ImpulseJointSet::new();
+		self.multibody_joints = MultibodyJointSet::new();
+		self.ccd_solver = CCDSolver::new();
+		self.hooks = Box::new(());
+		self.events = Box::new(());
 
 		self.level_col_handle = self.colliders.insert(level_col);
 	}
@@ -48,9 +73,6 @@ impl Debug for Physics {
 
 impl Physics {
 	pub(crate) fn default() -> Self {
-		let mut params = IntegrationParameters::default();
-		params.dt = TickInfo::SIM_DT;
-
 		let level_col = ColliderBuilder::cuboid(1000.0, 100.0, 1000.0)
 			.translation(Vec3::new(0.0, -100.0, 0.0))
 			.build();
@@ -58,12 +80,17 @@ impl Physics {
 		let level_col_handle = colliders.insert(level_col);
 
 		Self {
+			integration_parameters: IntegrationParameters::default(),
 			islands: IslandManager::new(),
+			broad_phase: BroadPhaseBvh::new(),
+			narrow_phase: NarrowPhase::new(),
 			rigid_bodies: RigidBodySet::new(),
 			colliders,
-
-			integration_parameters: params,
+			impulse_joints: ImpulseJointSet::new(),
+			multibody_joints: MultibodyJointSet::new(),
 			ccd_solver: CCDSolver::new(),
+			hooks: Box::new(()),
+			events: Box::new(()),
 
 			level_col_handle,
 		}
@@ -74,19 +101,15 @@ impl Physics {
 			gravity,
 			&self.integration_parameters,
 			&mut self.islands,
-			&mut DefaultBroadPhase::new(),
-			&mut NarrowPhase::new(),
+			&mut self.broad_phase,
+			&mut self.narrow_phase,
 			&mut self.rigid_bodies,
 			&mut self.colliders,
-			&mut ImpulseJointSet::new(),
-			&mut MultibodyJointSet::new(),
+			&mut self.impulse_joints,
+			&mut self.multibody_joints,
 			&mut self.ccd_solver,
-			&(),
-			&(),
+			self.hooks.as_ref(),
+			self.events.as_ref(),
 		);
-	}
-
-	pub fn get_rigid_body(&self, handle: RigidBodyHandle) -> Option<&RigidBody> {
-		self.rigid_bodies.get(handle)
 	}
 }

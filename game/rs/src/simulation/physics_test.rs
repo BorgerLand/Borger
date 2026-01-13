@@ -59,7 +59,7 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	}
 
 	for phys_box in ctx.state.boxes.values_mut() {
-		let rb = ctx.state.physics.get_rigid_body(phys_box.rb_handle).unwrap();
+		let rb = ctx.state.physics.rigid_bodies.get(phys_box.rb_handle).unwrap();
 		phys_box
 			.set_pos(rb.position().translation.into(), diff)
 			.set_rot(rb.position().rotation, diff)
