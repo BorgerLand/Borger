@@ -18,6 +18,7 @@ glam = { version = "*", default-features = false, features = ["std"] }
 atomicbox = { version = "*", default-features = false }
 tokio = { version = "*", default-features = false, features = ["rt"] }
 num_enum = { version = "*", default-features = false }
+rapier3d = { version = "*", features = [ "simd-nightly" ] }
 
 #wasm-specific shims (used in base to make client happier)
 wasm-bindgen = { version = "=0.2.105", default-features = false } #0.2.106 is borked. fails to compile

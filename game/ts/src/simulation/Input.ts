@@ -1,4 +1,4 @@
-import { InputPoll } from "@engine/client_ts/InputPoll.ts";
+import { InputPoll, MouseButton } from "@engine/client_ts/InputPoll.ts";
 import * as ClientRS from "@engine/client_rs";
 
 let poll: InputPoll;
@@ -36,6 +36,7 @@ export function update() {
 		const upDown = poll.keysAreDown(INPUT_SETTINGS.up);
 		const backwardDown = poll.keysAreDown(INPUT_SETTINGS.backward);
 		const forwardDown = poll.keysAreDown(INPUT_SETTINGS.forward);
+		const leftClick = poll.isPointerJustPressed(MouseButton.LEFT);
 
 		ClientRS.populate_input(
 			rsInput,
@@ -44,9 +45,10 @@ export function update() {
 			Number(rightDown) - Number(leftDown),
 			Number(upDown) - Number(downDown),
 			Number(forwardDown) - Number(backwardDown),
+			leftClick,
 		);
 	} else {
-		ClientRS.populate_input(rsInput, 0, 0, 0, 0, 0);
+		ClientRS.populate_input(rsInput, 0, 0, 0, 0, 0, false);
 	}
 
 	poll.update();

@@ -12,6 +12,7 @@ base = { path = "../../engine/base" }
 log.workspace = true
 glam.workspace = true
 wasm-bindgen.workspace = true
+rapier3d.workspace = true
 
 #client only
 js-sys = { workspace = true, optional = true }

@@ -1,4 +1,5 @@
 use crate::simulation::character;
+use crate::simulation::physics_test;
 use base::networked_types::primitive::usize32;
 use base::prelude::*;
 
@@ -7,7 +8,9 @@ use base::prelude::*;
 //and during a consensus tick.
 
 //called on tick id 0
-pub fn on_server_start(_state: &mut SimulationState, _diff: &mut DiffSerializer<WaitForConsensus>) {}
+pub fn on_server_start(state: &mut SimulationState, diff: &mut DiffSerializer<WaitForConsensus>) {
+	physics_test::on_server_start(state, diff);
+}
 
 //called after the client is added to SimulationState
 pub fn on_client_connect(

@@ -1,4 +1,4 @@
-use crate::simulation::character;
+use crate::simulation::{character, physics_test};
 use base::prelude::*;
 
 //the deterministic-ish simulation update tick pipeline.
@@ -11,4 +11,5 @@ use base::prelude::*;
 //working in here
 pub fn simulation_tick(ctx: &mut GameContext<Immediate>) {
 	character::update(ctx);
+	physics_test::update(ctx);
 }

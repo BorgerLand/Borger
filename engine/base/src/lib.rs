@@ -10,6 +10,7 @@ use {crate::context::WaitForConsensus, crate::diff_ser::DiffSerializer, crate::t
 
 pub mod macros;
 pub mod math;
+pub mod physics;
 
 ///Drives the simulation tick; controls pretty
 ///much everything from atop its throne

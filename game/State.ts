@@ -31,6 +31,8 @@ export default {
 					//x = left/right, y = up/down, z = forward/back
 					//all axes in range [-1, 1]
 					omnidir: { netVisibility: "Owner", type: "Vec3A" },
+
+					start_physics_test: { netVisibility: "Owner", type: "bool" },
 				},
 			},
 
@@ -46,6 +48,25 @@ export default {
 		content: {
 			pos: { netVisibility: "Public", presentation: true, type: "Vec3A" },
 			rot: { netVisibility: "Public", presentation: true, type: "Quat" },
+		},
+	},
+	stepping_physics_test: { netVisibility: "Public", type: "bool" },
+	boxes: {
+		netVisibility: "Public",
+		presentation: true,
+		entity: true,
+		type: "SlotMap",
+		typeName: "PhysicsBox",
+		content: {
+			pos: { netVisibility: "Public", presentation: true, type: "Vec3A" },
+			rot: { netVisibility: "Public", presentation: true, type: "Quat" },
+			linvel: { netVisibility: "Public", type: "Vec3A" },
+			angvel: { netVisibility: "Public", type: "Vec3A" },
+			sleeping: { netVisibility: "Public", type: "bool" },
+			rb_handle: {
+				netVisibility: "Untracked",
+				type: "rapier3d::prelude::RigidBodyHandle",
+			},
 		},
 	},
 } satisfies SimulationState;

@@ -13,6 +13,7 @@ pub mod net_events;
 
 //custom game logic modules
 pub mod character;
+pub mod physics_test;
 
 pub fn init(#[cfg(feature = "client")] new_client_snapshot: Vec<u8>) -> SimControllerExternals {
 	base::init(

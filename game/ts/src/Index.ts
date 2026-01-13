@@ -4,7 +4,7 @@ import * as Entities from "@presentation/scene/Entities.ts";
 import * as UI from "@presentation/ui/Index.tsx";
 import * as Crosshair from "@presentation/scene/Crosshair.ts";
 import * as Input from "@simulation/Input.ts";
-import { BoxGeometry, Color, DirectionalLight, LightProbe, Mesh, SphericalHarmonics3, Vector3 } from "three";
+import { Color, DirectionalLight, LightProbe, SphericalHarmonics3, Vector3 } from "three";
 
 Crosshair.init();
 
@@ -41,8 +41,3 @@ scene.add(new LightProbe(sh, 2));
 const directionalLight = new DirectionalLight(0xffffff, 3);
 directionalLight.position.set(1, 1, 1);
 scene.add(directionalLight);
-
-//point of reference
-const box = new Mesh(new BoxGeometry());
-box.position.set(0, 0, -5);
-scene.add(box);

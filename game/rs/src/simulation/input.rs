@@ -16,6 +16,7 @@ pub fn populate_input(
 	omnidir_x: f32,
 	omnidir_y: f32,
 	omnidir_z: f32,
+	start_physics_test: bool,
 ) {
 	*input = InputState {
 		cam_yaw: input.cam_yaw - pointer_dx,
@@ -23,6 +24,8 @@ pub fn populate_input(
 		cam_radius: 0.0,
 
 		omnidir: Vec3A::new(omnidir_x, omnidir_y, omnidir_z),
+
+		start_physics_test,
 	};
 
 	validate(input);
@@ -46,6 +49,8 @@ pub fn merge(combined: &mut InputState, new: &InputState) {
 		} else {
 			combined.omnidir
 		},
+
+		start_physics_test: combined.start_physics_test || new.start_physics_test,
 	};
 }
 
@@ -76,6 +81,8 @@ pub fn validate(sus: &mut InputState) {
 			valid_f32(sus.omnidir.z).clamp(-1., 1.),
 		)
 		.normalize_or_zero(),
+
+		start_physics_test: sus.start_physics_test,
 	};
 }
 
@@ -103,6 +110,8 @@ pub fn predict_late(last_known: &InputState, _state: &SimulationState, _client_i
 		cam_radius: last_known.cam_radius,
 
 		omnidir: Default::default(),
+
+		start_physics_test: false,
 	}
 }
 
