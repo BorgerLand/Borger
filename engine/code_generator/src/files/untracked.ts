@@ -30,9 +30,8 @@ ${simStructs
 					outerType !== "InputState" &&
 					(isCustomStruct || isCollection(outerType) || netVisibility === "Untracked"),
 			)
-			.map(function generateSimConstruct({ name, netVisibility, outerType }) {
-				if (netVisibility === "Untracked") return `self.${name} = ${outerType}::default();`;
-				else return `self.${name}.reset_untracked();`;
+			.map(function generateSimConstruct({ name }) {
+				return `self.${name}.reset_untracked();`;
 			})
 			.join("\n\t\t\n\t\t")}
 	}

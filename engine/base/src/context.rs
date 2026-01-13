@@ -1,14 +1,12 @@
 use std::mem;
 
 use crate::diff_ser::DiffSerializer;
-use crate::physics::Physics;
 use crate::simulation_state::SimulationState;
 use crate::tick::TickInfo;
 
 pub struct GameContext<Tradeoff: AnyTradeoff> {
 	pub state: SimulationState,
 	pub tick: TickInfo,
-	pub physics: Physics,
 	pub diff: DiffSerializer<Tradeoff>,
 }
 

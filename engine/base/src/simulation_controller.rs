@@ -4,7 +4,6 @@ use crate::constructors::ConstructCustomStruct;
 use crate::context::{GameContext, Impl};
 use crate::diff_ser::DiffSerializer;
 use crate::networked_types::primitive::usize32;
-use crate::physics::Physics;
 use crate::simulation_state::{InputState, SimulationState};
 use crate::thread_comms::*;
 use crate::tick::{TickID, TickInfo};
@@ -237,7 +236,6 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 		ctx: GameContext {
 			state,
 			tick: tick_info,
-			physics: Physics::new(),
 			diff: DiffSerializer::default(),
 		},
 

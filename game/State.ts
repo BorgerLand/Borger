@@ -2,6 +2,7 @@ import type { SimulationState } from "@engine/code_generator/StateSchema.ts";
 
 //make sure field names are snake_case or else you will anger rustc
 export default {
+	physics: { netVisibility: "Untracked", type: "crate::physics::Physics" },
 	clients: {
 		netVisibility: "Public",
 		presentation: true,

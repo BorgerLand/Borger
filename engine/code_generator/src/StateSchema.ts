@@ -122,11 +122,13 @@ export type Field =
 			netVisibility: "Untracked";
 			presentation?: boolean;
 
-			//any type that is Default+Debug should be fine. if
-			//presentation: true, also must be Clone. must specify
-			//fully qualified name if not a primitive/utility/
-			//collection type. generics <> not allowed; use a type
-			//alias instead
+			//any type that is Debug+Default should be fine.
+			//alternatively, can be Debug+UntrackedState + contain
+			//a `pub fn default() -> Self` method not associated with
+			//the Default trait. if presentation: true, must also be
+			//Clone. must specify fully qualified name if not a
+			//primitive/utility/collection type. generics <> not
+			//allowed; use a type alias instead
 			type: string;
 
 			typeName?: never;

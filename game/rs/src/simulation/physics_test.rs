@@ -32,11 +32,12 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 			PHYSICS_BOX_SIZE / 2.0,
 		);
 
-		let rb_handle = ctx.physics.rigid_bodies.insert(rb);
+		let rb_handle = ctx.state.physics.rigid_bodies.insert(rb);
 		phys_box.rb_handle = rb_handle;
-		ctx.physics
+		ctx.state
+			.physics
 			.colliders
-			.insert_with_parent(col, rb_handle, &mut ctx.physics.rigid_bodies);
+			.insert_with_parent(col, rb_handle, &mut ctx.state.physics.rigid_bodies);
 	}
 
 	let mut start_physics_test = false;
@@ -54,11 +55,11 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	}
 
 	if ctx.state.get_stepping_physics_test() {
-		ctx.physics.step(Vec3::new(0.0, -30.0, 0.0));
+		ctx.state.physics.step(Vec3::new(0.0, -30.0, 0.0));
 	}
 
 	for phys_box in ctx.state.boxes.values_mut() {
-		let rb = ctx.physics.get_rigid_body(phys_box.rb_handle).unwrap();
+		let rb = ctx.state.physics.get_rigid_body(phys_box.rb_handle).unwrap();
 		phys_box
 			.set_pos(rb.position().translation.into(), diff)
 			.set_rot(rb.position().rotation, diff)

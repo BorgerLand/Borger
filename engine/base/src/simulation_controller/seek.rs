@@ -194,13 +194,9 @@ impl SimControllerInternals {
 			}
 
 			self.ctx.diff.rollback_begin_tick(tick_type);
-			self.ctx.physics.start_tick();
-
 			(self.cb.simulation_tick)(self.ctx.to_immediate()); //game on
-
-			self.ctx.state.reset_untracked();
-			self.ctx.physics.end_tick();
 			self.ctx.diff.rollback_end_tick();
+			self.ctx.state.reset_untracked();
 
 			#[cfg(feature = "server")]
 			self.tx_all_clients();
