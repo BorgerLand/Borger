@@ -1,0 +1,15 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug server",
+			"cargo": {
+				"args": ["build", "--profile", "server-dev", "--features", "server"]
+			},
+			"args": ["--devcert", "../../game/assets/devcert.json"],
+			"cwd": "${workspaceFolder}/engine/server"
+		}
+	]
+}

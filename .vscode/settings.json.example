@@ -2,9 +2,6 @@
 	//you can change the feature flags to server
 	//or client in order to toggle error detection
 	//for either one (but only one at a time)
-	"rust-analyzer.cargo.features": ["server"],
+	"rust-analyzer.cargo.features": ["server"]
 	//"rust-analyzer.cargo.features": ["client"],
-
-	//leave this alone
-	"rust-analyzer.runnables.extraArgs": ["--features=server"]
 }

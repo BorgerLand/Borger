@@ -7,6 +7,3 @@
 #for either one (but only one at a time)
 cargo.features = ["server"]
 #cargo.features = ["client"]
-
-#leave this alone
-runnables.extraArgs = ["--features=server"]
