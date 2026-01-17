@@ -9,8 +9,7 @@ const INPUT_SETTINGS = {
 
 	left: ["a"],
 	right: ["d"],
-	down: ["shift"],
-	up: [" "],
+	jump: [" "],
 	backward: ["s"],
 	forward: ["w"],
 	undo: ["control", "z"],
@@ -32,10 +31,9 @@ export function update() {
 
 		const leftDown = poll.keysAreDown(INPUT_SETTINGS.left);
 		const rightDown = poll.keysAreDown(INPUT_SETTINGS.right);
-		const downDown = poll.keysAreDown(INPUT_SETTINGS.down);
-		const upDown = poll.keysAreDown(INPUT_SETTINGS.up);
 		const backwardDown = poll.keysAreDown(INPUT_SETTINGS.backward);
 		const forwardDown = poll.keysAreDown(INPUT_SETTINGS.forward);
+		const jumpDown = poll.keysAreDown(INPUT_SETTINGS.jump);
 		const leftClick = poll.isPointerJustPressed(MouseButton.LEFT);
 
 		ClientRS.populate_input(
@@ -43,12 +41,12 @@ export function update() {
 			dx * INPUT_SETTINGS.sensitivity,
 			dy * INPUT_SETTINGS.sensitivity,
 			Number(rightDown) - Number(leftDown),
-			Number(upDown) - Number(downDown),
 			Number(forwardDown) - Number(backwardDown),
+			jumpDown,
 			leftClick,
 		);
 	} else {
-		ClientRS.populate_input(rsInput, 0, 0, 0, 0, 0, false);
+		ClientRS.populate_input(rsInput, 0, 0, 0, 0, false, false);
 	}
 
 	poll.update();

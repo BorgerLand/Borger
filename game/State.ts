@@ -28,10 +28,11 @@ export default {
 					cam_pitch: { netVisibility: "Owner", type: "f32" }, //vertical
 					cam_radius: { netVisibility: "Owner", type: "f32" }, //orbit distance from eyeballs
 
-					//omnidirectional movement - think like a 3D analog stick
-					//x = left/right, y = up/down, z = forward/back
+					//omnidirectional movement - 2D analog stick
+					//x = left/right, y = forward/back
 					//all axes in range [-1, 1]
-					omnidir: { netVisibility: "Owner", type: "Vec3A" },
+					omnidir: { netVisibility: "Owner", type: "Vec2" },
+					jumping: { netVisibility: "Owner", type: "bool" },
 
 					start_physics_test: { netVisibility: "Owner", type: "bool" },
 				},
@@ -49,9 +50,11 @@ export default {
 		content: {
 			pos: { netVisibility: "Public", presentation: true, type: "Vec3A" },
 			rot: { netVisibility: "Public", presentation: true, type: "Quat" },
+			velocity: { netVisibility: "Public", type: "Vec3A" },
+			grounded: { netVisibility: "Public", type: "bool" },
 		},
 	},
-	stepping_physics_test: { netVisibility: "Public", type: "bool" },
+	running_physics_test: { netVisibility: "Public", type: "bool" },
 	boxes: {
 		netVisibility: "Public",
 		presentation: true,

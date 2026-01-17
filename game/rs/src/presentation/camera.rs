@@ -1,16 +1,19 @@
-use crate::simulation::character::get_camera_rot;
+use crate::simulation::character;
 use base::prelude::*;
 use glam::Mat4;
 
 pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBindings) {
 	//treasure hunt for the position of this client's character
-	let cam_target = bindings
-		.entities
-		.characters
-		.obj
-		.get(&tick.state.clients[tick.local_client_idx].1.as_owned().unwrap().id)
-		.unwrap()
-		.pos;
+	let cam_target = character::to_eye_pos(
+		bindings
+			.entities
+			.characters
+			.obj
+			.get(&tick.state.clients[tick.local_client_idx].1.as_owned().unwrap().id)
+			.unwrap()
+			.pos
+			.into(),
+	);
 
 	//players' toleration for latency between moving the mouse and seeing camera
 	//movement is so extremely low that not even multiplayer_tradeoff!(Immediate)
@@ -21,7 +24,7 @@ pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBind
 	//entity in 1st person anyway so it doesn't matter. (it is also possible to
 	//just recalculate the entity's matrix here as a hack workaround)
 
-	let cam_rot = get_camera_rot(input);
+	let cam_rot = character::get_camera_rot(input);
 	bindings.camera.mat = Mat4::from_rotation_translation(cam_rot, cam_target.into());
 	bindings.camera.mat_inv = bindings.camera.mat.inverse();
 }

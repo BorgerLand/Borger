@@ -1,5 +1,4 @@
 use base::prelude::*;
-use glam::Vec3;
 use rapier3d::prelude::*;
 
 const PHYSICS_BOX_SIZE: f32 = 1.0;
@@ -8,13 +7,11 @@ const PHYSICS_BOX_SIZE: f32 = 1.0;
 pub fn on_server_start(state: &mut SimulationState, diff: &mut DiffSerializer<WaitForConsensus>) {
 	for i in 0..250 {
 		let phys_box = state.boxes.add(diff).1;
-		phys_box.set_pos(Vec3A::new(0.0, 2.0 * i as f32, 0.0), diff);
+		phys_box.set_pos(Vec3A::new(0.0, 2.0 * (i + 1) as f32, -5.0), diff);
 	}
 }
 
-pub fn update(ctx: &mut GameContext<Immediate>) {
-	let diff = &mut ctx.diff;
-
+pub fn update_pre_physstep(ctx: &mut GameContext<Immediate>) {
 	for phys_box in ctx.state.boxes.values_mut() {
 		let rb = RigidBodyBuilder::dynamic()
 			.pose(Pose3 {
@@ -39,25 +36,10 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 			.colliders
 			.insert_with_parent(col, rb_handle, &mut ctx.state.physics.rigid_bodies);
 	}
+}
 
-	let mut start_physics_test = false;
-	for client in ctx.state.clients.values() {
-		if let ClientState::Owned(client) = client {
-			if client.input.get().start_physics_test {
-				start_physics_test = true;
-				break;
-			}
-		}
-	}
-
-	if start_physics_test {
-		ctx.state.set_stepping_physics_test(true, diff);
-	}
-
-	if ctx.state.get_stepping_physics_test() {
-		ctx.state.physics.step(Vec3::new(0.0, -30.0, 0.0));
-	}
-
+pub fn update_post_physstep(ctx: &mut GameContext<Immediate>) {
+	let diff = &mut ctx.diff;
 	for phys_box in ctx.state.boxes.values_mut() {
 		let rb = ctx.state.physics.rigid_bodies.get(phys_box.rb_handle).unwrap();
 		phys_box

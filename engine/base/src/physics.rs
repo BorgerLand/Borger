@@ -73,8 +73,8 @@ impl Debug for Physics {
 
 impl Physics {
 	pub(crate) fn default() -> Self {
-		let level_col = ColliderBuilder::cuboid(1000.0, 100.0, 1000.0)
-			.translation(Vec3::new(0.0, -100.0, 0.0))
+		let level_col = ColliderBuilder::cuboid(100.0, 25.0, 100.0)
+			.translation(Vec3::new(0.0, -25.0, 0.0))
 			.build();
 		let mut colliders = ColliderSet::new();
 		let level_col_handle = colliders.insert(level_col);

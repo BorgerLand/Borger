@@ -2,7 +2,7 @@ use base::math::wrap_angle;
 use base::networked_types::primitive::usize32;
 use base::simulation_state::InputState;
 use base::simulation_state::SimulationState;
-use glam::Vec3A;
+use glam::Vec2;
 
 #[cfg(feature = "client")]
 use wasm_bindgen::prelude::*;
@@ -15,7 +15,7 @@ pub fn populate_input(
 	pointer_dy: f32,
 	omnidir_x: f32,
 	omnidir_y: f32,
-	omnidir_z: f32,
+	jumping: bool,
 	start_physics_test: bool,
 ) {
 	*input = InputState {
@@ -23,7 +23,8 @@ pub fn populate_input(
 		cam_pitch: input.cam_pitch + pointer_dy,
 		cam_radius: 0.0,
 
-		omnidir: Vec3A::new(omnidir_x, omnidir_y, omnidir_z),
+		omnidir: Vec2::new(omnidir_x, omnidir_y),
+		jumping,
 
 		start_physics_test,
 	};
@@ -44,11 +45,12 @@ pub fn merge(combined: &mut InputState, new: &InputState) {
 
 		//take newest nipple/omnidir if it exists. if not, don't overwrite the old one.
 		//allows very short sub-1-tick nipple movements to go through
-		omnidir: if new.omnidir != Vec3A::ZERO {
+		omnidir: if new.omnidir != Vec2::ZERO {
 			new.omnidir
 		} else {
 			combined.omnidir
 		},
+		jumping: combined.jumping || new.jumping,
 
 		start_physics_test: combined.start_physics_test || new.start_physics_test,
 	};
@@ -75,12 +77,12 @@ pub fn validate(sus: &mut InputState) {
 		cam_pitch: valid_f32(sus.cam_pitch).clamp(-89.9_f32.to_radians(), 89.9_f32.to_radians()),
 		cam_radius: valid_f32(sus.cam_radius).clamp(0., f32::INFINITY),
 
-		omnidir: Vec3A::new(
+		omnidir: Vec2::new(
 			valid_f32(sus.omnidir.x).clamp(-1., 1.),
 			valid_f32(sus.omnidir.y).clamp(-1., 1.),
-			valid_f32(sus.omnidir.z).clamp(-1., 1.),
 		)
 		.normalize_or_zero(),
+		jumping: sus.jumping,
 
 		start_physics_test: sus.start_physics_test,
 	};
@@ -110,6 +112,7 @@ pub fn predict_late(last_known: &InputState, _state: &SimulationState, _client_i
 		cam_radius: last_known.cam_radius,
 
 		omnidir: Default::default(),
+		jumping: false,
 
 		start_physics_test: false,
 	}
