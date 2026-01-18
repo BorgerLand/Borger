@@ -17,6 +17,7 @@ pub fn populate_input(
 	omnidir_y: f32,
 	jumping: bool,
 	start_physics_test: bool,
+	blow_nose: bool,
 ) {
 	*input = InputState {
 		cam_yaw: input.cam_yaw - pointer_dx,
@@ -27,6 +28,7 @@ pub fn populate_input(
 		jumping,
 
 		start_physics_test,
+		blow_nose,
 	};
 
 	validate(input);
@@ -53,6 +55,7 @@ pub fn merge(combined: &mut InputState, new: &InputState) {
 		jumping: combined.jumping || new.jumping,
 
 		start_physics_test: combined.start_physics_test || new.start_physics_test,
+		blow_nose: combined.blow_nose || new.blow_nose,
 	};
 }
 
@@ -85,6 +88,7 @@ pub fn validate(sus: &mut InputState) {
 		jumping: sus.jumping,
 
 		start_physics_test: sus.start_physics_test,
+		blow_nose: sus.blow_nose,
 	};
 }
 
@@ -115,6 +119,7 @@ pub fn predict_late(last_known: &InputState, _state: &SimulationState, _client_i
 		jumping: false,
 
 		start_physics_test: false,
+		blow_nose: false,
 	}
 }
 

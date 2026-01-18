@@ -8,12 +8,10 @@ pub const GROUP_PUSHABLE: Group = Group::GROUP_2;
 
 pub fn update(ctx: &mut GameContext<Immediate>) {
 	let mut start_physics_test = false;
-	for client in ctx.state.clients.values() {
-		if let ClientState::Owned(client) = client {
-			if client.input.get().start_physics_test {
-				start_physics_test = true;
-				break;
-			}
+	for client in ctx.state.clients.owned_clients() {
+		if client.input.get().start_physics_test || client.input.get().blow_nose {
+			start_physics_test = true;
+			break;
 		}
 	}
 

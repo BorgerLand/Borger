@@ -74,7 +74,7 @@ impl SimControllerInternals {
 		//that every simulation tick is rendered, depending on
 		//whether presentation tick is able to keep up with SIM_DT
 		self.output_sender.store(
-			Some(std::boxed::Box::new(SimulationOutput {
+			Some(Box::new(SimulationOutput {
 				time: self.ctx.tick.get_now(),
 				local_client_idx: self
 					.ctx

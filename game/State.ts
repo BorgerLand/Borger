@@ -1,4 +1,4 @@
-import type { SimulationState } from "@engine/code_generator/StateSchema.ts";
+import type { EntitySlotMap, SimulationState } from "@engine/code_generator/StateSchema.ts";
 
 //make sure field names are snake_case or else you will anger rustc
 export default {
@@ -35,6 +35,7 @@ export default {
 					jumping: { netVisibility: "Owner", type: "bool" },
 
 					start_physics_test: { netVisibility: "Owner", type: "bool" },
+					blow_nose: { netVisibility: "Owner", type: "bool" },
 				},
 			},
 
@@ -56,12 +57,17 @@ export default {
 		},
 	},
 	running_physics_test: { netVisibility: "Public", type: "bool" },
-	boxes: {
+	cubes: rigidBody("PhysicsCube"),
+	spheres: rigidBody("PhysicsSphere"),
+} satisfies SimulationState;
+
+function rigidBody(typeName: string): EntitySlotMap {
+	return {
 		netVisibility: "Public",
 		presentation: true,
 		entity: true,
 		type: "SlotMap",
-		typeName: "PhysicsBox",
+		typeName,
 		content: {
 			pos: { netVisibility: "Public", presentation: true, type: "Vec3A" },
 			rot: { netVisibility: "Public", presentation: true, type: "Quat" },
@@ -74,5 +80,5 @@ export default {
 				type: "rapier3d::prelude::RigidBodyHandle",
 			},
 		},
-	},
-} satisfies SimulationState;
+	};
+}

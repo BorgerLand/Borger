@@ -35,6 +35,7 @@ export function update() {
 		const forwardDown = poll.keysAreDown(INPUT_SETTINGS.forward);
 		const jumpDown = poll.keysAreDown(INPUT_SETTINGS.jump);
 		const leftClick = poll.isPointerJustPressed(MouseButton.LEFT);
+		const rightClick = poll.isPointerDown(MouseButton.RIGHT);
 
 		ClientRS.populate_input(
 			rsInput,
@@ -44,9 +45,10 @@ export function update() {
 			Number(forwardDown) - Number(backwardDown),
 			jumpDown,
 			leftClick,
+			rightClick,
 		);
 	} else {
-		ClientRS.populate_input(rsInput, 0, 0, 0, 0, false, false);
+		ClientRS.populate_input(rsInput, 0, 0, 0, 0, false, false, false);
 	}
 
 	poll.update();

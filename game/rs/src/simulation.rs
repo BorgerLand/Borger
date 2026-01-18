@@ -13,7 +13,7 @@ pub mod net_events;
 
 //custom game logic modules
 pub mod character;
-pub mod physics_box;
+pub mod physics_demo;
 pub mod physstep;
 
 pub fn init(#[cfg(feature = "client")] new_client_snapshot: Vec<u8>) -> SimControllerExternals {
