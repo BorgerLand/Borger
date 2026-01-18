@@ -67,6 +67,7 @@ export default {
 			linvel: { netVisibility: "Public", type: "Vec3A" },
 			angvel: { netVisibility: "Public", type: "Vec3A" },
 			sleeping: { netVisibility: "Public", type: "bool" },
+			time_since_can_sleep: { netVisibility: "Public", type: "f32" },
 			rb_handle: {
 				netVisibility: "Untracked",
 				type: "rapier3d::prelude::RigidBodyHandle",

@@ -13,7 +13,7 @@ pub fn on_server_start(state: &mut SimulationState, diff: &mut DiffSerializer<Wa
 
 pub fn update_pre_physstep(ctx: &mut GameContext<Immediate>) {
 	for phys_box in ctx.state.boxes.values_mut() {
-		let rb = RigidBodyBuilder::dynamic()
+		let mut rb = RigidBodyBuilder::dynamic()
 			.pose(Pose3 {
 				translation: phys_box.get_pos().into(),
 				rotation: phys_box.get_rot(),
@@ -22,6 +22,8 @@ pub fn update_pre_physstep(ctx: &mut GameContext<Immediate>) {
 			.angvel(phys_box.get_angvel().into())
 			.sleeping(phys_box.get_sleeping())
 			.build();
+
+		rb.activation_mut().time_since_can_sleep = phys_box.get_time_since_can_sleep();
 
 		let col = ColliderBuilder::cuboid(
 			PHYSICS_BOX_SIZE / 2.0,
@@ -48,5 +50,7 @@ pub fn update_post_physstep(ctx: &mut GameContext<Immediate>) {
 			.set_linvel(rb.vels().linvel.into(), diff)
 			.set_angvel(rb.vels().angvel.into(), diff)
 			.set_sleeping(rb.activation().sleeping, diff);
+
+		phys_box.set_time_since_can_sleep(rb.activation().time_since_can_sleep, diff);
 	}
 }

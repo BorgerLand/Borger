@@ -16,6 +16,9 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 
 	if start_physics_test {
 		ctx.state.set_running_physics_test(true, &mut ctx.diff);
+		for (_, rb) in ctx.state.physics.rigid_bodies.iter_mut() {
+			rb.wake_up(true);
+		}
 	}
 
 	let gravity = if ctx.state.get_running_physics_test() {
