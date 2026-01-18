@@ -73,13 +73,7 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	//"remote" players are
 	for client in ctx.state.clients.owned_clients_mut() {
 		let character = ctx.state.characters.get_mut(client.get_id()).unwrap();
-		apply_input(
-			character,
-			client.input.get(),
-			&query_data,
-			&ctx.tick,
-			&mut ctx.diff,
-		);
+		apply_input(character, client.input.get(), &query_data, &mut ctx.diff);
 	}
 }
 
@@ -89,7 +83,6 @@ fn apply_input(
 	character: &mut Character,
 	input: &InputState,
 	query_data: &ControllerQueryData,
-	tick: &TickInfo,
 	diff: &mut DiffSerializer<impl ImmediateOrWaitForServer>,
 ) {
 	let rot = Quat::from_axis_angle(Vec3::Y, input.cam_yaw);
@@ -126,18 +119,6 @@ fn apply_input(
 		|_| {},
 	);
 
-	multiplayer_tradeoff!(
-		WaitForConsensus,
-		diff,
-		tick,
-		println!(
-			"new pos: {:?} grounded: {} desired: {:?} actual: {:?}",
-			center_pos + result.translation,
-			result.grounded,
-			desired,
-			result.translation
-		)
-	);
 	character.set_grounded(result.grounded, diff);
 	if result.grounded {
 		vel = Vec3A::ZERO;
