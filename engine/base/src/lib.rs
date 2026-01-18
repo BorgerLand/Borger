@@ -8,8 +8,8 @@ use crate::simulation_state::{InputState, SimulationState};
 #[cfg(feature = "server")]
 use {crate::context::WaitForConsensus, crate::diff_ser::DiffSerializer, crate::tick::TickID};
 
-pub mod macros;
 pub mod math;
+pub mod multiplayer_tradeoff;
 pub mod physics;
 
 ///Drives the simulation tick; controls pretty
@@ -143,7 +143,7 @@ pub mod entities {
 	pub use super::handwritten::entities::*;
 }
 
-///Helpful types and macros when writing simulation logic
+///Helpful types and macros when writing simulation+presentation logic
 pub mod prelude {
 	pub use crate::context::{
 		AnyTradeoff, GameContext, Immediate, ImmediateOrWaitForServer, WaitForConsensus, WaitForServer,

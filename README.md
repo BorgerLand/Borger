@@ -23,7 +23,7 @@
 - 🦀 Rust and WebAssembly (multithreaded game logic) featuring ~10 second recompilation time/iteration speed
 - 🤖 LLM-friendly: composed of declarative frameworks that AI assistance excels at
 
-Borger's bodacious gambit is a beginner-friendly mental model that empowers "multiplayer on rails". Write netcode-free game logic, annotate it with either "snappy" or "correct" using the magic [`multiplayer_tradeoff!()` macro](https://github.com/BorgerLand/Borger/blob/main/engine/base/src/macros.rs), and get multiplayer for free: server authority, client prediction, rollback, and reconciliation. Relaxed determinism requirements allow for private server-only state and regular old IEEE 754 floating point. Just as Rust is known for memory safety, Borger aims to introduce multiplayer safety.
+Borger's bodacious gambit is a beginner-friendly mental model that empowers "multiplayer on rails". Write netcode-free game logic, annotate it with either "snappy" or "correct" using the magic [`multiplayer_tradeoff!()` macro](https://github.com/BorgerLand/Borger/blob/main/engine/base/src/multiplayer_tradeoff.rs), and get multiplayer for free: server authority, client prediction, rollback, and reconciliation. Relaxed determinism requirements allow for private server-only state and regular old IEEE 754 floating point. Just as Rust is known for memory safety, Borger aims to introduce multiplayer safety.
 
 The framework:
 
