@@ -1,4 +1,4 @@
-use crate::simulation::physstep::GRAVITY;
+use crate::simulation::physstep::{GRAVITY, GROUP_CHARACTER, GROUP_PUSHABLE};
 use base::networked_types::collections::slotmap::SlotMap;
 use base::prelude::*;
 use glam::{EulerRot, Quat, Vec3, Vec3A};
@@ -12,7 +12,8 @@ use base::networked_types::primitive::usize32;
 const RADIUS: f32 = 0.35;
 const CYL_HEIGHT: f32 = 2.2;
 const EYE_HEIGHT: f32 = 2.55;
-const OFFSET: f32 = 0.01;
+const CONTROLLER_OFFSET: f32 = 0.01;
+const KINEMATIC_OFFSET: f32 = 0.3; //affects how hard characters have to push
 const SPEED: f32 = 9.0; //units/sec
 const TERMINAL_VELOCITY: f32 = 60.0; //units/sec
 const JUMP_VELOCITY: f32 = 11.0; //units/sec
@@ -25,8 +26,10 @@ pub fn on_client_connect(
 ) {
 	let client = get_owned_client_mut(&mut state.clients, client_id).unwrap();
 	let character = state.characters.add(diff);
-	character.1.set_pos(to_center_pos(Vec3::ZERO).into(), diff);
 	client.set_id(character.0, diff);
+
+	let spawn_pos = to_center_pos(Vec3::ZERO).into();
+	character.1.set_prv_pos(spawn_pos, diff).set_pos(spawn_pos, diff);
 }
 
 #[cfg(feature = "server")]
@@ -40,29 +43,14 @@ pub fn on_client_disconnect(
 	state.characters.remove(character, diff).unwrap();
 }
 
-struct ControllerQueryData<'a> {
-	controller: KinematicCharacterController,
-	shape: Capsule,
-	pipeline: QueryPipeline<'a>,
-}
-
-pub fn update(ctx: &mut GameContext<Immediate>) {
-	let mut controller = KinematicCharacterController::default();
-	controller.offset = CharacterLength::Absolute(OFFSET);
-
-	let phys = &ctx.state.physics;
-	let query_pipeline = phys.broad_phase.as_query_pipeline(
-		phys.narrow_phase.query_dispatcher(),
-		&phys.rigid_bodies,
-		&phys.colliders,
-		QueryFilter::default(),
-	);
-
-	let query_data = ControllerQueryData {
-		controller,
-		shape: Capsule::new_y(CYL_HEIGHT / 2.0, RADIUS - OFFSET),
-		pipeline: query_pipeline,
-	};
+//kinematic: a rigid body attached to the character for the purpose
+//of controllers colliding with one another + rigid bodies are pushed
+//out of the way
+pub fn update_kinematic(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
+	let kinematic_shape = SharedShape::new(Capsule::new_y(
+		CYL_HEIGHT / 2.0 - KINEMATIC_OFFSET,
+		RADIUS + KINEMATIC_OFFSET,
+	));
 
 	//remember: the server "owns" all client objects.
 	//a locally running client only owns their own client
@@ -72,27 +60,102 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	//server then informs all players of where all the
 	//"remote" players are
 	for client in ctx.state.clients.owned_clients_mut() {
+		//place a kinematic body at the previous position and
+		//move it to the current position to shove objects in
+		//between the 2 positions
 		let character = ctx.state.characters.get_mut(client.get_id()).unwrap();
-		apply_input(character, client.input.get(), &query_data, &mut ctx.diff);
+
+		let rb = RigidBodyBuilder::kinematic_position_based().pose(Pose3 {
+			translation: character.get_prv_pos().into(),
+			rotation: Quat::IDENTITY,
+		});
+
+		let col = ColliderBuilder::new(kinematic_shape.clone()).collision_groups(InteractionGroups::new(
+			GROUP_CHARACTER, //i am a character
+			GROUP_PUSHABLE,  //i collide with pushables
+			InteractionTestMode::default(),
+		));
+
+		let rb_handle = ctx.state.physics.rigid_bodies.insert(rb);
+		ctx.state
+			.physics
+			.colliders
+			.insert_with_parent(col, rb_handle, &mut ctx.state.physics.rigid_bodies);
+
+		ctx.state
+			.physics
+			.rigid_bodies
+			.get_mut(rb_handle)
+			.unwrap()
+			.set_next_kinematic_translation(character.get_pos().into());
+
+		character.set_prv_pos(character.get_pos(), &mut ctx.diff);
 	}
 }
 
-//can call this in an Immediate or WaitForServer context.
-//WaitForConsensus would be janky/unsmooth
-fn apply_input(
-	character: &mut Character,
-	input: &InputState,
-	query_data: &ControllerQueryData,
-	diff: &mut DiffSerializer<impl ImmediateOrWaitForServer>,
-) {
-	let rot = Quat::from_axis_angle(Vec3::Y, input.cam_yaw);
-	character.set_rot(rot, diff);
+//controller: actually moves the character given a desired translation
+pub fn update_controller(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
+	let mut controller = KinematicCharacterController::default();
+	controller.offset = CharacterLength::Absolute(CONTROLLER_OFFSET);
+	let controller_shape = Capsule::new_y(CYL_HEIGHT / 2.0, RADIUS - CONTROLLER_OFFSET);
+	let diff = &mut ctx.diff;
 
+	for client in ctx.state.clients.owned_clients_mut() {
+		let character = ctx.state.characters.get_mut(client.get_id()).unwrap();
+		let input = client.input.get();
+
+		//rotation has no effect on physics/game logic but is used
+		//for camera+mesh rotation
+		let rot = Quat::from_axis_angle(Vec3::Y, input.cam_yaw);
+		character.set_rot(rot, diff);
+
+		let phys = &ctx.state.physics;
+		let (translation, mut vel) = get_desired_movement(character, input);
+		let mut center_pos = character.get_pos().into();
+
+		let result = controller.move_shape(
+			TickInfo::SIM_DT,
+			&phys.broad_phase.as_query_pipeline(
+				phys.narrow_phase.query_dispatcher(),
+				&phys.rigid_bodies,
+				&phys.colliders,
+				QueryFilter::default().groups(InteractionGroups::new(
+					GROUP_CHARACTER,              //i am a character
+					Group::ALL ^ GROUP_CHARACTER, //i collide with anything except characters
+					InteractionTestMode::default(),
+				)),
+			),
+			&controller_shape,
+			&Pose3 {
+				translation: center_pos,
+				rotation: Quat::IDENTITY,
+			},
+			translation.into(),
+			|_| {},
+		);
+
+		center_pos += result.translation;
+		if result.grounded {
+			vel = Vec3A::ZERO;
+		} else {
+			vel += Vec3A::from(GRAVITY) * TickInfo::SIM_DT;
+			vel = vel.clamp_length_max(TERMINAL_VELOCITY);
+		}
+
+		character
+			.set_velocity(vel, diff)
+			.set_pos(center_pos.into(), diff)
+			.set_grounded(result.grounded, diff);
+	}
+}
+
+//-> (translation, velocity)
+fn get_desired_movement(character: &Character, input: &InputState) -> (Vec3, Vec3A) {
 	const UP: Vec3A = Vec3A::Y;
-	let forward = rot * Vec3A::NEG_Z;
+	let forward = character.get_rot() * Vec3A::NEG_Z;
 	let right = forward.cross(UP);
 
-	let mut vel = if character.get_grounded() && input.jumping {
+	let vel = if character.get_grounded() && input.jumping {
 		Vec3A::new(0.0, JUMP_VELOCITY, 0.0)
 	} else {
 		character.get_velocity()
@@ -106,30 +169,7 @@ fn apply_input(
 	desired += vel + 0.5 * Vec3A::from(GRAVITY) * TickInfo::SIM_DT;
 	desired *= TickInfo::SIM_DT;
 
-	let center_pos = character.get_pos().into();
-	let result = query_data.controller.move_shape(
-		TickInfo::SIM_DT,
-		&query_data.pipeline,
-		&query_data.shape,
-		&Pose3 {
-			translation: center_pos,
-			rotation: Quat::IDENTITY,
-		},
-		desired.into(),
-		|_| {},
-	);
-
-	character.set_grounded(result.grounded, diff);
-	if result.grounded {
-		vel = Vec3A::ZERO;
-	} else {
-		vel += Vec3A::from(GRAVITY) * TickInfo::SIM_DT;
-		vel = vel.clamp_length_max(TERMINAL_VELOCITY);
-	}
-
-	character
-		.set_velocity(vel, diff)
-		.set_pos((center_pos + result.translation).into(), diff);
+	(desired.into(), vel)
 }
 
 pub fn get_camera_rot(input: &InputState) -> Quat {

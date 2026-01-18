@@ -1,3 +1,4 @@
+use crate::simulation::physstep::GROUP_PUSHABLE;
 use base::prelude::*;
 use rapier3d::prelude::*;
 
@@ -29,7 +30,12 @@ pub fn update_pre_physstep(ctx: &mut GameContext<Immediate>) {
 			PHYSICS_BOX_SIZE / 2.0,
 			PHYSICS_BOX_SIZE / 2.0,
 			PHYSICS_BOX_SIZE / 2.0,
-		);
+		)
+		.collision_groups(InteractionGroups::new(
+			GROUP_PUSHABLE, //i am pushable
+			Group::ALL,     //i collide with anything
+			InteractionTestMode::default(),
+		));
 
 		let rb_handle = ctx.state.physics.rigid_bodies.insert(rb);
 		phys_box.rb_handle = rb_handle;

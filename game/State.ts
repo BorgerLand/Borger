@@ -48,6 +48,7 @@ export default {
 		type: "SlotMap",
 		typeName: "Character",
 		content: {
+			prv_pos: { netVisibility: "Public", presentation: true, type: "Vec3A" },
 			pos: { netVisibility: "Public", presentation: true, type: "Vec3A" },
 			rot: { netVisibility: "Public", presentation: true, type: "Quat" },
 			velocity: { netVisibility: "Public", type: "Vec3A" },

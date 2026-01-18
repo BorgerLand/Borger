@@ -11,8 +11,9 @@ use base::prelude::*;
 //working in here
 pub fn simulation_tick(ctx: &mut GameContext<Immediate>) {
 	physics_box::update_pre_physstep(ctx);
+	character::update_kinematic(ctx);
 	physstep::update(ctx);
 	physics_box::update_post_physstep(ctx);
 
-	character::update(ctx); //must call after update_physstep to populate bvh
+	character::update_controller(ctx); //must call after update_physstep to populate bvh
 }

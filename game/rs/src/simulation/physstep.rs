@@ -1,7 +1,10 @@
 use base::prelude::*;
 use glam::Vec3;
+use rapier3d::prelude::Group;
 
 pub const GRAVITY: Vec3 = Vec3::new(0.0, -30.0, 0.0);
+pub const GROUP_CHARACTER: Group = Group::GROUP_1;
+pub const GROUP_PUSHABLE: Group = Group::GROUP_2;
 
 pub fn update(ctx: &mut GameContext<Immediate>) {
 	let mut start_physics_test = false;
