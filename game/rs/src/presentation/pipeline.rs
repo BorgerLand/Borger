@@ -1,5 +1,9 @@
-use crate::presentation::camera;
+use std::str::FromStr;
+
+use crate::presentation::{camera, get_local_entity};
 use base::{entities, prelude::*};
+use js_sys::{JsString, Reflect};
+use wasm_bindgen::JsValue;
 
 //see comments in Pipeline.ts: this allows calling
 //rust code during the js-driven presentation loop
@@ -20,4 +24,15 @@ pub fn presentation_tick(
 	);
 
 	camera::update(cur_tick, input, bindings);
+
+	//make your own character invisible upon startup
+	if prv_tick.is_none() {
+		let entity = get_local_entity(cur_tick, bindings);
+		Reflect::set(
+			&entity.o3d,
+			&JsString::from_str("visible").unwrap(),
+			&JsValue::FALSE,
+		)
+		.unwrap();
+	}
 }

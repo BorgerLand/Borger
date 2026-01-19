@@ -26,7 +26,7 @@ pub struct InterpolatedEntityType {
 
 pub struct InterpolatedEntityInstance {
 	//ts side/bindings
-	o3d: JsValue,          //THREE.Object3D
+	pub o3d: JsValue,      //THREE.Object3D
 	matrix_world: JsValue, //THREE.Object3D.matrixWorld
 
 	//rs side/transform

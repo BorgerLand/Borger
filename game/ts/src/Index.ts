@@ -43,8 +43,7 @@ const directionalLight = new DirectionalLight(0xffffff, 3);
 directionalLight.position.set(1, 1, 1);
 scene.add(directionalLight);
 
-const loader = new GLTFLoader();
-const nose = (await loader.loadAsync("/nose.glb")).scene;
+const nose = (await new GLTFLoader().loadAsync("/nose.glb")).scene;
 nose.position.y = 20;
 nose.scale.setScalar(7);
 scene.add(nose);
