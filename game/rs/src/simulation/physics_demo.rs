@@ -45,16 +45,26 @@ macro_rules! update_pre_physstep {
 macro_rules! update_post_physstep {
 	($ctx:expr, $entities:expr) => {{
 		let diff = &mut $ctx.diff;
-		for entity in $entities.values_mut() {
-			let rb = $ctx.state.physics.rigid_bodies.get(entity.rb_handle).unwrap();
-			entity
-				.set_pos(rb.position().translation.into(), diff)
-				.set_rot(rb.position().rotation, diff)
-				.set_linvel(rb.vels().linvel.into(), diff)
-				.set_angvel(rb.vels().angvel.into(), diff)
-				.set_sleeping(rb.activation().sleeping, diff);
+		let mut despawn = Vec::new();
 
-			entity.set_time_since_can_sleep(rb.activation().time_since_can_sleep, diff);
+		for (id, entity) in $entities.iter_mut() {
+			let rb = $ctx.state.physics.rigid_bodies.get(entity.rb_handle).unwrap();
+			if rb.position().translation.y > -10.0 {
+				entity
+					.set_pos(rb.position().translation.into(), diff)
+					.set_rot(rb.position().rotation, diff)
+					.set_linvel(rb.vels().linvel.into(), diff)
+					.set_angvel(rb.vels().angvel.into(), diff)
+					.set_sleeping(rb.activation().sleeping, diff);
+
+				entity.set_time_since_can_sleep(rb.activation().time_since_can_sleep, diff);
+			} else {
+				despawn.push(id);
+			}
+		}
+
+		for id in despawn {
+			$entities.remove(id, diff).unwrap();
 		}
 	}};
 }
