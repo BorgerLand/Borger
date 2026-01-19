@@ -13,7 +13,6 @@ const gruPromise = loader.loadAsync("/gru.glb").then(function (result) {
 export function spawnCharacter() {
 	const entity = new Object3D();
 	gruPromise.then((gru) => entity.add(gru.clone()));
-	console.trace(entity);
 	return entity;
 }
 
