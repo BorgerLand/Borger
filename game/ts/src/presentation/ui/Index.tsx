@@ -1,13 +1,16 @@
 import { StrictMode, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-
+import { HUDHelp } from "@presentation/ui/HUDHelp.tsx";
 import "@presentation/ui/index.css"; //what does it mean to import a css file. that makes no sense
 
 export function init() {
 	return new Promise<HTMLCanvasElement>(function (resolve) {
 		createRoot(document.getElementById("root")!).render(
 			<StrictMode>
-				<GameCanvas />
+				<div className="h-screen w-screen overflow-hidden">
+					<GameCanvas />
+					<HUDHelp />
+				</div>
 			</StrictMode>,
 		);
 
