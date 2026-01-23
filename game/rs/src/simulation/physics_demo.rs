@@ -13,6 +13,26 @@ pub fn on_server_start(state: &mut SimulationState, diff: &mut DiffSerializer<Wa
 	}
 }
 
+fn make_cube_col() -> impl Into<Collider> {
+	make_pushable(ColliderBuilder::cuboid(
+		PHYSICS_CUBE_SIZE / 2.0,
+		PHYSICS_CUBE_SIZE / 2.0,
+		PHYSICS_CUBE_SIZE / 2.0,
+	))
+}
+
+fn make_sphere_col() -> impl Into<Collider> {
+	make_pushable(ColliderBuilder::ball(PHYSICS_SPHERE_RADIUS))
+}
+
+fn make_pushable(builder: ColliderBuilder) -> ColliderBuilder {
+	builder.collision_groups(InteractionGroups::new(
+		GROUP_PUSHABLE, //i am pushable
+		Group::ALL,     //i collide with anything
+		InteractionTestMode::default(),
+	))
+}
+
 //insert the rigid body into the physics engine
 macro_rules! update_pre_physstep {
 	($ctx:expr, $entities:expr, $make_collider:expr) => {
@@ -40,56 +60,8 @@ macro_rules! update_pre_physstep {
 	};
 }
 
-//after stepping the simulation, retrieve and store the
-//rigid body's state
-macro_rules! update_post_physstep {
-	($ctx:expr, $entities:expr) => {{
-		let diff = &mut $ctx.diff;
-		let mut despawn = Vec::new();
-
-		for (id, entity) in $entities.iter_mut() {
-			let rb = $ctx.state.physics.rigid_bodies.get(entity.rb_handle).unwrap();
-			if rb.position().translation.y > -10.0 {
-				entity
-					.set_pos(rb.position().translation.into(), diff)
-					.set_rot(rb.position().rotation, diff)
-					.set_linvel(rb.vels().linvel.into(), diff)
-					.set_angvel(rb.vels().angvel.into(), diff)
-					.set_sleeping(rb.activation().sleeping, diff);
-
-				entity.set_time_since_can_sleep(rb.activation().time_since_can_sleep, diff);
-			} else {
-				despawn.push(id);
-			}
-		}
-
-		for id in despawn {
-			$entities.remove(id, diff).unwrap();
-		}
-	}};
-}
-
-fn make_cube_col() -> impl Into<Collider> {
-	make_pushable(ColliderBuilder::cuboid(
-		PHYSICS_CUBE_SIZE / 2.0,
-		PHYSICS_CUBE_SIZE / 2.0,
-		PHYSICS_CUBE_SIZE / 2.0,
-	))
-}
-
-fn make_sphere_col() -> impl Into<Collider> {
-	make_pushable(ColliderBuilder::ball(PHYSICS_SPHERE_RADIUS))
-}
-
-fn make_pushable(builder: ColliderBuilder) -> ColliderBuilder {
-	builder.collision_groups(InteractionGroups::new(
-		GROUP_PUSHABLE, //i am pushable
-		Group::ALL,     //i collide with anything
-		InteractionTestMode::default(),
-	))
-}
-
 pub fn update_pre_physstep(ctx: &mut GameContext<Immediate>) {
+	//blow nose
 	let diff = &mut ctx.diff;
 	for client in ctx.state.clients.owned_clients() {
 		if client.input.get().blow_nose {
@@ -110,6 +82,34 @@ pub fn update_pre_physstep(ctx: &mut GameContext<Immediate>) {
 
 	update_pre_physstep!(ctx, ctx.state.cubes, make_cube_col());
 	update_pre_physstep!(ctx, ctx.state.spheres, make_sphere_col());
+}
+
+//after stepping the simulation, retrieve and store the
+//rigid body's state
+macro_rules! update_post_physstep {
+	($ctx:expr, $entities:expr) => {{
+		let diff = &mut $ctx.diff;
+		let mut despawn = Vec::new();
+
+		for (id, entity) in $entities.iter_mut() {
+			let rb = $ctx.state.physics.rigid_bodies.get(entity.rb_handle).unwrap();
+			if rb.position().translation.y > -10.0 {
+				entity
+					.set_pos(rb.position().translation.into(), diff)
+					.set_rot(rb.position().rotation, diff)
+					.set_linvel(rb.vels().linvel.into(), diff)
+					.set_angvel(rb.vels().angvel.into(), diff)
+					.set_sleeping(rb.activation().sleeping, diff)
+					.set_time_since_can_sleep(rb.activation().time_since_can_sleep, diff);
+			} else {
+				despawn.push(id);
+			}
+		}
+
+		for id in despawn {
+			$entities.remove(id, diff).unwrap();
+		}
+	}};
 }
 
 pub fn update_post_physstep(ctx: &mut GameContext<Immediate>) {

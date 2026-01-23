@@ -43,10 +43,10 @@ pub fn on_client_disconnect(
 	state.characters.remove(character, diff).unwrap();
 }
 
-//kinematic: a rigid body attached to the character for the purpose
-//of controllers colliding with one another + rigid bodies are pushed
-//out of the way
-pub fn update_kinematic(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
+//update kinematic: a rigid body attached to the character for the purpose
+//of controllers colliding with one another + rigid bodies are pushed out
+//of the way
+pub fn update_pre_physstep(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
 	let kinematic_shape = SharedShape::new(Capsule::new_y(
 		CYL_HEIGHT / 2.0 - KINEMATIC_OFFSET,
 		RADIUS + KINEMATIC_OFFSET,
@@ -93,8 +93,8 @@ pub fn update_kinematic(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
 	}
 }
 
-//controller: actually moves the character given a desired translation
-pub fn update_controller(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
+//update controller: actually moves the character given a desired translation
+pub fn update_post_physstep(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
 	let mut controller = KinematicCharacterController::default();
 	controller.offset = CharacterLength::Absolute(CONTROLLER_OFFSET);
 	let controller_shape = Capsule::new_y(CYL_HEIGHT / 2.0, RADIUS - CONTROLLER_OFFSET);
