@@ -24,6 +24,7 @@ pub struct InterpolatedEntityType {
 	pub obj: HashMap<usize32, InterpolatedEntityInstance>,
 }
 
+#[derive(Debug)]
 pub struct InterpolatedEntityInstance {
 	//ts side/bindings
 	pub o3d: JsValue,      //THREE.Object3D
@@ -74,26 +75,26 @@ pub fn interpolate_type<T: Entity>(
 	//of entities that existed in both the previous and
 	//current frames
 	for physical_index in 0..prv_entities.len().max(cur_count) {
-		let maybe_prv_entity = prv_entities.get(physical_index);
-		let maybe_cur_entity = cur_entities.get(physical_index);
+		let prv_entity = prv_entities.get(physical_index);
+		let cur_entity = cur_entities.get(physical_index);
 
-		if maybe_prv_entity.is_none() {
+		if prv_entity.is_none() {
 			//number of entities has increased since previous frame
-			let cur_entity = maybe_cur_entity.unwrap();
+			let cur_entity = cur_entity.unwrap();
 			mismatch_cur_entities
 				.get_or_insert_default()
 				.insert(cur_entity.0, (physical_index, &cur_entity.1));
-		} else if maybe_cur_entity.is_none() {
+		} else if cur_entity.is_none() {
 			//number of entities has decreased since previous frame
-			let prv_entity = maybe_prv_entity.unwrap();
+			let prv_entity = prv_entity.unwrap();
 			mismatch_prv_entities
 				.get_or_insert_default()
 				.insert(prv_entity.0, &prv_entity.1);
 		} else
-		//they must both be some
+		//both are some
 		{
-			let prv_entity = maybe_prv_entity.unwrap();
-			let cur_entity = maybe_cur_entity.unwrap();
+			let prv_entity = prv_entity.unwrap();
+			let cur_entity = cur_entity.unwrap();
 
 			if prv_entity.0 == cur_entity.0 {
 				//this branch (and rebind_all == false) should be what
@@ -141,8 +142,8 @@ pub fn interpolate_type<T: Entity>(
 	//because this is more common. the effect is that
 	//dispose/spawn will not be triggered, so the same
 	//Object3D will be reused instead of recreated
-	if let Some(cur_entities) = mismatch_cur_entities {
-		for (id, (physical_index, cur_entity)) in cur_entities {
+	if let Some(mismatch_cur_entities) = mismatch_cur_entities {
+		for (id, (physical_index, cur_entity)) in mismatch_cur_entities {
 			let rebind_matrix = if let Some(prv_entities) = &mut mismatch_prv_entities
 				&& let Some(prv_entity) = prv_entities.remove(&id)
 			{
@@ -206,8 +207,8 @@ pub fn interpolate_type<T: Entity>(
 		}
 	}
 
-	if received_new_tick && let Some(prv_entities) = mismatch_prv_entities {
-		for (id, _) in prv_entities {
+	if received_new_tick && let Some(mismatch_prv_entities) = mismatch_prv_entities {
+		for (id, _) in mismatch_prv_entities {
 			//deleted entity
 
 			let object_3d = out_entities.obj.remove(&id).unwrap().o3d;
