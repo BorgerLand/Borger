@@ -39,8 +39,6 @@ pub struct SlotMap<V: NetState> {
 
 	slots: Vec<(usize32, V)>,
 	random_access: HashMap<usize32, usize32>, //<slot id, physical index>
-
-	next_id: usize,
 	reclaimed_ids: Vec<usize32>,
 }
 
@@ -78,8 +76,6 @@ impl<V: NetState> ConstructCollectionOrUtilityType for SlotMap<V> {
 
 			slots: Vec::new(),
 			random_access: HashMap::new(),
-
-			next_id: 0,
 			reclaimed_ids: Vec::new(),
 		}
 	}
@@ -97,7 +93,11 @@ impl<V: NetState> SlotMap<V> {
 		client_kind: ClientStateKind,
 		diff: &mut DiffSerializer<impl AnyTradeoff>,
 	) -> (usize32, &mut V) {
-		let id = self.use_next_id();
+		let id = self
+			.reclaimed_ids
+			.pop()
+			.unwrap_or_else(|| usize_to_32(self.next_id()));
+
 		let physical_index = self.len();
 
 		self.slots
@@ -126,6 +126,7 @@ impl<V: NetState> SlotMap<V> {
 	//a loophole for constructing new state objects.
 	//the simulation state must own all instances.
 	//unwrap to assert success
+	#[must_use]
 	pub fn remove(&mut self, id: usize32, diff: &mut DiffSerializer<impl AnyTradeoff>) -> Option<()> {
 		let physical_index_u32 = self.random_access.remove(&id)?;
 		let physical_index_usize = physical_index_u32 as usize;
@@ -148,6 +149,7 @@ impl<V: NetState> SlotMap<V> {
 		if let Some(buffer) = diff.ser_rollback_begin(&self._diff_path) {
 			removed_slot.1.ser_rollback_predict_remove(buffer);
 			physical_index_u32.ser_rollback(buffer);
+			id.ser_rollback(buffer);
 			self.field_id.ser_rollback(buffer);
 			op.ser_rollback(buffer);
 		}
@@ -187,7 +189,6 @@ impl<V: NetState> SlotMap<V> {
 
 		self.slots.clear();
 		self.random_access.clear();
-		self.next_id = 0;
 		self.reclaimed_ids.clear();
 
 		len
@@ -276,8 +277,13 @@ impl<V: NetState> SlotMapDynCompat for SlotMap<V> {
 	}
 
 	fn rollback_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
+		let id = usize32::des_rollback(buffer)?;
+		if id as usize != self.next_id() {
+			let unreclaimed_id = self.reclaimed_ids.pop();
+			debug_assert!(unreclaimed_id.unwrap() == id);
+		}
+
 		let physical_index = usize32::des_rollback(buffer)?;
-		let id = self.use_next_id();
 
 		//since client deletion is unpredictable and will
 		//never roll back, client_kind can be anything
@@ -334,7 +340,6 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 	fn ser_tx_new_client(&self, client_id: usize32, buffer: &mut Vec<u8>) {
 		(self.reclaimed_ids.len() as usize32).ser_tx(buffer);
 		self.reclaimed_ids.ser_tx(buffer);
-		(self.next_id as usize32).ser_tx(buffer);
 		self.len().ser_tx(buffer);
 
 		for slot in self.slots.iter() {
@@ -351,7 +356,6 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 	) -> Result<(), DeserializeOopsy> {
 		let reclaimed_ids_len = usize32::des_rx(buffer)?;
 		self.reclaimed_ids = <[usize32]>::des_rx(reclaimed_ids_len, buffer)?;
-		self.next_id = usize32::des_rx(buffer)? as usize;
 		let slots_len = usize32::des_rx(buffer)?;
 
 		for physical_index in 0..slots_len {
@@ -389,7 +393,6 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 		}
 
 		self.len().ser_rollback(buffer);
-		(self.next_id as usize32).ser_rollback(buffer);
 		self.reclaimed_ids.ser_rollback(buffer);
 		(self.reclaimed_ids.len() as usize32).ser_rollback(buffer);
 	}
@@ -397,7 +400,6 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 	fn des_rollback_predict_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
 		let reclaimed_ids_len = usize32::des_rollback(buffer)?;
 		self.reclaimed_ids = <[usize32]>::des_rollback(reclaimed_ids_len, buffer)?;
-		self.next_id = usize32::des_rollback(buffer)? as usize;
 		let slots_len = usize32::des_rollback(buffer)?;
 
 		for physical_index in 0..slots_len {
@@ -425,22 +427,12 @@ impl<V: NetState> UntrackedState for SlotMap<V> {
 //---misc---//
 
 impl<V: NetState> SlotMap<V> {
-	fn use_next_id(&mut self) -> usize32 {
-		self.reclaimed_ids.pop().unwrap_or_else(|| {
-			let new_id = self.next_id;
-
-			//even if new_id fits nicely into usize32, the
-			//new len() might not
-			self.next_id = usize_to_32(self.next_id + 1) as usize;
-
-			new_id as usize32
-		})
+	fn next_id(&self) -> usize {
+		self.slots.len() + self.reclaimed_ids.len()
 	}
 
 	fn reclaim_id(&mut self, id: usize32) {
-		if id as usize == self.next_id - 1 {
-			self.next_id -= 1;
-		} else {
+		if !self.reclaimed_ids.is_empty() || id as usize != self.next_id() {
 			self.reclaimed_ids.push(id);
 		}
 	}

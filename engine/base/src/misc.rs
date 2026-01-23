@@ -3,6 +3,7 @@ use crate::presentation_state::CloneToPresentationState;
 use crate::snapshot_serdes::SnapshotState;
 use crate::{constructors::ConstructCustomStruct, untracked::UntrackedState};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use std::fmt::Debug;
 
 //alias for all state tracker subsystem traits
 #[allow(private_bounds)]
@@ -12,6 +13,7 @@ pub trait NetState:
 	+ DiffDeserializeState
 	+ SnapshotState
 	+ UntrackedState
+	+ Debug
 	+ 'static
 {
 }
@@ -22,6 +24,7 @@ impl<T> NetState for T where
 		+ DiffDeserializeState
 		+ SnapshotState
 		+ UntrackedState
+		+ Debug
 		+ 'static
 {
 }
@@ -96,7 +99,7 @@ impl<O, R> ClientStateGeneric<O, R> {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive, Debug)]
 #[repr(u8)]
 pub enum DiffOperation {
 	//state change
