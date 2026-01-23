@@ -5,7 +5,7 @@ use base::simulation_controller::SimControllerExternals;
 use base::simulation_state::InputState;
 use base::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
 use game_rs::presentation::on_client_start;
-use game_rs::presentation::pipeline::presentation_tick;
+use game_rs::presentation::pipeline::presentation_tick as game_presentation_tick;
 use js_sys::{Function, Uint8Array};
 use std::panic;
 use std::sync::atomic::Ordering;
@@ -116,15 +116,11 @@ impl PresentationController {
 			//if not previously ready, check if ready now
 			self.is_ready = prv_tick.is_some() && cur_tick.is_some();
 
-			//if during this tick, presentation thread has just
-			//received its first simulation tick, call
-			//interpolate for the first time in order to fire
-			//initial binding update events, but don't actually
-			//interpolate (pass none into prv value instead)
-			if !self.is_ready && received_tick {
-				let first_tick = cur_tick.unwrap();
-
-				presentation_tick(None, first_tick, true, 0., input, &mut self.bindings);
+			//no need to do full interpolation if not rendering yet,
+			//but still need to call the game's presentation tick in
+			//order to fire binding/spawning events
+			if received_tick {
+				game_presentation_tick(prv_tick, cur_tick.unwrap(), true, 0., input, &mut self.bindings);
 			}
 
 			//if is_ready == true at this point, the next
@@ -147,7 +143,7 @@ impl PresentationController {
 		let interp_amount =
 			(self.now - prv_tick_uw.time).as_secs_f32() / (cur_tick.time - prv_tick_uw.time).as_secs_f32();
 
-		presentation_tick(
+		game_presentation_tick(
 			prv_tick,
 			cur_tick,
 			received_tick,
