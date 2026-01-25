@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { HUDHelp } from "@presentation/ui/HUDHelp.tsx";
+import { HUD } from "@presentation/ui/HUD.tsx";
 import "@presentation/ui/index.css"; //what does it mean to import a css file. that makes no sense
 
 export function init() {
@@ -9,7 +9,7 @@ export function init() {
 			<StrictMode>
 				<div className="h-screen w-screen overflow-hidden">
 					<GameCanvas />
-					<HUDHelp />
+					<HUD />
 				</div>
 			</StrictMode>,
 		);
