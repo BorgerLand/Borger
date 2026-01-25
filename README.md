@@ -161,7 +161,8 @@ cd MyGame
 
 Now visit http://localhost:5173 for a good meal
 
-![4 Clients](readme/itworks.webp)
+![Despicable Physics](readme/demo2.webp)
+![4 Clients](readme/demo1.webp)
 
 Files of interest:
 

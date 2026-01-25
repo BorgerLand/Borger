@@ -1,6 +1,6 @@
 use crate::tick::TickInfo;
 use crate::untracked::UntrackedState;
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use rapier3d::prelude::*;
 use std::fmt::{Debug, Error, Formatter};
 
@@ -74,7 +74,10 @@ impl Debug for Physics {
 impl Physics {
 	pub(crate) fn default() -> Self {
 		let level_col = ColliderBuilder::cuboid(100.0, 25.0, 100.0)
-			.translation(Vec3::new(0.0, -25.0, 0.0))
+			.position(Pose3 {
+				translation: Vec3::new(0.0, -25.0, 0.0),
+				rotation: Quat::from_axis_angle(Vec3::X, 10.0_f32.to_radians()),
+			})
 			.build();
 		let mut colliders = ColliderSet::new();
 		let level_col_handle = colliders.insert(level_col);
