@@ -1,11 +1,15 @@
+use super::*;
 use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::simulation_controller::*;
 use crate::snapshot_serdes;
 use crate::snapshot_serdes::NewClientHeader;
 use crate::tick::{TickID, TickInfo, TickType, UnrollbackableNetEvent};
 use crate::{ClientStateKind, diff_des};
 use log::debug;
 use std::sync::mpsc as sync_mpsc;
+
+//allow receiving client input state this early/late.
+const INPUT_TOO_EARLY: Duration = Duration::from_millis(1000); //too early = kick
+const INPUT_TOO_LATE: Duration = Duration::from_millis(1500); //too late = server's prediction becomes final
 
 impl SimControllerInternals {
 	//receive and process data from server's main thread
@@ -29,13 +33,37 @@ impl SimControllerInternals {
 				.push_back(UnrollbackableNetEvent::ClientConnect(comms));
 		}
 
-		//other events received from client-specific comms
+		//if client has an input for this tick id already, it's
+		//probably trying to cheat, so kick it
+		let tick_id_too_early = self.ctx.tick.id_cur + TickInfo::get_ticks(INPUT_TOO_LATE);
+
+		//if client doesn't have an input for this tick id yet,
+		//put it in timeout mode
+		let tick_id_too_late = self
+			.ctx
+			.tick
+			.id_cur
+			.saturating_sub(TickInfo::get_ticks(INPUT_TOO_LATE));
+
+		//if client is in timeout mode and has an input for this
+		//tick id, disable timeout mode and allow influencing the
+		//simulation again
+		let tick_id_caught_up = self
+			.ctx
+			.tick
+			.id_cur
+			.saturating_sub(TickInfo::get_ticks(INPUT_TOO_LATE / 2));
+
 		let mut rollback_to = self.ctx.tick.id_cur; //oldest tick id associated with a newly received input
-		for (&id, client) in self.comms.iter() {
-			while let Ok(client_msg) = client.from_client.try_recv() {
+		//other events received from client-specific comms
+		for (id, history) in self.input_history.iter_mut() {
+			let mut tick_id_associated =
+				self.ctx.tick.id_consensus + history.entries.len() as TickID - 2 - history.timed_out_ticks;
+
+			let client_comms = self.comms.get(id).unwrap();
+			while let Ok(client_msg) = client_comms.from_client.try_recv() {
 				match client_msg {
 					ClientToSimCommand::ReceiveInput(ser_rx_buffer) => {
-						let history = self.input_history.get_mut(&id).unwrap();
 						let mut new_input = history.latest_received.clone();
 
 						//this occurrence of deserialization needs to be
@@ -44,11 +72,20 @@ impl SimControllerInternals {
 						//the server by sending a corrupt input
 						match diff_des::des_rx_input(&mut new_input, ser_rx_buffer.into_iter()) {
 							Ok(_) => {
+								tick_id_associated += 1;
 								(self.cb.input_validate)(&mut new_input);
-								if history.timed_out == 0 {
-									let tick_id_associated =
-										self.ctx.tick.id_consensus + history.entries.len() as TickID - 1;
 
+								if history.is_timed_out && tick_id_associated >= tick_id_caught_up {
+									history.is_timed_out = false;
+									if TRACE_TICK_ADVANCEMENT {
+										debug!(
+											"pinning consensus tick to help client {} finish catching up",
+											id
+										);
+									}
+								}
+
+								if history.timed_out_ticks == 0 {
 									history.entries.push_back(InternalInputEntry {
 										input: new_input.clone(),
 										ping: Some(
@@ -56,13 +93,15 @@ impl SimControllerInternals {
 										),
 									});
 
-									if tick_id_associated < rollback_to {
-										rollback_to = tick_id_associated;
-									}
+									history.is_timed_out = false; //sanity check
+									rollback_to = rollback_to.min(tick_id_associated);
 								} else {
 									//this tick has already reched consensus so the
 									//input is no longer needed for simulation
-									history.timed_out -= 1;
+									history.timed_out_ticks -= 1;
+									if TRACE_TICK_ADVANCEMENT && history.timed_out_ticks == 0 {
+										debug!("client {} exited timeout state", id);
+									}
 								}
 
 								history.latest_received = new_input;
@@ -72,19 +111,47 @@ impl SimControllerInternals {
 								//happen unless client is attempting to cheat
 								#[allow(unused_must_use)]
 								//safe to ignore error. if client has disconnected, sim thread will be notified shortly
-								client.to_client.send(SimToClientCommand::RequestKick(format!(
-									"received corrupt input containing {:?}",
-									oops
-								)));
+								client_comms
+									.to_client
+									.send(SimToClientCommand::RequestKick(format!(
+										"received corrupt input containing {:?}",
+										oops
+									)));
 							}
 						};
 					}
 
 					ClientToSimCommand::Disconnect => {
 						self.net_events
-							.push_back(UnrollbackableNetEvent::ClientDisconnect(id));
+							.push_back(UnrollbackableNetEvent::ClientDisconnect(*id));
 					}
 				};
+			}
+
+			if history.timed_out_ticks == 0 {
+				if tick_id_associated >= tick_id_too_early {
+					//handle too early (or possibly the server is death spiraling?)
+					debug_assert_ne!(history.entries.len(), 0);
+
+					#[allow(unused_must_use)]
+					//safe to ignore error. if client has disconnected, sim thread will be notified shortly
+					self.comms
+						.get(id)
+						.unwrap()
+						.to_client
+						.send(SimToClientCommand::RequestKick(format!(
+							"received inputs too far into the future (>= {:?})",
+							INPUT_TOO_EARLY
+						)));
+				} else if tick_id_associated < tick_id_too_late {
+					//handle too late: enter timeout mode
+					history.is_timed_out = true;
+					rollback_to = self.ctx.tick.id_consensus;
+
+					if TRACE_TICK_ADVANCEMENT {
+						debug!("client {} entered timeout state", id);
+					}
+				}
 			}
 		}
 
@@ -93,30 +160,7 @@ impl SimControllerInternals {
 		//[consensus - 1, cur]. index 1 definitely refers
 		//to tick.is_consensus, but the exact length of each
 		//client's vec is unpredictable and depends on ping/
-		//latency. it's even possible they may have too many
-
-		let input_on_time = self.ctx.tick.get_instant(self.ctx.tick.id_cur);
-		let input_too_early = input_on_time + INPUT_TOO_EARLY;
-
-		for (client_id, history) in self.input_history.iter() {
-			let associated_time = self
-				.ctx
-				.tick
-				.get_instant(self.ctx.tick.id_consensus + history.entries.len() as TickID - 1);
-			if associated_time >= input_too_early {
-				#[allow(unused_must_use)]
-				//safe to ignore error. if client has disconnected, sim thread will be notified shortly
-				self.comms
-					.get(client_id)
-					.unwrap()
-					.to_client
-					.send(SimToClientCommand::RequestKick(format!(
-						"received inputs too far into the future (> {:?})",
-						INPUT_TOO_EARLY
-					)));
-			}
-		}
-
+		//latency. it's even possible they may have too many.
 		//it is possible that the rollback amount is 0 ticks,
 		//in the case that the server is empty, hasn't
 		//received any inputs, or the (unideal) scenario
@@ -125,38 +169,31 @@ impl SimControllerInternals {
 		let rollback_amount = self.rollback(rollback_to);
 		debug_assert_eq!(rollback_to, self.ctx.tick.id_cur);
 
-		//this may trigger even more rolling back
+		//this may trigger rollback to consensus
 		self.trigger_net_events(rollback_amount);
 
-		if self.ctx.tick.id_cur == self.ctx.tick.id_consensus {
-			//tick.id_consensus is calculated based on
-			//what is the oldest tick id for which an input
-			//has been received from all clients
-			let max_advance = tick_id_target - self.ctx.tick.id_consensus;
-			self.ctx.tick.id_consensus += self
-				.input_history
-				.values()
-				.map(|history| history.entries.len() - 1)
-				.min()
-				.map(|min| min as TickID)
-				.unwrap_or(max_advance) //if there are no clients, insta-advance to tick_id_target
-				.min(max_advance); //if all clients are living in the future, prevent them from fast forwarding the whole server
-		}
+		//tick.id_consensus is calculated based on
+		//what is the oldest tick id for which an input
+		//has been received from all clients
+		let max_advance = tick_id_target - self.ctx.tick.id_consensus;
+		let advance = self
+			.input_history
+			.values()
+			.map(|history| {
+				if history.is_timed_out {
+					//don't wait for this client
+					usize::MAX
+				} else {
+					history.entries.len() - 1
+				}
+			})
+			.min()
+			.map(|min| min as TickID)
+			.unwrap_or(max_advance) //if there are no clients, insta-advance to tick_id_target
+			.min(max_advance); //if all clients are living in the future, prevent them from fast forwarding the whole server
 
-		//handle timeout
-		let tick_id_timeout = tick_id_target.saturating_sub(TickInfo::get_ticks(INPUT_TOO_LATE));
-		if self.ctx.tick.id_consensus < tick_id_timeout {
-			if TRACE_TICK_ADVANCEMENT {
-				debug!(
-					"timeout due to late client inputs. forcing consensus for {} ticks",
-					tick_id_timeout - self.ctx.tick.id_consensus
-				);
-			}
-
-			let tick_id_consensus = self.ctx.tick.id_consensus;
-			self.rollback(tick_id_consensus);
-			self.ctx.tick.id_consensus = tick_id_timeout;
-		}
+		debug_assert!(self.ctx.tick.id_cur == self.ctx.tick.id_consensus || advance == 0);
+		self.ctx.tick.id_consensus += advance;
 
 		self.simulate(tick_id_target);
 	}

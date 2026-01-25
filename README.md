@@ -173,7 +173,7 @@ Files of interest:
 ### Acknowledgements & Inspirations
 
 - [Fast-Paced Multiplayer](https://www.gabrielgambetta.com/client-server-game-architecture.html) - Gabriel Gambetta
-- [Overwatch GDC Talk](https://www.gdcvault.com/play/1024001/-Overwatch-Gameplay-Architecture-and) - Timothy Ford
+- ['Overwatch' Gameplay Architecture and Netcode](https://www.gdcvault.com/play/1024001/-Overwatch-Gameplay-Architecture-and) - Timothy Ford
 - [Photon Quantum](https://doc.photonengine.com/quantum/current/quantum-intro) - Exit Games
 - [Quake 3 Network Protocol](https://www.jfedor.org/quake3/) - John Carmack, Jacek Fedoryński
 - [Dealing with Latency](https://docs.unity3d.com/Packages/com.unity.netcode.gameobjects@2.5/manual/learn/dealing-with-latency.html) - Unity 3D

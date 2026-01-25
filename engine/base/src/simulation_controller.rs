@@ -41,11 +41,6 @@ const TRACE_TICK_ADVANCEMENT: bool = false;
 #[cfg(feature = "client")]
 const TRACE_TICK_ADVANCEMENT: bool = false;
 
-//allow receiving client input state this early/late.
-#[cfg(feature = "server")]
-const INPUT_TOO_EARLY: Duration = Duration::from_secs(1); //too early = kick
-const INPUT_TOO_LATE: Duration = Duration::from_secs(3); //too late = server's prediction becomes final
-
 //communications between the simulation thread
 //and the owning parent thread
 pub struct SimControllerExternals {
@@ -129,12 +124,17 @@ struct InternalInputHistory {
 	//newly received inputs from pushing to the inputs
 	//buffer until there are no more missing
 	#[cfg(feature = "server")]
-	timed_out: u32,
+	timed_out_ticks: TickID,
 
 	//the diff received from the client is always applied to
 	//this, regardless of whether there are .timed_out inputs
 	#[cfg(feature = "server")]
 	latest_received: InputState,
+
+	//if true, server will not wait for this client before
+	//coming to consensus
+	#[cfg(feature = "server")]
+	is_timed_out: bool,
 }
 
 #[derive(Default, Debug, Clone)]

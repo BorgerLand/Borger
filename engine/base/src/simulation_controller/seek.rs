@@ -17,7 +17,9 @@ use {
 use std::iter;
 
 impl SimControllerInternals {
-	//returns how many ticks were rolled back
+	//"to" is inclusive. this will roll back to immediately
+	//before "to" happened. returns how many ticks were
+	//rolled back
 	pub(super) fn rollback(&mut self, to: TickID) -> TickID {
 		debug_assert!(to >= self.ctx.tick.id_consensus && to <= self.ctx.tick.id_cur);
 
@@ -116,7 +118,7 @@ impl SimControllerInternals {
 							}
 							None => {
 								//this client caused a consensus timeout
-								input_history.timed_out += 1;
+								input_history.timed_out_ticks += 1;
 
 								let finalized_prediction = InternalInputEntry {
 									input: (self.cb.input_predict_late)(

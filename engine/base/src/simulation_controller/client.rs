@@ -1,8 +1,8 @@
+use super::*;
 use crate::diff_des;
 use crate::diff_ser::ser_tx_input_diff;
 use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::presentation_state::{CloneToPresentationState, SimulationOutput};
-use crate::simulation_controller::*;
 use crate::simulation_state::InputState;
 use crate::tick::TickID;
 use crate::tick::TickType;
@@ -19,6 +19,7 @@ const JITTER_TOLERANCE: Duration = Duration::from_millis(50);
 
 //how far behind/ahead of the server the client can be before
 //triggering recalibration (+- this amount, NOT HALF)
+//note 30hz = 1000/30 = 33.3333 ms
 const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 
 impl SimControllerInternals {
@@ -36,22 +37,10 @@ impl SimControllerInternals {
 			debug_assert_eq!(self.ctx.tick.id_consensus, self.ctx.tick.id_cur);
 			debug_assert_eq!(offset, self.ctx.tick.id_consensus - tick_id_target);
 
+			self.recalibrate_requested = true;
 			if TRACE_TICK_ADVANCEMENT {
 				debug!("fell too far behind server. timed out {} ticks ago", offset);
 			}
-
-			//2 recalibrations required: 1 to account for reconcile()
-			//having forced tick.id_consensus forward, another to
-			//simulate() forward by INPUT_TOO_LATE, because the input
-			//buffer underflow and consensus timeouts imply client is at
-			//least that far behind
-
-			self.ctx.tick.recalibrate(-(offset as i16));
-			self.recalibrate(-(TickInfo::get_ticks(INPUT_TOO_LATE) as i16));
-
-			//this was just an emergency recalibration with a hardcoded
-			//amount. perform a recalibration once enough data builds up
-			self.recalibrate_requested = true;
 		}
 
 		//ping must be stable in order to recalibrate accurately.
@@ -65,7 +54,32 @@ impl SimControllerInternals {
 			if self.recalibrate_requested
 				|| TickInfo::get_duration(average_offset.abs() as TickID) >= OFFSET_TOLERANCE
 			{
-				self.recalibrate(average_offset);
+				if TRACE_TICK_ADVANCEMENT {
+					debug!("recalibrating by {} ticks", average_offset);
+				}
+
+				self.calibration_samples.clear();
+				self.recalibrate_requested = false;
+
+				if average_offset == 0 {
+					return;
+				}
+
+				self.ctx.tick.recalibrate(average_offset);
+
+				if average_offset < 0 {
+					for _ in average_offset..0 {
+						self.propogate_input(false);
+						self.simulate(self.ctx.tick.id_cur + 1);
+					}
+				}
+				//else not much we can do here except freeze the simulation.
+				//can't rewind because inputs have already been sent.
+				//theoretically should not be frozen any longer than
+				//INPUT_TOO_EARLY or else the server would have kicked you.
+				//being too early is also be logically impossible unless the
+				//client isn't sleeping as much as it should between ticks,
+				//or cheating
 			}
 		}
 
@@ -314,34 +328,6 @@ impl SimControllerInternals {
 		}
 
 		input_underflow
-	}
-
-	fn recalibrate(&mut self, offset_from_server: i16) {
-		if TRACE_TICK_ADVANCEMENT {
-			debug!("recalibrating by {} ticks", offset_from_server);
-		}
-
-		self.calibration_samples.clear();
-		self.recalibrate_requested = false;
-
-		if offset_from_server == 0 {
-			return;
-		}
-
-		self.ctx.tick.recalibrate(offset_from_server);
-
-		if offset_from_server < 0 {
-			for _ in offset_from_server..0 {
-				self.propogate_input(false);
-				self.simulate(self.ctx.tick.id_cur + 1);
-			}
-		}
-		//else not much we can do here except freeze the simulation.
-		//can't rewind because inputs have already been sent.
-		//theoretically should not be frozen any longer than
-		//INPUT_TOO_EARLY or else the server would have kicked you.
-		//being too early is also be logically impossible unless the
-		//client isn't sleeping as much as it should between ticks
 	}
 }
 
