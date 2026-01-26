@@ -10,6 +10,14 @@ const gruPromise = loader.loadAsync("/gru.glb").then(function (result) {
 	return gru;
 });
 
+//values copied from rust
+/*const colliderHeight = 2.2;
+const colliderRadius = 0.35;
+const debugGeom = new CapsuleGeometry(colliderRadius, colliderHeight - 2 * colliderRadius);
+const debugMat = new MeshBasicMaterial();
+debugMat.wireframe = true;
+const debugMesh = new Mesh(debugGeom, debugMat);*/
+
 export function spawnCharacter() {
 	const entity = new Object3D();
 	gruPromise.then((gru) => entity.add(gru.clone()));

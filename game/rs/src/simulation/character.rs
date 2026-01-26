@@ -10,10 +10,10 @@ use rapier3d::prelude::*;
 use base::networked_types::primitive::usize32;
 
 const RADIUS: f32 = 0.35;
-const CYL_HEIGHT: f32 = 2.2;
+const HEIGHT: f32 = 2.2;
 const EYE_HEIGHT: f32 = 2.55;
 const CONTROLLER_OFFSET: f32 = 0.01;
-const KINEMATIC_OFFSET: f32 = 0.3; //affects how hard characters have to push
+const KINEMATIC_OFFSET: f32 = 0.3; //affects how hard characters have to push on pushables
 const SPEED: f32 = 9.0; //units/sec
 const TERMINAL_VELOCITY: f32 = 60.0; //units/sec
 const JUMP_VELOCITY: f32 = 11.0; //units/sec
@@ -48,7 +48,7 @@ pub fn on_client_disconnect(
 //of the way
 pub fn update_pre_physstep(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
 	let kinematic_shape = SharedShape::new(Capsule::new_y(
-		CYL_HEIGHT / 2.0 - KINEMATIC_OFFSET,
+		half_cyl() - KINEMATIC_OFFSET,
 		RADIUS + KINEMATIC_OFFSET,
 	));
 
@@ -97,7 +97,7 @@ pub fn update_pre_physstep(ctx: &mut GameContext<impl ImmediateOrWaitForServer>)
 pub fn update_post_physstep(ctx: &mut GameContext<impl ImmediateOrWaitForServer>) {
 	let mut controller = KinematicCharacterController::default();
 	controller.offset = CharacterLength::Absolute(CONTROLLER_OFFSET);
-	let controller_shape = Capsule::new_y(CYL_HEIGHT / 2.0, RADIUS - CONTROLLER_OFFSET);
+	let controller_shape = Capsule::new_y(half_cyl(), RADIUS - CONTROLLER_OFFSET);
 	let diff = &mut ctx.diff;
 
 	for client in ctx.state.clients.owned_clients_mut() {
@@ -187,12 +187,16 @@ pub fn get_character_mut<'a>(
 	characters.get_mut(client.get_id()).unwrap()
 }
 
+const fn half_cyl() -> f32 {
+	HEIGHT / 2.0 - RADIUS
+}
+
 pub fn to_center_pos(mut foot_pos: Vec3) -> Vec3 {
-	foot_pos.y += RADIUS + CYL_HEIGHT / 2.0;
+	foot_pos.y += RADIUS + half_cyl();
 	foot_pos
 }
 
 pub fn to_eye_pos(mut center_pos: Vec3) -> Vec3 {
-	center_pos.y += EYE_HEIGHT - (RADIUS + CYL_HEIGHT / 2.0);
+	center_pos.y += EYE_HEIGHT - (RADIUS + half_cyl());
 	center_pos
 }
