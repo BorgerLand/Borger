@@ -12,7 +12,7 @@ use std::i16;
 use std::sync::atomic::Ordering;
 
 //how many calibration samples to take before drawing conclusions
-const OFFSET_BUFFER_SIZE: usize = 50;
+const OFFSET_BUFFER_SIZE: usize = 20;
 
 //what constitutes a stable ping (+- half this amount)
 const JITTER_TOLERANCE: Duration = Duration::from_millis(50);
