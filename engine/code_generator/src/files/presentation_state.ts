@@ -121,6 +121,18 @@ ${struct.fields
 	);
 }
 
+//note these js reader functions are extremely slow due to
+//ffi overhead (not to mention clunky+unsafe to work with).
+//it would be 129x faster to simply use a DataView, however,
+//wasm bindgen currently doesn't support constants. ideally
+//would be able to use const exports to do something like this:
+//#[wasm_bindgen]
+//pub const CHARACTER_POS_X = mem::offset_of!(Character, x);
+//calling the wasm getter a billion times = 55 seconds
+//view.getFloat32(ptr + 4, true) x1billion = 0.43 seconds!
+//technically there are workarounds involving more manual
+//codegen, however, i'm going with the simplest possible
+//solution for now
 function generateJSReader(structName: string, fieldName: string, fullType: string, subfield?: string) {
 	return `	pub unsafe fn get_${fieldName}${subfield ? `_${subfield}` : ``}(mat_ptr: *const Mat4) -> ${fullType}
 	{
