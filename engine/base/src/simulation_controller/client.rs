@@ -313,6 +313,8 @@ impl SimControllerInternals {
 		}
 
 		if consensus_timeout_amount > 0 {
+			//data is borked from large lag spike
+			self.calibration_samples.clear();
 			if TRACE_TICK_ADVANCEMENT {
 				debug!("{} ticks experienced consensus timeout", consensus_timeout_amount);
 			}
