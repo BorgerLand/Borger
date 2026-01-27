@@ -5,6 +5,7 @@ import {
 	type FlattenedStruct,
 	isPrimitive,
 } from "@engine/code_generator/Common.ts";
+import { simplePrimitives, type multiFieldPrimitives } from "@engine/code_generator/StateSchema.ts";
 
 //key is an outerType, value is CloneToPresentationState::PresentationType
 const PRESENTATION_TYPE = new Map<string, (innerType: string) => string>([
@@ -18,9 +19,17 @@ export function generatePresentationStateRS(simStructs: FlattenedStruct[][]) {
 
 use crate::simulation_state;
 use crate::presentation_state::CloneToPresentationState;
+use wasm_bindgen::prelude::*;
 
 #[allow(unused_imports)]
 use crate::presentation_state::ClientState;
+
+#[cfg(feature = "client")]
+use
+{
+	crate::presentation_state::get_entity_from_jsdata,
+	glam::Mat4,
+};
 
 ${VALID_TYPES}
 
@@ -32,6 +41,8 @@ ${simStructs
 					struct.name === "SimulationState" ? "PresentationState" : struct.name;
 
 				return `#[derive(Debug)]
+#[allow(non_camel_case_types)]
+#[wasm_bindgen]
 pub struct ${presentationStructName}
 {
 ${struct.fields
@@ -41,9 +52,10 @@ ${struct.fields
 		//<SlotMap<simulation_state::ClientState> as CloneToPresentationState>::PresentationState
 		//but sticking simulation_state inside the generics make it difficult
 		const presentationType = PRESENTATION_TYPE.get(outerType)?.(innerType) ?? fullType;
-		return `	pub ${name}: ${presentationType},`;
+		return `	#[wasm_bindgen(skip)]
+	pub ${name}: ${presentationType},`;
 	})
-	.join("\n")}
+	.join("\n\n")}
 }
 
 impl CloneToPresentationState for simulation_state::${struct.name}
@@ -68,6 +80,38 @@ ${struct.fields
 	.join("\n")}
 		}
 	}
+}
+
+#[cfg(feature = "client")]
+#[wasm_bindgen]
+impl ${presentationStructName}
+{
+${struct.fields
+	.filter(
+		({ netVisibility, isPresentation, outerType }) =>
+			struct.isEntity && isPresentation && netVisibility === "Public" && isPrimitive(outerType),
+	)
+	.map(function ({ name, fullType }) {
+		if ((simplePrimitives as readonly string[]).includes(fullType)) {
+			return generateJSReader(presentationStructName, name, fullType);
+		} else {
+			switch (fullType as (typeof multiFieldPrimitives)[number]) {
+				case "Vec2":
+					return generateMultiFieldReader(presentationStructName, name, "xy", "f32");
+				case "DVec2":
+					return generateMultiFieldReader(presentationStructName, name, "xy", "f64");
+				case "Vec3A":
+					return generateMultiFieldReader(presentationStructName, name, "xyz", "f32");
+				case "DVec3":
+					return generateMultiFieldReader(presentationStructName, name, "xyz", "f64");
+				case "Quat":
+					return generateMultiFieldReader(presentationStructName, name, "xyzw", "f32");
+				case "DQuat":
+					return generateMultiFieldReader(presentationStructName, name, "xyzw", "f64");
+			}
+		}
+	})
+	.join("\n\n")}
 }`;
 			})
 			.join("\n\n"),
@@ -75,4 +119,23 @@ ${struct.fields
 	.join("\n\n")}
 `,
 	);
+}
+
+function generateJSReader(structName: string, fieldName: string, fullType: string, subfield?: string) {
+	return `	pub unsafe fn get_${fieldName}${subfield ? `_${subfield}` : ``}(mat_ptr: *const Mat4) -> ${fullType}
+	{
+		let entity = unsafe { get_entity_from_jsdata::<${structName}>(mat_ptr) };
+		entity.${fieldName}${subfield ? `.${subfield}` : ``}
+	}`;
+}
+
+function generateMultiFieldReader(
+	structName: string,
+	fieldName: string,
+	components: string,
+	subfieldType: string,
+) {
+	return Array.from(components, (component) =>
+		generateJSReader(structName, fieldName, subfieldType, component),
+	).join("\n\n");
 }

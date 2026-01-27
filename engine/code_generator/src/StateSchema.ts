@@ -1,7 +1,9 @@
 import { z } from "zod";
 import type { DeeplyPartial } from "@engine/code_generator/Common.ts";
 
-export const primitiveTypeSchema = z.enum([
+//true single-field primitives that can be easily read
+//directly from wasm memory
+export const simplePrimitives = [
 	"bool",
 	"u8",
 	"i8",
@@ -16,13 +18,18 @@ export const primitiveTypeSchema = z.enum([
 	"char", //utf-32
 	"usize32",
 	"isize32",
+] as const;
+
+export const multiFieldPrimitives = [
 	"Vec2", //xy, f32
 	"DVec2", //xy, f64
 	"Vec3A", //xyz, f32 (technically 4 floats for simd purposes, and 1 goes to waste)
 	"DVec3", //xyz, f64
 	"Quat", //xyzw, f32
-	"DQuat", //zyzw, f64
-]);
+	"DQuat", //xyzw, f64
+] as const;
+
+export const primitiveTypeSchema = z.enum([...simplePrimitives, ...multiFieldPrimitives]);
 
 export const collectionTypeSchema = z.enum(["SlotMap"]);
 export const utilityTypeSchema = z.enum([]);

@@ -5,6 +5,7 @@ use glam::{Mat4, Quat, Vec3A};
 use js_sys::{Function, Reflect};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::ptr;
 use wasm_bindgen::{JsValue, throw_val};
 
 pub trait Entity: Debug {
@@ -15,13 +16,36 @@ pub trait Entity: Debug {
 	fn get_scl(&self) -> Vec3A;
 }
 
+//the per-entity data exposed to js via array buffer views
+pub(crate) struct JSData<T: Entity> {
+	pub ptr: *const T,
+	pub mat: Mat4,
+}
+
+impl<T: Entity> Default for JSData<T> {
+	fn default() -> Self {
+		Self {
+			mat: Mat4::IDENTITY,
+			ptr: ptr::null(),
+		}
+	}
+}
+
 //represents storage of all entities of a certain kind
 //eg. "this one instance of InterpolatedEntityType owns
 //all characters"
-#[derive(Default)]
-pub struct InterpolatedEntityType {
-	mat: Vec<Mat4>,
+pub struct InterpolatedEntityType<T: Entity> {
+	data: Vec<JSData<T>>,
 	pub obj: HashMap<usize32, InterpolatedEntityInstance>,
+}
+
+impl<T: Entity> Default for InterpolatedEntityType<T> {
+	fn default() -> Self {
+		Self {
+			data: Vec::default(),
+			obj: HashMap::default(),
+		}
+	}
 }
 
 #[derive(Debug)]
@@ -49,7 +73,7 @@ pub fn interpolate_type<T: Entity>(
 	received_new_tick: bool,
 	prv_entities: &[(usize32, T)],
 	cur_entities: &[(usize32, T)],
-	out_entities: &mut InterpolatedEntityType,
+	out_entities: &mut InterpolatedEntityType<T>,
 	amount: f32,
 	cache: &JSValueCache,
 ) {
@@ -58,9 +82,9 @@ pub fn interpolate_type<T: Entity>(
 		.obj
 		.reserve(cur_count.saturating_sub(out_entities.obj.len()));
 
-	let prv_mat_ptr = out_entities.mat.as_ptr();
-	out_entities.mat.resize(cur_count, Mat4::IDENTITY);
-	let rebind_all = prv_mat_ptr != out_entities.mat.as_ptr(); //can only be true if rebind is true
+	let prv_data_ptr = out_entities.data.as_ptr();
+	out_entities.data.resize_with(cur_count, JSData::default);
+	let rebind_all = prv_data_ptr != out_entities.data.as_ptr(); //can only be true if rebind is true
 
 	//when entity id's don't match for a given physical
 	//index, store them here to sort out later. using
@@ -106,8 +130,14 @@ pub fn interpolate_type<T: Entity>(
 				js_obj.pos = prv_entity.1.get_pos().lerp(cur_entity.1.get_pos(), amount);
 				js_obj.rot = prv_entity.1.get_rot().slerp(cur_entity.1.get_rot(), amount);
 				js_obj.scl = prv_entity.1.get_scl().lerp(cur_entity.1.get_scl(), amount);
-				out_entities.mat[physical_index] =
-					Mat4::from_scale_rotation_translation(js_obj.scl.into(), js_obj.rot, js_obj.pos.into());
+				out_entities.data[physical_index] = JSData {
+					mat: Mat4::from_scale_rotation_translation(
+						js_obj.scl.into(),
+						js_obj.rot,
+						js_obj.pos.into(),
+					),
+					ptr: &cur_entity.1 as *const T,
+				};
 
 				if rebind_all {
 					//the matrices array was reallocated in order
@@ -116,7 +146,7 @@ pub fn interpolate_type<T: Entity>(
 					unsafe {
 						bind_matrix(
 							&out_entities.obj.get_mut(&cur_entity.0).unwrap().matrix_world,
-							&out_entities.mat[physical_index],
+							&out_entities.data[physical_index].mat,
 							cache,
 						);
 					}
@@ -155,8 +185,14 @@ pub fn interpolate_type<T: Entity>(
 				js_obj.pos = prv_entity.get_pos().lerp(cur_entity.get_pos(), amount);
 				js_obj.rot = prv_entity.get_rot().slerp(cur_entity.get_rot(), amount);
 				js_obj.scl = prv_entity.get_scl().lerp(cur_entity.get_scl(), amount);
-				out_entities.mat[physical_index] =
-					Mat4::from_scale_rotation_translation(js_obj.scl.into(), js_obj.rot, js_obj.pos.into());
+				out_entities.data[physical_index] = JSData {
+					mat: Mat4::from_scale_rotation_translation(
+						js_obj.scl.into(),
+						js_obj.rot,
+						js_obj.pos.into(),
+					),
+					ptr: cur_entity as *const T,
+				};
 
 				if received_new_tick {
 					Some(&js_obj.matrix_world)
@@ -176,11 +212,14 @@ pub fn interpolate_type<T: Entity>(
 				cache.scene_add.call1(&JsValue::NULL, &object_3d).unwrap();
 
 				let matrix_world = Reflect::get(&object_3d, &cache.matrix_world_str).unwrap();
-				out_entities.mat[physical_index] = Mat4::from_scale_rotation_translation(
-					cur_entity.get_scl().into(),
-					cur_entity.get_rot(),
-					cur_entity.get_pos().into(),
-				);
+				out_entities.data[physical_index] = JSData {
+					mat: Mat4::from_scale_rotation_translation(
+						cur_entity.get_scl().into(),
+						cur_entity.get_rot(),
+						cur_entity.get_pos().into(),
+					),
+					ptr: cur_entity as *const T,
+				};
 
 				Some(
 					&out_entities
@@ -201,7 +240,7 @@ pub fn interpolate_type<T: Entity>(
 
 			if let Some(three_matrix) = rebind_matrix {
 				unsafe {
-					bind_matrix(three_matrix, &out_entities.mat[physical_index], cache);
+					bind_matrix(three_matrix, &out_entities.data[physical_index].mat, cache);
 				}
 			}
 		}

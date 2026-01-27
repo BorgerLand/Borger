@@ -40,6 +40,15 @@ export async function init(cb: {
 					renderer.scene3D,
 					function (type: ClientRS.EntityKind) {
 						const o3d = cb?.onSpawnEntity?.(type) ?? new Object3D();
+						o3d.userData.entityKind = type;
+						o3d.userData.getRSPointer = function () {
+							//byteOffset is the pointer to JSData.mat. this pointer
+							//can be used to find and dereference JSData.ptr, which
+							//points to this Object3D's corresponding PresentationState
+							//see struct JSData in handwritten/entities.rs
+							return (o3d.matrix.elements as unknown as Float32Array).byteOffset;
+						};
+
 						Renderer.blockMatrixWorldUpdate(o3d);
 						return o3d;
 					},

@@ -19,7 +19,8 @@ ${VALID_TYPES}
 
 ${structs.input
 	.map(function generateInputStruct(struct) {
-		return `#[derive(Debug, Default, Clone)]${
+		return `#[derive(Debug, Default, Clone)]
+#[allow(non_camel_case_types)]${
 			struct.name === "InputState"
 				? `
 #[wasm_bindgen]`
@@ -47,6 +48,7 @@ ${structs.sim
 			.map(function generateSimulationStruct(struct) {
 				//primitive fields need setter/getter
 				return `#[derive(Debug)]
+#[allow(non_camel_case_types)]
 pub struct ${struct.name}
 {
 	pub(crate) _diff_path: Rc<Vec<usize32>>,${struct.fields

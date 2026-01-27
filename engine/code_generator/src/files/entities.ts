@@ -28,7 +28,7 @@ ${entities.map((entity) => `	${entity.struct.name},`).join("\n")}
 #[derive(Default)]
 pub struct EntityBindings
 {
-${entities.map((entity) => `	pub ${entity.field.name}: InterpolatedEntityType,`).join("\n")}
+${entities.map((entity) => `	pub ${entity.field.name}: InterpolatedEntityType<${entity.struct.name}>,`).join("\n")}
 }
 
 ${entities

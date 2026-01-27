@@ -55,7 +55,6 @@ mod handwritten {
 	pub(crate) mod entities;
 }
 
-#[allow(non_camel_case_types)]
 mod generated {
 	pub(crate) mod constructors;
 	pub(crate) mod diff_des;
