@@ -37,7 +37,13 @@ impl SimControllerInternals {
 			debug_assert_eq!(self.ctx.tick.id_consensus, self.ctx.tick.id_cur);
 			debug_assert_eq!(offset, self.ctx.tick.id_consensus - tick_id_target);
 
-			self.recalibrate_requested = true;
+			if self.initial_calibration {
+				//attempt to account for the time in between the server
+				//sending the state snapshot and however long it took the
+				//simulation thread to start running
+				self.ctx.tick.recalibrate(-(offset as i16));
+			}
+
 			if TRACE_TICK_ADVANCEMENT {
 				debug!("fell too far behind server. timed out {} ticks ago", offset);
 			}
@@ -51,7 +57,7 @@ impl SimControllerInternals {
 			&& get_jitter(&self.calibration_samples) < JITTER_TOLERANCE
 		{
 			let average_offset = self.calibration_samples.iter().sum::<i16>() / OFFSET_BUFFER_SIZE as i16;
-			if self.recalibrate_requested
+			if self.initial_calibration
 				|| TickInfo::get_duration(average_offset.abs() as TickID) >= OFFSET_TOLERANCE
 			{
 				if TRACE_TICK_ADVANCEMENT {
@@ -59,7 +65,7 @@ impl SimControllerInternals {
 				}
 
 				self.calibration_samples.clear();
-				self.recalibrate_requested = false;
+				self.initial_calibration = false;
 
 				if average_offset == 0 {
 					return;
@@ -307,8 +313,6 @@ impl SimControllerInternals {
 		}
 
 		if consensus_timeout_amount > 0 {
-			//data is borked from large lag spike
-			self.calibration_samples.clear();
 			if TRACE_TICK_ADVANCEMENT {
 				debug!("{} ticks experienced consensus timeout", consensus_timeout_amount);
 			}

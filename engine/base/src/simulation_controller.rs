@@ -103,7 +103,7 @@ pub(crate) struct SimControllerInternals {
 	#[cfg(feature = "client")]
 	calibration_samples: VecDeque<i16>,
 	#[cfg(feature = "client")]
-	recalibrate_requested: bool,
+	initial_calibration: bool,
 }
 
 #[derive(Default, Debug)]
@@ -263,7 +263,7 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 		#[cfg(feature = "client")]
 		calibration_samples: VecDeque::new(),
 		#[cfg(feature = "client")]
-		recalibrate_requested: true,
+		initial_calibration: true,
 	};
 
 	#[cfg(feature = "client")]
