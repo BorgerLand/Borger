@@ -5,7 +5,6 @@ import * as UI from "@presentation/ui/Index.tsx";
 import * as Crosshair from "@presentation/scene/Crosshair.ts";
 import * as Input from "@simulation/Input.ts";
 import { BoxGeometry, Color, DirectionalLight, LightProbe, Mesh, SphericalHarmonics3, Vector3 } from "three";
-import { GLTFLoader } from "three/examples/jsm/Addons.js";
 
 Crosshair.init();
 
@@ -42,11 +41,6 @@ scene.add(new LightProbe(sh, 2));
 const directionalLight = new DirectionalLight(0xffffff, 3);
 directionalLight.position.set(1, 1, 1);
 scene.add(directionalLight);
-
-const nose = (await new GLTFLoader().loadAsync("/nose.glb")).scene;
-nose.position.y = 20;
-nose.scale.setScalar(7);
-scene.add(nose);
 
 //point of reference
 const box = new Mesh(new BoxGeometry());
