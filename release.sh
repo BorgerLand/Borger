@@ -6,6 +6,7 @@ RUN=""
 PASSWORD=""
 FULLCHAIN=""
 PRIVKEY=""
+PORT="5173"
 
 if [ $# -eq 0 ]; then
 	echo "Options:"
@@ -14,6 +15,7 @@ if [ $# -eq 0 ]; then
 	echo "--password \"the password\""
 	echo "--fullchain \"/path/to/fullchain.pem\""
 	echo "--privkey \"/path/to/privkey.pem\""
+	echo "--port # (default: 5173)"
 	echo "--help"
 	exit 0
 fi
@@ -40,6 +42,10 @@ while [[ $# -gt 0 ]]; do
 			PRIVKEY="$2"
 			shift 2
 			;;
+		--port)
+			PORT="$2"
+			shift 2
+			;;
 		-h|--help|*)
 			echo "Options:"
 			echo "--build"
@@ -47,6 +53,7 @@ while [[ $# -gt 0 ]]; do
 			echo "--password \"the password\""
 			echo "--fullchain \"/path/to/fullchain.pem\""
 			echo "--privkey \"/path/to/privkey.pem\""
+			echo "--port <port> (default: 5173)"
 			echo "--help"
 			exit 0
 			;;
@@ -116,14 +123,14 @@ if [ -n "$RUN" ]; then
 	
 	bun concurrently \
 		"$SERVER_CMD" \
-		"cd client && cat <<'SCRIPT' | PASSWORD=\"$PASSWORD\" FULLCHAIN=\"$FULLCHAIN\" PRIVKEY=\"$PRIVKEY\" bun -
+		"cd client && cat <<'SCRIPT' | PASSWORD=\"$PASSWORD\" FULLCHAIN=\"$FULLCHAIN\" PRIVKEY=\"$PRIVKEY\" PORT=\"$PORT\" bun -
 import { serve } from \"bun\";
 import { file } from \"bun\";
 
 const password = process.env.PASSWORD;
 const fullchain = process.env.FULLCHAIN;
 const privkey = process.env.PRIVKEY;
-const port = 5173;
+const port = parseInt(process.env.PORT) || 5173;
 const headers = {
 	\"Cross-Origin-Opener-Policy\": \"same-origin\",
 	\"Cross-Origin-Embedder-Policy\": \"require-corp\",
@@ -172,6 +179,9 @@ if (fullchain && privkey) {
 		key: Bun.file(privkey),
 	};
 }
+
+const protocol = (fullchain && privkey) ? \"HTTPS\" : \"HTTP\";
+console.log(\`\${protocol} server running on port \${port}\`);
 
 serve(serverOptions);
 SCRIPT"
