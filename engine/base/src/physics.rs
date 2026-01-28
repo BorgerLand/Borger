@@ -72,6 +72,7 @@ impl Debug for Physics {
 }
 
 impl Physics {
+	#[allow(unused)]
 	pub(crate) fn default() -> Self {
 		let level_col = ColliderBuilder::cuboid(100.0, 25.0, 100.0)
 			.position(Pose3 {
