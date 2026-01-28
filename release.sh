@@ -135,6 +135,7 @@ const headers = {
 	\"Cross-Origin-Opener-Policy\": \"same-origin\",
 	\"Cross-Origin-Embedder-Policy\": \"require-corp\",
 	\"Cache-Control\": \"no-store\",
+	\"Strict-Transport-Security\": \"max-age=31536000; includeSubDomains\",
 };
 
 function checkAuth(req) {
