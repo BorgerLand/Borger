@@ -5,7 +5,7 @@ use glam::Mat4;
 
 pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBindings) {
 	//treasure hunt for the position of this client's character
-	let cam_target = character::to_eye_pos(get_local_entity(tick, bindings).pos.into());
+	let cam_target = get_local_entity(tick, bindings).pos;
 
 	//players' toleration for latency between moving the mouse and seeing camera
 	//movement is so extremely low that not even multiplayer_tradeoff!(Immediate)

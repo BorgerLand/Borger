@@ -1,4 +1,4 @@
-use crate::simulation::{character, physics_demo, physstep};
+use crate::simulation::character;
 use base::prelude::*;
 
 //the deterministic-ish simulation update tick pipeline.
@@ -10,13 +10,5 @@ use base::prelude::*;
 //switching /.vscode/settings.json to server mode while
 //working in here
 pub fn simulation_tick(ctx: &mut GameContext<Immediate>) {
-	//set the stage for physstep
-	character::update_pre_physstep(ctx);
-	physics_demo::update_pre_physstep(ctx);
-
-	physstep::update(ctx);
-
-	//use the results of physstep
-	character::update_post_physstep(ctx);
-	physics_demo::update_post_physstep(ctx);
+	character::update(ctx);
 }

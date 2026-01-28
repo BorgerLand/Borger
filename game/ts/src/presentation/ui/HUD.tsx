@@ -5,11 +5,9 @@ export function HUD() {
 			<br />
 			WASD - Movement
 			<br />
-			Space - Jump
+			Space - Up
 			<br />
-			Left click - Enable gravity
-			<br />
-			Right click - Blow nose
+			Shift - Down
 		</div>
 	);
 }

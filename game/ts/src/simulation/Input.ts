@@ -1,4 +1,4 @@
-import { InputPoll, MouseButton } from "@engine/client_ts/InputPoll.ts";
+import { InputPoll } from "@engine/client_ts/InputPoll.ts";
 import * as ClientRS from "@engine/client_rs";
 
 let poll: InputPoll;
@@ -9,7 +9,8 @@ const INPUT_SETTINGS = {
 
 	left: ["a"],
 	right: ["d"],
-	jump: [" "],
+	down: ["shift"],
+	up: [" "],
 	backward: ["s"],
 	forward: ["w"],
 	undo: ["control", "z"],
@@ -32,23 +33,20 @@ export function update() {
 		const leftDown = poll.keysAreDown(INPUT_SETTINGS.left);
 		const rightDown = poll.keysAreDown(INPUT_SETTINGS.right);
 		const backwardDown = poll.keysAreDown(INPUT_SETTINGS.backward);
+		const downDown = poll.keysAreDown(INPUT_SETTINGS.down);
+		const upDown = poll.keysAreDown(INPUT_SETTINGS.up);
 		const forwardDown = poll.keysAreDown(INPUT_SETTINGS.forward);
-		const jumpDown = poll.keysAreDown(INPUT_SETTINGS.jump);
-		const leftClick = poll.isPointerJustPressed(MouseButton.LEFT);
-		const rightClick = poll.isPointerDown(MouseButton.RIGHT);
 
 		ClientRS.populate_input(
 			rsInput,
 			dx * INPUT_SETTINGS.sensitivity,
 			dy * INPUT_SETTINGS.sensitivity,
 			Number(rightDown) - Number(leftDown),
+			Number(upDown) - Number(downDown),
 			Number(forwardDown) - Number(backwardDown),
-			jumpDown,
-			leftClick,
-			rightClick,
 		);
 	} else {
-		ClientRS.populate_input(rsInput, 0, 0, 0, 0, false, false, false);
+		ClientRS.populate_input(rsInput, 0, 0, 0, 0, 0);
 	}
 
 	poll.update();

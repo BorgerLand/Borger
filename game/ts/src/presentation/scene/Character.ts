@@ -1,27 +1,13 @@
-import { Object3D } from "three";
-import { GLTFLoader } from "three/examples/jsm/Addons.js";
+import { ConeGeometry, MathUtils, Mesh, MeshLambertMaterial } from "three";
+import type { Object3D } from "three";
 
-const loader = new GLTFLoader();
-const gruPromise = loader.loadAsync("/gru.glb").then(function (result) {
-	const gru = result.scene;
-	gru.position.y -= 1.5;
-	gru.rotation.y = Math.PI;
-	gru.scale.setScalar(0.18);
-	return gru;
-});
-
-//values copied from rust
-/*const colliderHeight = 2.2;
-const colliderRadius = 0.35;
-const debugGeom = new CapsuleGeometry(colliderRadius, colliderHeight - 2 * colliderRadius);
-const debugMat = new MeshBasicMaterial();
-debugMat.wireframe = true;
-const debugMesh = new Mesh(debugGeom, debugMat);*/
+const characterGeom = new ConeGeometry();
+characterGeom.rotateX(-90 * MathUtils.DEG2RAD);
+characterGeom.scale(0.3, 0.3, 0.7);
+const characterMat = new MeshLambertMaterial({ color: 0x00ff00 });
 
 export function spawnCharacter() {
-	const entity = new Object3D();
-	gruPromise.then((gru) => entity.add(gru.clone()));
-	return entity;
+	return new Mesh(characterGeom, characterMat);
 }
 
 export function disposeCharacter(_character: Object3D): true {
