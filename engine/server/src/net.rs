@@ -20,7 +20,14 @@ pub const NET_TIMEOUT: u64 = 10; //kill a connection after this many seconds of 
 pub const NET_INPUT_SIZE_LIMIT: usize32 = 512; //in bytes
 
 pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>, flags: &Flags) {
-	let identity = Identity::self_signed(["localhost"]).unwrap();
+	let identity = match (&flags.fullchain, &flags.privkey) {
+		(Some(fullchain), Some(privkey)) => Identity::load_pemfiles(fullchain, privkey).await.unwrap(),
+		(None, None) => Identity::self_signed(["localhost"]).unwrap(),
+		_ => {
+			panic!("--fullchain and --privkey must both be provided, or neither");
+		}
+	};
+
 	let cert = identity.certificate_chain().as_slice()[0]
 		.hash()
 		.fmt(Sha256DigestFmt::BytesArray);
