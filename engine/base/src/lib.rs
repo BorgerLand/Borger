@@ -165,7 +165,7 @@ pub struct SimulationCallbacks {
 	//input operations
 	pub input_validate: fn(/*sus*/ &mut InputState),
 	pub input_predict_late: fn(
-		/*last_known*/ &InputState,
+		/*prv*/ &InputState,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
 	) -> InputState,

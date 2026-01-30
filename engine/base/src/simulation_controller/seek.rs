@@ -94,97 +94,100 @@ impl SimControllerInternals {
 				#[cfg(feature = "server")]
 				let acked_input;
 
-				let (input_prv, input_cur) = if has_consensus {
-					#[cfg(feature = "server")]
-					{
-						buffer = self.ctx.diff.tx_begin_tick(client_id, true);
-						let buffer = buffer.as_mut().unwrap();
-						tick_type.ser_tx(buffer);
-
-						//there should be 2 inputs for this tick on all clients,
-						//where index 0 is associated with the most recent
-						//consensus tick and index 1 is the tick reaching
-						//consensus now. if there are fewer than 2 inputs, this
-						//is a forced timeout due to not receiving client's
-						//inputs in time, in which case the server's prediction
-						//becomes final, in order to prevent WaitForConsensus
-						//game logic from stalling forever
-						let prv = input_history.entries.pop_front().unwrap();
-
-						let cur = match input_history.entries.front().cloned() {
-							Some(input) => {
-								acked_input = true;
-								input
-							}
-							None => {
-								//this client caused a consensus timeout
-								input_history.timed_out_ticks += 1;
-
-								let finalized_prediction = InternalInputEntry {
-									input: (self.cb.input_predict_late)(
-										&prv.input,
-										&self.ctx.state,
-										client_id,
-									),
-									ping: None,
-								};
-
-								input_history.entries.push_back(finalized_prediction.clone());
-
-								acked_input = false;
-								finalized_prediction
-							}
-						};
-
-						acked_input.ser_tx(buffer);
-						(prv, cur)
-					}
-
-					#[cfg(feature = "client")]
-					{
-						unreachable!()
-					}
-				} else {
-					//tick is not at consensus so no guarantee of any inputs existing
-					let prv = get_input(
-						self.ctx.tick.id_cur - 1,
-						&self.ctx,
-						&mut input_history.entries,
+				let ((input_prv, input_prv_is_predicted), (input_cur, input_cur_is_predicted)) =
+					if has_consensus {
 						#[cfg(feature = "server")]
-						self.cb.input_predict_late,
-						#[cfg(feature = "server")]
-						client_id,
-					);
-
-					let cur = get_input(
-						self.ctx.tick.id_cur,
-						&self.ctx,
-						&mut input_history.entries,
-						#[cfg(feature = "server")]
-						self.cb.input_predict_late,
-						#[cfg(feature = "server")]
-						client_id,
-					);
-
-					#[cfg(feature = "server")]
-					{
-						acked_input = cur.is_ok();
-						buffer = self.ctx.diff.tx_begin_tick(client_id, acked_input);
-						if let Some(buffer) = &mut buffer {
+						{
+							buffer = self.ctx.diff.tx_begin_tick(client_id, true);
+							let buffer = buffer.as_mut().unwrap();
 							tick_type.ser_tx(buffer);
-							self.ctx.tick.id_cur.ser_tx(buffer);
-						}
-					}
 
-					(prv.unwrap_or_else(|prv| prv), cur.unwrap_or_else(|cur| cur))
-				};
+							//there should be 2 inputs for this tick on all clients,
+							//where index 0 is associated with the most recent
+							//consensus tick and index 1 is the tick reaching
+							//consensus now. if there are fewer than 2 inputs, this
+							//is a forced timeout due to not receiving client's
+							//inputs in time, in which case the server's prediction
+							//becomes final, in order to prevent WaitForConsensus
+							//game logic from stalling forever
+							let prv = input_history.entries.pop_front().unwrap();
+
+							let cur = match input_history.entries.front().cloned() {
+								Some(input) => {
+									acked_input = true;
+									input
+								}
+								None => {
+									//this client caused a consensus timeout
+									input_history.timed_out_ticks += 1;
+
+									let finalized_prediction = InternalInputEntry {
+										input: (self.cb.input_predict_late)(
+											&prv.input,
+											&self.ctx.state,
+											client_id,
+										),
+										ping: None,
+									};
+
+									input_history.entries.push_back(finalized_prediction.clone());
+
+									acked_input = false;
+									finalized_prediction
+								}
+							};
+
+							acked_input.ser_tx(buffer);
+							((prv, false), (cur, false))
+						}
+
+						#[cfg(feature = "client")]
+						{
+							unreachable!()
+						}
+					} else {
+						//tick is not at consensus so no guarantee of any inputs existing
+						let prv = get_input(
+							self.ctx.tick.id_cur - 1,
+							&self.ctx,
+							&mut input_history.entries,
+							#[cfg(feature = "server")]
+							self.cb.input_predict_late,
+							#[cfg(feature = "server")]
+							client_id,
+						);
+
+						let cur = get_input(
+							self.ctx.tick.id_cur,
+							&self.ctx,
+							&mut input_history.entries,
+							#[cfg(feature = "server")]
+							self.cb.input_predict_late,
+							#[cfg(feature = "server")]
+							client_id,
+						);
+
+						#[cfg(feature = "server")]
+						{
+							acked_input = !cur.1;
+							buffer = self.ctx.diff.tx_begin_tick(client_id, acked_input);
+							if let Some(buffer) = &mut buffer {
+								tick_type.ser_tx(buffer);
+								self.ctx.tick.id_cur.ser_tx(buffer);
+							}
+						}
+
+						(prv, cur)
+					};
 
 				let input = &mut get_owned_client_mut(&mut self.ctx.state.clients, client_id)
 					.unwrap()
 					.input;
 
 				input.prv = input_prv.input;
+				input.prv_predicted = input_prv_is_predicted;
 				input.cur = input_cur.input;
+				input.cur_predicted = input_cur_is_predicted;
 
 				#[cfg(feature = "server")]
 				if let Some(server_offset_ping) = input_cur.ping {
@@ -208,20 +211,20 @@ impl SimControllerInternals {
 	}
 }
 
-//ok = true acked input, err = generated by predict_late
+//.1 false = acked input, .1 true = generated by predict_late
 fn get_input(
 	tick: TickID,
 	ctx: &GameContext<Impl>,
 	history: &mut VecDeque<InternalInputEntry>,
 
 	#[cfg(feature = "server")] predict_late: fn(
-		/*last_known*/ &InputState,
+		/*prv*/ &InputState,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
 	) -> InputState,
 
 	#[cfg(feature = "server")] client_id: usize32,
-) -> Result<InternalInputEntry, InternalInputEntry> {
+) -> (InternalInputEntry, bool) {
 	let input_idx = 1 + tick - ctx.tick.id_consensus;
 	match history.get_mut(input_idx as usize) {
 		//input has been received. server acks it
@@ -234,7 +237,7 @@ fn get_input(
 				entry.ping = None;
 			}
 
-			Ok(clone)
+			(clone, false)
 		}
 
 		//input hasn't arrived for this tick yet (not acked)
@@ -246,7 +249,7 @@ fn get_input(
 				input = predict_late(&input, &ctx.state, client_id);
 			}
 
-			Err(InternalInputEntry { input, ping: None })
+			(InternalInputEntry { input, ping: None }, true)
 		}
 
 		//client locally will always have its own inputs. 0 latency!

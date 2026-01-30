@@ -38,14 +38,18 @@ impl SlotMap<ClientState> {
 #[derive(Debug)]
 pub struct InputStateHistory {
 	pub(crate) cur: InputState,
+	pub(crate) cur_predicted: bool,
 	pub(crate) prv: InputState,
+	pub(crate) prv_predicted: bool,
 }
 
 impl InputStateHistory {
 	pub(crate) fn default() -> Self {
 		Self {
 			cur: InputState::default(),
+			cur_predicted: false,
 			prv: InputState::default(),
+			prv_predicted: false,
 		}
 	}
 
@@ -53,7 +57,15 @@ impl InputStateHistory {
 		&self.cur
 	}
 
+	pub fn is_predicted(&self) -> bool {
+		self.cur_predicted
+	}
+
 	pub fn get_prv(&self) -> &InputState {
 		&self.prv
+	}
+
+	pub fn is_prv_predicted(&self) -> bool {
+		self.prv_predicted
 	}
 }

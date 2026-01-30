@@ -80,29 +80,38 @@ pub fn validate(sus: &mut InputState) {
 }
 
 //the server needs to continue simulating even if it hasn't
-//received inputs from all clients yet, and a client needs
-//to continue simulating even if it hasn't received a new
-//input from the presentation thread yet. this function lets
+//received inputs from all clients yet due to latency, and a
+//client needs to continue simulating even if it hasn't received
+//a new input from the presentation thread yet due to the
+//presentation thread stalling momentarily. this function lets
 //you choose how the engine fabricates an input, given the
 //previous tick's input. if accessing state.clients[client_id]:
 //the clientstate will always be owned. do not access
-//client.input; it will be wrong; use last_known instead
-pub fn predict_late(last_known: &InputState, _state: &SimulationState, _client_id: usize32) -> InputState {
-	//default to assuming the client stopped pressing
-	//anything, and the camera hasn't moved. in racing/
-	//vehicle games it's more common to assume they
-	//will continue pressing the throttle, but trying
-	//this on running+jumping character puts them at
-	//risk of running off cliffs. push-and-hold buttons
-	//(eg. left click, controller triggers) are also
-	//usually safe to assume they are still in the same
-	//position
+//client.input; it will be wrong; use prv instead
+pub fn predict_late(prv: &InputState, _state: &SimulationState, _client_id: usize32) -> InputState {
 	InputState {
-		cam_yaw: last_known.cam_yaw,
-		cam_pitch: last_known.cam_pitch,
-		cam_radius: last_known.cam_radius,
+		//predict that camera hasn't moved
+		cam_yaw: prv.cam_yaw,
+		cam_pitch: prv.cam_pitch,
+		cam_radius: prv.cam_radius,
 
+		//the server predicts that the client stopped attempting to move
+		//if it hasn't received any input yet. depending on your gameplay
+		//type (racing/vehicle?) it may make more sense to predict that
+		//they continue holding the throttle. you may also read from
+		//SimulationState to help inform the server's decision
+		#[cfg(feature = "server")]
 		omnidir: Vec3A::default(),
+		//client has different behavior because there is no network
+		//latency involved here. when the presentation thread hiccups,
+		//just assume they keep holding the throttle, to avoid stutters
+		#[cfg(feature = "client")]
+		omnidir: prv.omnidir,
+		//push-and-hold buttons (eg. left click, controller triggers)
+		//are also usually safe to predict they are still in the same
+		//position. discrete taps (eg. reload, talk to npc) are normally
+		//safe to predict false or else you risk triggering some action
+		//twice
 	}
 }
 
