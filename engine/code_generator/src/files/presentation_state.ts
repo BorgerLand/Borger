@@ -89,7 +89,7 @@ impl ${presentationStructName}
 ${struct.fields
 	.filter(
 		({ netVisibility, isPresentation, outerType }) =>
-			struct.isEntity && isPresentation && netVisibility === "Public" && isPrimitive(outerType),
+			struct.isEntity && isPresentation && netVisibility !== "Private" && isPrimitive(outerType),
 	)
 	.map(function ({ name, fullType }) {
 		if ((simplePrimitives as readonly string[]).includes(fullType)) {
@@ -134,9 +134,9 @@ ${struct.fields
 //codegen, however, i'm going with the simplest possible
 //solution for now
 function generateJSReader(structName: string, fieldName: string, fullType: string, subfield?: string) {
-	return `	pub unsafe fn get_${fieldName}${subfield ? `_${subfield}` : ``}(mat_ptr: *const Mat4) -> ${fullType}
+	return `	pub unsafe fn get_${fieldName}${subfield ? `_${subfield}` : ``}(rs_ptr: *const Mat4) -> ${fullType}
 	{
-		let entity = unsafe { get_entity_from_jsdata::<${structName}>(mat_ptr) };
+		let entity = unsafe { get_entity_from_jsdata::<${structName}>(rs_ptr) };
 		entity.${fieldName}${subfield ? `.${subfield}` : ``}
 	}`;
 }

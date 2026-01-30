@@ -37,11 +37,11 @@ pub struct SimulationOutput {
 	pub state: PresentationState,
 }
 
-//safety: mat_ptr must point to an instance of a JSData's mat field
+//safety: rs_ptr must point to a JSData instance's mat field
 #[cfg(feature = "client")]
-pub(crate) unsafe fn get_entity_from_jsdata<'a, T: Entity>(mat_ptr: *const Mat4) -> &'a T {
+pub(crate) unsafe fn get_entity_from_jsdata<'a, T: Entity>(rs_ptr: *const Mat4) -> &'a T {
 	unsafe {
-		let js_data = &*(mat_ptr.sub(mem::offset_of!(JSData<T>, mat)) as *const JSData<T>);
+		let js_data = &*(rs_ptr.sub(mem::offset_of!(JSData<T>, mat)) as *const JSData<T>);
 		&*js_data.ptr
 	}
 }
