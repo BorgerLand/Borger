@@ -19,7 +19,7 @@ Edit /game/State.ts instead!
 export const VALID_TYPES = `#[allow(unused_imports)]
 use
 {
-	glam::{Vec2, DVec2, Vec3A, DVec3, Quat, DQuat},
+	glam::{Vec2, DVec2, Vec3, DVec3, Quat, DQuat},
 	crate::networked_types::primitive::{usize32, isize32},
 	crate::networked_types::collections::slotmap::SlotMap,
 };`;

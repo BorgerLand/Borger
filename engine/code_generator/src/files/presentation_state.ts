@@ -100,7 +100,7 @@ ${struct.fields
 					return generateMultiFieldReader(presentationStructName, name, "xy", "f32");
 				case "DVec2":
 					return generateMultiFieldReader(presentationStructName, name, "xy", "f64");
-				case "Vec3A":
+				case "Vec3":
 					return generateMultiFieldReader(presentationStructName, name, "xyz", "f32");
 				case "DVec3":
 					return generateMultiFieldReader(presentationStructName, name, "xyz", "f64");

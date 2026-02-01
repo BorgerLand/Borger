@@ -157,7 +157,7 @@ impl PresentationController {
 		self.sim
 			.comms
 			.to_sim
-			.send(PresentationToSimCommand::ReceiveState(state.to_vec().into()))
+			.send(PresentationToSimCommand::ReceiveState(state.to_vec()))
 			.unwrap();
 	}
 

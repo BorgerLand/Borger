@@ -2,7 +2,7 @@ use base::math::wrap_angle;
 use base::networked_types::primitive::usize32;
 use base::simulation_state::InputState;
 use base::simulation_state::SimulationState;
-use glam::Vec3A;
+use glam::Vec3;
 
 #[cfg(feature = "client")]
 use wasm_bindgen::prelude::*;
@@ -22,7 +22,7 @@ pub fn populate_input(
 		cam_pitch: input.cam_pitch + pointer_dy,
 		cam_radius: 0.0,
 
-		omnidir: Vec3A::new(omnidir_x, omnidir_y, omnidir_z),
+		omnidir: Vec3::new(omnidir_x, omnidir_y, omnidir_z),
 	};
 
 	validate(input);
@@ -41,7 +41,7 @@ pub fn merge(combined: &mut InputState, new: &InputState) {
 
 		//take newest nipple/omnidir if it exists. if not, don't overwrite the old one.
 		//allows very short sub-1-tick nipple movements to go through
-		omnidir: if new.omnidir != Vec3A::ZERO {
+		omnidir: if new.omnidir != Vec3::ZERO {
 			new.omnidir
 		} else {
 			combined.omnidir
@@ -70,7 +70,7 @@ pub fn validate(sus: &mut InputState) {
 		cam_pitch: valid_f32(sus.cam_pitch).clamp(-89.9_f32.to_radians(), 89.9_f32.to_radians()),
 		cam_radius: valid_f32(sus.cam_radius).clamp(0., f32::INFINITY),
 
-		omnidir: Vec3A::new(
+		omnidir: Vec3::new(
 			valid_f32(sus.omnidir.x).clamp(-1., 1.),
 			valid_f32(sus.omnidir.y).clamp(-1., 1.),
 			valid_f32(sus.omnidir.z).clamp(-1., 1.),
@@ -101,7 +101,7 @@ pub fn predict_late(prv: &InputState, _state: &SimulationState, _client_id: usiz
 		//they continue holding the throttle. you may also read from
 		//SimulationState to help inform the server's decision
 		#[cfg(feature = "server")]
-		omnidir: Vec3A::default(),
+		omnidir: Vec3::default(),
 		//client has different behavior because there is no network
 		//latency involved here. when the presentation thread hiccups,
 		//just assume they keep holding the throttle, to avoid stutters

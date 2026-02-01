@@ -30,7 +30,7 @@ export default {
 					//omnidirectional movement - 3D analog stick
 					//x = left/right, y = down/up, z = forward/back
 					//all axes in range [-1, 1]
-					omnidir: { netVisibility: "Owner", type: "Vec3A" },
+					omnidir: { netVisibility: "Owner", type: "Vec3" },
 				},
 			},
 
@@ -44,7 +44,7 @@ export default {
 		type: "SlotMap",
 		typeName: "Character",
 		content: {
-			pos: { netVisibility: "Public", presentation: true, type: "Vec3A" },
+			pos: { netVisibility: "Public", presentation: true, type: "Vec3" },
 			rot: { netVisibility: "Public", presentation: true, type: "Quat" },
 		},
 	},

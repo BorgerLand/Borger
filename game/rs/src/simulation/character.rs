@@ -1,6 +1,6 @@
 use base::networked_types::collections::slotmap::SlotMap;
 use base::prelude::*;
-use glam::{EulerRot, Quat, Vec3, Vec3A};
+use glam::{EulerRot, Quat, Vec3};
 
 #[cfg(feature = "server")]
 use base::networked_types::primitive::usize32;
@@ -53,12 +53,12 @@ fn apply_input(
 	let rot = Quat::from_axis_angle(Vec3::Y, input.cam_yaw);
 	character.set_rot(rot, diff);
 
-	let forward = rot * Vec3A::NEG_Z;
-	let right = forward.cross(Vec3A::Y);
+	let forward = rot * Vec3::NEG_Z;
+	let right = forward.cross(Vec3::Y);
 
 	let mut pos = character.get_pos();
 	pos += right * input.omnidir.x * SPEED * TickInfo::SIM_DT; //left/right
-	pos += Vec3A::Y * input.omnidir.y * SPEED * TickInfo::SIM_DT; //up/down
+	pos += Vec3::Y * input.omnidir.y * SPEED * TickInfo::SIM_DT; //up/down
 	pos += forward * input.omnidir.z * SPEED * TickInfo::SIM_DT; //forward/backward
 	character.set_pos(pos, diff);
 }

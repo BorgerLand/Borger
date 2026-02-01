@@ -42,7 +42,7 @@ ${simStructs
 					fieldID,
 				}) {
 					let constructor;
-					if (outerType === "Vec3A" && struct.isEntity && name === "scl") {
+					if (outerType === "Vec3" && struct.isEntity && name === "scl") {
 						//let entity scale default to 1, 1, 1
 						constructor = "ONE";
 					} else if (

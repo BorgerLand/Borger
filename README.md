@@ -43,7 +43,7 @@ export default {
 		type: "SlotMap",
 		content: {
 			//PUBLIC: all clients can see the item
-			pos: { netVisibility: "Public", type: "Vec3A" },
+			pos: { netVisibility: "Public", type: "Vec3" },
 
 			//PRIVATE: for server eyes only
 			is_booby_trapped: { netVisibility: "Private", type: "bool" },

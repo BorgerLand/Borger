@@ -28,7 +28,7 @@ export function generateInterpolationRS(simStructs: FlattenedStruct[][]) {
 use crate::presentation_state::*;
 use wasm_bindgen::prelude::*;
 use crate::js_bindings::JSBindings;
-use glam::{Vec3, Mat4};
+use glam::Mat4;
 use crate::interpolation::
 {
 	interpolate_type,
@@ -62,9 +62,9 @@ ${entities
 	{
 		Mat4::from_scale_rotation_translation
 		(
-			${entity.mainStruct.fields.some((field) => field.name === "scl") ? "self.scl.into()" : "Vec3::ONE"},
+			${entity.mainStruct.fields.some((field) => field.name === "scl") ? "self.scl" : "Vec3::ONE"},
 			${entity.mainStruct.fields.some((field) => field.name === "rot") ? "self.rot" : "Quat::IDENTITY"},
-			${entity.mainStruct.fields.some((field) => field.name === "pos") ? "self.pos.into()" : "Vec3::ZERO"},
+			${entity.mainStruct.fields.some((field) => field.name === "pos") ? "self.pos" : "Vec3::ZERO"},
 		)
 	}
 }`,
@@ -146,7 +146,7 @@ const interpolators: [PrimitiveType, string][] = [
 	["f64", f64 + scalar],
 	["Vec2", vec],
 	["DVec2", f64 + vec],
-	["Vec3A", vec],
+	["Vec3", vec],
 	["DVec3", f64 + vec],
 	["Quat", quat],
 	["DQuat", f64 + quat],

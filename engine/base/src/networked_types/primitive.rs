@@ -2,7 +2,7 @@ use crate::context::Impl;
 use crate::diff_ser::DiffSerializer;
 use crate::tick::TickType;
 use crate::{DeserializeOopsy, DiffOperation};
-use glam::{DQuat, DVec2, DVec3, Quat, Vec2, Vec3, Vec3A};
+use glam::{DQuat, DVec2, DVec3, Quat, Vec2, Vec3};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 
@@ -371,21 +371,6 @@ impl PrimitiveSerDes for char {
 impl PrimitiveSerDes for Vec2 {}
 impl PrimitiveSerDes for DVec2 {}
 impl PrimitiveSerDes for Vec3 {}
-
-impl PrimitiveSerDes for Vec3A {
-	fn ser_rollback(self, buffer: &mut Vec<u8>) {
-		Vec3::from(self).ser_rollback(buffer);
-	}
-
-	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		Vec3::des_rollback(buffer).map(|v| v.into())
-	}
-
-	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		Vec3::des_rx(buffer).map(|v| v.into())
-	}
-}
-
 impl PrimitiveSerDes for DVec3 {}
 impl PrimitiveSerDes for Quat {}
 impl PrimitiveSerDes for DQuat {}
@@ -478,7 +463,6 @@ impl SliceSerDes<char> for [char] {}
 impl SliceSerDes<Vec2> for [Vec2] {}
 impl SliceSerDes<DVec2> for [DVec2] {}
 impl SliceSerDes<Vec3> for [Vec3] {}
-impl SliceSerDes<Vec3A> for [Vec3A] {}
 impl SliceSerDes<DVec3> for [DVec3] {}
 impl SliceSerDes<Quat> for [Quat] {}
 impl SliceSerDes<DQuat> for [DQuat] {}

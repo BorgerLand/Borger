@@ -17,6 +17,6 @@ pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBind
 	//just recalculate the entity's matrix here as a hack workaround)
 
 	let cam_rot = character::get_camera_rot(input);
-	bindings.camera.mat = Mat4::from_rotation_translation(cam_rot, cam_target.into());
+	bindings.camera.mat = Mat4::from_rotation_translation(cam_rot, cam_target);
 	bindings.camera.mat_inv = bindings.camera.mat.inverse();
 }

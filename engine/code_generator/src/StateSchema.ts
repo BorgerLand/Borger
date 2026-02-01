@@ -23,7 +23,7 @@ export const simplePrimitives = [
 export const multiFieldPrimitives = [
 	"Vec2", //xy, f32
 	"DVec2", //xy, f64
-	"Vec3A", //xyz, f32 (technically 4 floats for simd purposes, and 1 goes to waste)
+	"Vec3", //xyz, f32
 	"DVec3", //xyz, f64
 	"Quat", //xyzw, f32
 	"DQuat", //xyzw, f64
@@ -177,7 +177,7 @@ const entitySlotMapSchema = fieldSchema.and(
 						z.object({
 							netVisibility: z.literal("Public"),
 							presentation: z.literal(true),
-							type: z.literal("Vec3A"),
+							type: z.literal("Vec3"),
 						}),
 					)
 					.optional(),
@@ -195,7 +195,7 @@ const entitySlotMapSchema = fieldSchema.and(
 						z.object({
 							netVisibility: z.literal("Public"),
 							presentation: z.literal(true),
-							type: z.literal("Vec3A"),
+							type: z.literal("Vec3"),
 						}),
 					)
 					.optional(),
