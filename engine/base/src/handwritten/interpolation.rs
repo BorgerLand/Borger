@@ -35,6 +35,7 @@ pub struct EntityInstanceRSBindings<T: Entity> {
 	pub mat: Mat4,        //THREE.Object3D.matrixWorld.elements, output of Entity.get_matrix_world
 }
 
+//derive macro not working...
 impl<T: Entity> Default for EntityInstanceBindings<T> {
 	fn default() -> Self {
 		Self {
@@ -74,7 +75,7 @@ pub fn interpolate_type<T: Entity>(
 	//option to avoid unnecessary heap allocations -
 	//usually the number of entities does not change
 	//from tick to tick
-	let mut mismatch_prv_entities: Option<HashMap<usize32, Option<EntityInstanceJSBindings>>> = None;
+	let mut mismatch_prv_entities: Option<HashMap<usize32, EntityInstanceJSBindings>> = None;
 	let mut mismatch_cur_entities: Option<HashMap<usize32, (&T, usize)>> = None;
 
 	//loop through all entity pairs in order to detect
@@ -84,108 +85,80 @@ pub fn interpolate_type<T: Entity>(
 	for slot_index in 0..allocated_len {
 		let prv_entity = prv_entities.get(slot_index);
 		let cur_entity = cur_entities.get(slot_index);
-
-		if cur_entity.is_none() {
-			//number of entities has decreased since previous frame
-			let prv_entity = prv_entity.unwrap();
-			mismatch_prv_entities.get_or_insert_default().insert(
-				prv_entity.0,
-				received_new_tick.then(|| out_entities[slot_index].js.clone()),
-			);
-		} else if prv_entity.is_none() {
-			//number of entities has increased since previous frame
-			let cur_entity = cur_entity.unwrap();
-			mismatch_cur_entities
-				.get_or_insert_default()
-				.insert(cur_entity.0, (&cur_entity.1, slot_index));
-		} else
-		//both are some
+		if let (Some(prv_entity), Some(cur_entity)) = (prv_entity, cur_entity)
+			&& prv_entity.0 == cur_entity.0
 		{
-			let prv_entity = prv_entity.unwrap();
-			let cur_entity = cur_entity.unwrap();
+			//this branch (and rebind_all == false) should be what
+			//executes most often: entity is still in the same slot
+			//as the previous tick so just reinterpolate and let
+			//three.js do the rest
 
-			if prv_entity.0 == cur_entity.0 {
-				//this branch (and rebind_all == false) should be what
-				//executes most often: entity is still in the same slot
-				//as the previous tick so just reinterpolate and let
-				//three.js do the rest
+			let bindings = &mut out_entities[slot_index];
+			bindings.rs.interpolated = Interpolate::interpolate(&prv_entity.1, &cur_entity.1, amount);
+			bindings.rs.mat = bindings.rs.interpolated.get_matrix_world();
 
-				let bindings = &mut out_entities[slot_index];
-				bindings.rs.interpolated = Interpolate::interpolate(&prv_entity.1, &cur_entity.1, amount);
-				bindings.rs.mat = bindings.rs.interpolated.get_matrix_world();
-				bindings.rs.slot_id = cur_entity.0;
-
-				if rebind_all {
-					//the matrices array was reallocated in order
-					//to grow. all entities are now bound to a
-					//dangling pointer
-					unsafe {
-						bind_matrix(&bindings.js.matrix_world, &bindings.rs.mat, cache);
-					}
+			if rebind_all {
+				//the matrices array was reallocated in order
+				//to grow. all entities are now bound to a
+				//dangling pointer
+				unsafe {
+					bind_matrix(&bindings.js.matrix_world, &bindings.rs.mat, cache);
 				}
-			} else {
-				mismatch_prv_entities.get_or_insert_default().insert(
-					prv_entity.0,
-					received_new_tick.then(|| out_entities[slot_index].js.clone()),
-				);
+			}
+		} else if received_new_tick {
+			if let Some(prv_entity) = prv_entity {
+				mismatch_prv_entities
+					.get_or_insert_default()
+					.insert(prv_entity.0, out_entities[slot_index].js.clone());
+			}
+
+			if let Some(cur_entity) = cur_entity {
 				mismatch_cur_entities
 					.get_or_insert_default()
 					.insert(cur_entity.0, (&cur_entity.1, slot_index));
 			}
 		}
-
-		//none for both cur+prv is logically impossible
 	}
 
-	//allow removed entities to have their js data be gc'ed
-	out_entities.truncate(cur_entities.len());
+	if received_new_tick {
+		//allow removed entities to have their js data be gc'ed
+		out_entities.truncate(cur_entities.len());
 
-	//fix any mismatched id's
-	//note if an entity with id x was deleted, and a
-	//new entity also with id x was created within the
-	//same tick, there is no way to tell this apart
-	//from moving slot. the engine always assumes move
-	//because this is more common. the effect is that
-	//dispose/spawn will not be triggered, so the same
-	//Object3D will be reused instead of recreated
-	if let Some(mismatch_cur_entities) = mismatch_cur_entities {
-		for (slot_id, (cur_entity, slot_index)) in mismatch_cur_entities {
-			let bindings = &mut out_entities[slot_index];
-			let rebind_entity = if let Some(prv_entities) = &mut mismatch_prv_entities
-				&& let Some(bindings_js) = prv_entities.remove(&slot_id)
-			{
-				//entity moved slots since last tick, or this is a new entity
-				//with the same id, but its Object3D will be reused. because
-				//there's no way to tell the difference, interpolating here is
-				//risky in that you may see a massive visual lerp across the
-				//screen from the old object to the new object. use the current
-				//transform to be safe
-				bindings.rs.interpolated = cur_entity.clone();
-				bindings.rs.mat = bindings.rs.interpolated.get_matrix_world();
-
-				if received_new_tick {
-					//safe to unwrap because option's status is determined by received_new_tick
-					bindings.js = bindings_js.unwrap();
-					bindings.rs.slot_id = slot_id;
-					Some(bindings)
-				} else {
-					None
-				}
-			} else if received_new_tick {
-				//new entity
-
-				//call spawn_entity_cb
-				let o3d = cache
-					.spawn_entity_cb
-					.call1(&JsValue::NULL, &JsValue::from(T::KIND))
-					.unwrap_or_else(|err| throw_val(err));
-
-				//call THREE.Scene.add(new_entity);
-				cache.scene_add.call1(&JsValue::NULL, &o3d).unwrap();
-				let matrix_world = Reflect::get(&o3d, &cache.matrix_world_str).unwrap();
-
+		//fix any mismatched id's
+		if let Some(mismatch_cur_entities) = mismatch_cur_entities {
+			for (slot_id, (cur_entity, slot_index)) in mismatch_cur_entities {
+				let bindings = &mut out_entities[slot_index];
 				*bindings = EntityInstanceBindings {
-					js: EntityInstanceJSBindings { o3d, matrix_world },
+					js: if let Some(prv_entities) = &mut mismatch_prv_entities
+						&& let Some(bindings_js) = prv_entities.remove(&slot_id)
+					{
+						//entity moved to a different physical slot index
+
+						//note if an entity with slot id x was deleted, and a new entity
+						//also with slot id x was created since the last tick, there is no
+						//way to tell this apart from moving slot. the engine always
+						//assumes move because this is more common. the effect is that
+						//dispose/spawn will not be triggered, so the same Object3D will
+						//be reused instead of recreated. because there's no way to tell
+						//the difference, interpolating here would be risky in that you may
+						//see a massive visual lerp across the screen from the old object
+						//to the new object. so just use the current transform to be safe
+						bindings_js
+					} else {
+						//new entity
+
+						//call spawn_entity_cb
+						let o3d = cache
+							.spawn_entity_cb
+							.call1(&JsValue::NULL, &JsValue::from(T::KIND))
+							.unwrap_or_else(|err| throw_val(err));
+
+						//call THREE.Scene.add(new_entity);
+						cache.scene_add.call1(&JsValue::NULL, &o3d).unwrap();
+						let matrix_world = Reflect::get(&o3d, &cache.matrix_world_str).unwrap();
+
+						EntityInstanceJSBindings { o3d, matrix_world }
+					},
 					rs: EntityInstanceRSBindings {
 						slot_id,
 						interpolated: cur_entity.clone(),
@@ -193,25 +166,16 @@ pub fn interpolate_type<T: Entity>(
 					},
 				};
 
-				Some(bindings)
-			} else {
-				None
-			};
-
-			if let Some(rebind_entity) = rebind_entity {
 				unsafe {
-					bind_matrix(&rebind_entity.js.matrix_world, &rebind_entity.rs.mat, cache);
+					bind_matrix(&bindings.js.matrix_world, &bindings.rs.mat, cache);
 				}
 			}
 		}
 	}
 
-	if received_new_tick && let Some(mismatch_prv_entities) = mismatch_prv_entities {
+	if let Some(mismatch_prv_entities) = mismatch_prv_entities {
 		for (_, bindings_js) in mismatch_prv_entities {
 			//deleted entity
-
-			//safe to unwrap because option's status is determined by received_new_tick
-			let bindings_js = bindings_js.unwrap();
 
 			//call THREE.Object3D.removeFromParent();
 			Function::from(Reflect::get(&bindings_js.o3d, &cache.remove_from_parent_str).unwrap())
