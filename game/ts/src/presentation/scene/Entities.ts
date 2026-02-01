@@ -1,6 +1,6 @@
 import * as ClientRS from "@engine/client_rs";
 import type { Object3D } from "three";
-import * as Character from "@presentation/scene/Character.ts";
+import * as Character from "@game/presentation/scene/Character.ts";
 
 export function spawnEntity(type: ClientRS.EntityKind): Object3D {
 	switch (type) {

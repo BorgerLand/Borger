@@ -14,8 +14,7 @@ export default defineConfig({
 			//should match tsconfig.json
 			"@engine/client_rs": path.resolve("engine/client/rs/pkg"),
 			"@engine/client_ts": path.resolve("engine/client/ts/src"),
-			"@simulation": path.resolve("game/ts/src/simulation"),
-			"@presentation": path.resolve("game/ts/src/presentation"),
+			"@game": path.resolve("game/ts/src"),
 		},
 	},
 	server: {

@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { HUD } from "@presentation/ui/HUD.tsx";
-import "@presentation/ui/index.css"; //what does it mean to import a css file. that makes no sense
+import { HUD } from "@game/presentation/ui/HUD.tsx";
+import "@game/presentation/ui/index.css"; //what does it mean to import a css file. that makes no sense
 
 export function init() {
 	return new Promise<HTMLCanvasElement>(function (resolve) {

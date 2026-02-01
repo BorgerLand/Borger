@@ -11,8 +11,7 @@
 			//should match vite.config.ts
 			"@engine/client_rs": ["engine/client/rs/pkg"],
 			"@engine/client_ts/*": ["engine/client/ts/src/*"],
-			"@simulation/*": ["game/ts/src/simulation/*"],
-			"@presentation/*": ["game/ts/src/presentation/*"]
+			"@game/*": ["game/ts/src/*"]
 		},
 		"moduleResolution": "bundler",
 		"resolveJsonModule": true,

@@ -1,4 +1,4 @@
-import * as Input from "@simulation/Input.ts";
+import * as Input from "@game/simulation/Input.ts";
 import * as Renderer from "@engine/client_ts/Renderer.ts";
 import type { EngineState } from "@engine/client_ts/PresentationController.ts";
 
