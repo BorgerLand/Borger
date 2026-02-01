@@ -191,7 +191,7 @@ fn listen_on_disconnect(ip: IpAddr, disconnect_reason: String, to_sim: SyncSende
 async fn receive_packet(stream: &mut RecvStream, size: usize32) -> Result<Vec<u8>, String> {
 	let mut packet = vec![0_u8; size as usize];
 	match stream.read_exact(&mut packet).await {
-		Ok(()) => Ok(packet.into()),
+		Ok(()) => Ok(packet),
 		Err(oops) => Err(oops.to_string()),
 	}
 }
