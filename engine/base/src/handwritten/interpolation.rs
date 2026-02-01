@@ -64,9 +64,9 @@ pub fn interpolate_type<T: Entity>(
 	amount: f32,
 	cache: &JSValueCache,
 ) {
-	let cur_count = cur_entities.len();
+	let allocated_len = prv_entities.len().max(cur_entities.len());
 	let prv_data_ptr = out_entities.as_ptr();
-	out_entities.resize_with(cur_count, EntityInstanceBindings::default);
+	out_entities.resize_with(allocated_len, EntityInstanceBindings::default);
 	let rebind_all = prv_data_ptr != out_entities.as_ptr(); //can only be true if rebind is true
 
 	//when entity id's don't match for a given physical
@@ -74,23 +74,24 @@ pub fn interpolate_type<T: Entity>(
 	//option to avoid unnecessary heap allocations -
 	//usually the number of entities does not change
 	//from tick to tick
-	let mut mismatch_prv_entities: Option<HashMap<usize32, (&T, EntityInstanceJSBindings)>> = None;
+	let mut mismatch_prv_entities: Option<HashMap<usize32, Option<EntityInstanceJSBindings>>> = None;
 	let mut mismatch_cur_entities: Option<HashMap<usize32, (&T, usize)>> = None;
 
 	//loop through all entity pairs in order to detect
 	//new/removed entities, and interpolate transforms
 	//of entities that existed in both the previous and
 	//current frames
-	for slot_index in 0..prv_entities.len().max(cur_count) {
+	for slot_index in 0..allocated_len {
 		let prv_entity = prv_entities.get(slot_index);
 		let cur_entity = cur_entities.get(slot_index);
 
 		if cur_entity.is_none() {
 			//number of entities has decreased since previous frame
 			let prv_entity = prv_entity.unwrap();
-			mismatch_prv_entities
-				.get_or_insert_default()
-				.insert(prv_entity.0, (&prv_entity.1, out_entities[slot_index].js.clone()));
+			mismatch_prv_entities.get_or_insert_default().insert(
+				prv_entity.0,
+				received_new_tick.then(|| out_entities[slot_index].js.clone()),
+			);
 		} else if prv_entity.is_none() {
 			//number of entities has increased since previous frame
 			let cur_entity = cur_entity.unwrap();
@@ -123,9 +124,10 @@ pub fn interpolate_type<T: Entity>(
 					}
 				}
 			} else {
-				mismatch_prv_entities
-					.get_or_insert_default()
-					.insert(prv_entity.0, (&prv_entity.1, out_entities[slot_index].js.clone()));
+				mismatch_prv_entities.get_or_insert_default().insert(
+					prv_entity.0,
+					received_new_tick.then(|| out_entities[slot_index].js.clone()),
+				);
 				mismatch_cur_entities
 					.get_or_insert_default()
 					.insert(cur_entity.0, (&cur_entity.1, slot_index));
@@ -134,6 +136,9 @@ pub fn interpolate_type<T: Entity>(
 
 		//none for both cur+prv is logically impossible
 	}
+
+	//allow removed entities to have their js data be gc'ed
+	out_entities.truncate(cur_entities.len());
 
 	//fix any mismatched id's
 	//note if an entity with id x was deleted, and a
@@ -147,18 +152,25 @@ pub fn interpolate_type<T: Entity>(
 		for (slot_id, (cur_entity, slot_index)) in mismatch_cur_entities {
 			let bindings = &mut out_entities[slot_index];
 			let rebind_entity = if let Some(prv_entities) = &mut mismatch_prv_entities
-				&& let Some((prv_entity, bindings_js)) = prv_entities.remove(&slot_id)
+				&& let Some(bindings_js) = prv_entities.remove(&slot_id)
 			{
-				//entity moved slots since last tick (or this is
-				//a new entity with the same id, but its Object3D
-				//will be reused)
-
-				bindings.js = bindings_js;
-				bindings.rs.interpolated = Interpolate::interpolate(prv_entity, cur_entity, amount);
+				//entity moved slots since last tick, or this is a new entity
+				//with the same id, but its Object3D will be reused. because
+				//there's no way to tell the difference, interpolating here is
+				//risky in that you may see a massive visual lerp across the
+				//screen from the old object to the new object. use the current
+				//transform to be safe
+				bindings.rs.interpolated = cur_entity.clone();
 				bindings.rs.mat = bindings.rs.interpolated.get_matrix_world();
-				bindings.rs.slot_id = slot_id;
 
-				if received_new_tick { Some(bindings) } else { None }
+				if received_new_tick {
+					//safe to unwrap because option's status is determined by received_new_tick
+					bindings.js = bindings_js.unwrap();
+					bindings.rs.slot_id = slot_id;
+					Some(bindings)
+				} else {
+					None
+				}
 			} else if received_new_tick {
 				//new entity
 
@@ -195,8 +207,11 @@ pub fn interpolate_type<T: Entity>(
 	}
 
 	if received_new_tick && let Some(mismatch_prv_entities) = mismatch_prv_entities {
-		for (_, (_, bindings_js)) in mismatch_prv_entities {
+		for (_, bindings_js) in mismatch_prv_entities {
 			//deleted entity
+
+			//safe to unwrap because option's status is determined by received_new_tick
+			let bindings_js = bindings_js.unwrap();
 
 			//call THREE.Object3D.removeFromParent();
 			Function::from(Reflect::get(&bindings_js.o3d, &cache.remove_from_parent_str).unwrap())
