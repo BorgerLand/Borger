@@ -12,7 +12,7 @@ import { generateDiffSerRS } from "@engine/code_generator/files/diff_ser.ts";
 import { generateDiffDesRS } from "@engine/code_generator/files/diff_des.ts";
 import { generateSnapshotSerDesRS } from "@engine/code_generator/files/snapshot_serdes.ts";
 import { generateUntracked } from "@engine/code_generator/files/untracked.ts";
-import { generateEntitiesRS } from "@engine/code_generator/files/entities.ts";
+import { generateInterpolationRS } from "@engine/code_generator/files/interpolation.ts";
 
 console.time("Great success");
 
@@ -24,6 +24,6 @@ generateUntracked(structs.sim);
 generateDiffSerRS(structs);
 generateDiffDesRS(structs);
 generateSnapshotSerDesRS(structs.sim);
-generateEntitiesRS(structs.sim);
+generateInterpolationRS(structs.sim);
 
 console.timeEnd("Great success");

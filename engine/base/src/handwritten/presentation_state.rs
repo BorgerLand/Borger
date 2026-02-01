@@ -3,9 +3,23 @@ use crate::presentation_state::*;
 use crate::simulation_state;
 
 #[cfg(feature = "client")]
-use {crate::entities::Entity, crate::entities::JSData, glam::Mat4, std::mem, web_time::Instant};
+use {
+	crate::interpolation::{Entity, EntityInstanceRSBindings},
+	glam::Mat4,
+	std::mem,
+	web_time::Instant,
+};
 
 pub type ClientState = ClientStateGeneric<ClientState_owned, ClientState_remote>;
+
+impl Clone for ClientState {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Owned(client) => Self::Owned(client.clone()),
+			Self::Remote(client) => Self::Remote(client.clone()),
+		}
+	}
+}
 
 pub(crate) trait CloneToPresentationState {
 	type PresentationState;
@@ -37,11 +51,12 @@ pub struct SimulationOutput {
 	pub state: PresentationState,
 }
 
-//safety: rs_ptr must point to a JSData instance's mat field
+//safety: rs_ptr must point to a EntityInstanceRSBindings's mat field
 #[cfg(feature = "client")]
-pub(crate) unsafe fn get_entity_from_jsdata<'a, T: Entity>(rs_ptr: *const Mat4) -> &'a T {
+pub(crate) unsafe fn get_presentation_from_mat<'a, T: Entity>(rs_ptr: *const Mat4) -> &'a T {
+	let offset = mem::offset_of!(EntityInstanceRSBindings<T>, mat);
 	unsafe {
-		let js_data = &*(rs_ptr.sub(mem::offset_of!(JSData<T>, mat)) as *const JSData<T>);
-		&*js_data.ptr
+		let bindings_rs = &*(rs_ptr.sub(offset) as *const EntityInstanceRSBindings<T>);
+		&bindings_rs.interpolated
 	}
 }

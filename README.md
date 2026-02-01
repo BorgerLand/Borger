@@ -4,7 +4,7 @@
 
 - _Documentation_
 - _Triggering of VFX/SFX events_
-- _Access game state from React_
+- _Access game state from Three/React (in progress, partial support)_
 - _WebSocket fallback_
 
 [Follow my unhinged gamedev journey for updates!](https://www.youtube.com/@borgerland)

@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use crate::presentation::{camera, get_local_entity};
-use base::{entities, prelude::*};
+use base::interpolation::interpolate_entities;
+use base::prelude::*;
 use js_sys::{JsString, Reflect};
 use wasm_bindgen::JsValue;
 
@@ -15,7 +16,7 @@ pub fn presentation_tick(
 	input: &InputState,
 	bindings: &mut JSBindings,
 ) {
-	entities::interpolate(
+	interpolate_entities(
 		prv_tick,
 		cur_tick,
 		received_new_tick,
@@ -29,7 +30,7 @@ pub fn presentation_tick(
 	if prv_tick.is_none() {
 		let entity = get_local_entity(cur_tick, bindings);
 		Reflect::set(
-			&entity.o3d,
+			&entity.js.o3d,
 			&JsString::from_str("visible").unwrap(),
 			&JsValue::FALSE,
 		)

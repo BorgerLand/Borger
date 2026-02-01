@@ -52,7 +52,7 @@ mod handwritten {
 	pub(crate) mod untracked;
 
 	#[cfg(feature = "client")]
-	pub(crate) mod entities;
+	pub(crate) mod interpolation;
 }
 
 mod generated {
@@ -65,7 +65,7 @@ mod generated {
 	pub(crate) mod untracked;
 
 	#[cfg(feature = "client")]
-	pub(crate) mod entities;
+	pub(crate) mod interpolation;
 }
 
 ///Constructors for simulation state objects
@@ -137,9 +137,9 @@ pub(crate) mod untracked {
 
 ///Interpolation and presentation of entities
 #[cfg(feature = "client")]
-pub mod entities {
-	pub use super::generated::entities::*;
-	pub use super::handwritten::entities::*;
+pub mod interpolation {
+	pub use super::generated::interpolation::*;
+	pub use super::handwritten::interpolation::*;
 }
 
 ///Helpful types and macros when writing simulation+presentation logic

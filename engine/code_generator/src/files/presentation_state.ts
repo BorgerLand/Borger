@@ -27,7 +27,7 @@ use crate::presentation_state::ClientState;
 #[cfg(feature = "client")]
 use
 {
-	crate::presentation_state::get_entity_from_jsdata,
+	crate::presentation_state::get_presentation_from_mat,
 	glam::Mat4,
 };
 
@@ -40,7 +40,7 @@ ${simStructs
 				const presentationStructName =
 					struct.name === "SimulationState" ? "PresentationState" : struct.name;
 
-				return `#[derive(Debug)]
+				return `#[derive(Debug, Clone, Default)]
 #[allow(non_camel_case_types)]
 #[wasm_bindgen]
 pub struct ${presentationStructName}
@@ -129,14 +129,14 @@ ${struct.fields
 //#[wasm_bindgen]
 //pub const CHARACTER_POS_X = mem::offset_of!(Character, x);
 //calling the wasm getter a billion times = 55 seconds
-//view.getFloat32(ptr + 4, true) x1billion = 0.43 seconds!
+//view.getFloat32(ptr, true) x1billion = 0.43 seconds!
 //technically there are workarounds involving more manual
 //codegen, however, i'm going with the simplest possible
 //solution for now
 function generateJSReader(structName: string, fieldName: string, fullType: string, subfield?: string) {
 	return `	pub unsafe fn get_${fieldName}${subfield ? `_${subfield}` : ``}(rs_ptr: *const Mat4) -> ${fullType}
 	{
-		let entity = unsafe { get_entity_from_jsdata::<${structName}>(rs_ptr) };
+		let entity = unsafe { get_presentation_from_mat::<${structName}>(rs_ptr) };
 		entity.${fieldName}${subfield ? `.${subfield}` : ``}
 	}`;
 }

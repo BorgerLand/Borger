@@ -1,4 +1,4 @@
-use crate::entities::EntityBindings;
+use crate::interpolation::EntityBindings;
 use crate::networked_types::primitive::usize32;
 use glam::Mat4;
 use js_sys::{Float32Array, Function, JsString, Reflect, SharedArrayBuffer, Uint32Array, WebAssembly};

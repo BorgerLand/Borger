@@ -42,10 +42,11 @@ export async function init(cb: {
 						const o3d = cb?.onSpawnEntity?.(type) ?? new Object3D();
 						o3d.userData.entityKind = type;
 						o3d.userData.getRSPointer = function () {
-							//byteOffset is the pointer to JSData.mat. this pointer
-							//can be used to find and dereference JSData.ptr, which
-							//points to this Object3D's corresponding PresentationState
-							//see struct JSData in handwritten/entities.rs
+							//byteOffset is the pointer to EntityInstanceBindings.mat. this
+							//pointer can be used to find and dereference JSEntityData.ptr,
+							//which points to this Object3D's corresponding PresentationState.
+							//see struct JSEntityData in handwritten/entities.rs. DO NOT CACHE
+							//THIS VALUE. it changes every frame
 							return (o3d.matrix.elements as unknown as Float32Array).byteOffset;
 						};
 
