@@ -56,7 +56,7 @@ pub struct SimulationOutput {
 pub(crate) unsafe fn get_presentation_from_mat<'a, T: Entity>(rs_ptr: *const Mat4) -> &'a T {
 	let offset = mem::offset_of!(EntityInstanceRSBindings<T>, mat);
 	unsafe {
-		let bindings_rs = &*(rs_ptr.sub(offset) as *const EntityInstanceRSBindings<T>);
+		let bindings_rs = &*(rs_ptr.byte_sub(offset) as *const EntityInstanceRSBindings<T>);
 		&bindings_rs.interpolated
 	}
 }
