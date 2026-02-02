@@ -171,22 +171,22 @@ pub fn interpolate_type<T: Entity>(
 				}
 			}
 		}
-	}
 
-	if let Some(mismatch_prv_entities) = mismatch_prv_entities {
-		for (_, bindings_js) in mismatch_prv_entities {
-			//deleted entity
+		if let Some(mismatch_prv_entities) = mismatch_prv_entities {
+			for (_, bindings_js) in mismatch_prv_entities {
+				//deleted entity
 
-			//call THREE.Object3D.removeFromParent();
-			Function::from(Reflect::get(&bindings_js.o3d, &cache.remove_from_parent_str).unwrap())
-				.call0(&bindings_js.o3d)
-				.unwrap();
+				//call THREE.Object3D.removeFromParent();
+				Function::from(Reflect::get(&bindings_js.o3d, &cache.remove_from_parent_str).unwrap())
+					.call0(&bindings_js.o3d)
+					.unwrap();
 
-			//call dispose_entity_cb
-			cache
-				.dispose_entity_cb
-				.call2(&JsValue::NULL, &JsValue::from(T::KIND), &bindings_js.o3d)
-				.unwrap_or_else(|err| throw_val(err));
+				//call dispose_entity_cb
+				cache
+					.dispose_entity_cb
+					.call2(&JsValue::NULL, &JsValue::from(T::KIND), &bindings_js.o3d)
+					.unwrap_or_else(|err| throw_val(err));
+			}
 		}
 	}
 }
