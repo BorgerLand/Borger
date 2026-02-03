@@ -18,6 +18,7 @@ export async function init(canvas: HTMLCanvasElement, onResolutionChange: Resolu
 	};
 
 	blockMatrixWorldUpdate(state.camera3D);
+	state.scene3D.add(state.camera3D);
 
 	await state.renderer.init();
 
