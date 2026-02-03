@@ -120,12 +120,12 @@ pub unsafe fn bind_camera(
 ) {
 	unsafe {
 		bind_matrix(
-			&Reflect::get(cam_ts, &JsString::from_str("matrixWorldInverse").unwrap()).unwrap(),
-			&cam_rs.mat_inv,
+			&Reflect::get(cam_ts, &cache.matrix_world_str).unwrap(),
+			&cam_rs.mat,
 			cache,
 		);
 		bind_matrix(
-			&Reflect::get(cam_ts, &cache.matrix_world_str).unwrap(),
+			&Reflect::get(cam_ts, &JsString::from_str("matrixWorldInverse").unwrap()).unwrap(),
 			&cam_rs.mat_inv,
 			cache,
 		);
