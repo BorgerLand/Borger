@@ -34,7 +34,7 @@ export default {
 				},
 			},
 
-			id: { netVisibility: "Public", presentation: true, type: "usize32" }, //the corresponding entity id
+			character_id: { netVisibility: "Public", presentation: true, type: "usize32" },
 		},
 	},
 	characters: {

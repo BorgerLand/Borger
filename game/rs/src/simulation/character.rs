@@ -15,7 +15,7 @@ pub fn on_client_connect(
 ) {
 	let client = get_owned_client_mut(&mut state.clients, client_id).unwrap();
 	let character = state.characters.add(diff).0;
-	client.set_id(character, diff);
+	client.set_character_id(character, diff);
 }
 
 #[cfg(feature = "server")]
@@ -25,7 +25,7 @@ pub fn on_client_disconnect(
 	diff: &mut DiffSerializer<WaitForConsensus>,
 ) {
 	let client = get_owned_client(&mut state.clients, client_id).unwrap();
-	let character = client.get_id();
+	let character = client.get_character_id();
 	state.characters.remove(character, diff).unwrap();
 }
 
@@ -36,9 +36,9 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	//so effectively the server simulates all players
 	//while each client only simulates their own. the
 	//server then informs all players of where all the
-	//"remote" players are
+	//other "remote" players are
 	for client in ctx.state.clients.owned_clients_mut() {
-		let character = ctx.state.characters.get_mut(client.get_id()).unwrap();
+		let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
 		apply_input(character, client.input.get(), &mut ctx.diff);
 	}
 }
@@ -68,12 +68,12 @@ pub fn get_camera_rot(input: &InputState) -> Quat {
 }
 
 pub fn get_character<'a>(client: &ClientState_owned, characters: &'a SlotMap<Character>) -> &'a Character {
-	characters.get(client.get_id()).unwrap()
+	characters.get(client.get_character_id()).unwrap()
 }
 
 pub fn get_character_mut<'a>(
 	client: &ClientState_owned,
 	characters: &'a mut SlotMap<Character>,
 ) -> &'a Character {
-	characters.get_mut(client.get_id()).unwrap()
+	characters.get_mut(client.get_character_id()).unwrap()
 }
