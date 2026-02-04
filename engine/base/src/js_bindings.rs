@@ -33,16 +33,16 @@ pub struct JSValueCache {
 	pub scene_add: Function,              //THREE.Scene.prototype.add
 	pub remove_from_parent_str: JsString, //THREE.Object3D.prototype.removeFromParent
 	pub input_stream: WritableStreamDefaultWriter,
-	pub spawn_entity_cb: Function,   //(type: EntityType) => THREE.Object3D
-	pub dispose_entity_cb: Function, //(type: EntityType, entity: THREE.Object3D) => void
+	pub spawn_entity_cb: Function, //(type: EntityType, id: number) => THREE.Object3D
+	pub dispose_entity_cb: Function, //(type: EntityType, entity: THREE.Object3D, id: number) => void
 }
 
 impl JSBindings {
 	pub fn new(
 		input_stream: WritableStreamDefaultWriter,
 		scene: &JsValue,             //THREE.Scene
-		spawn_entity_cb: Function,   //(type: EntityType) => THREE.Object3D
-		dispose_entity_cb: Function, //(type: EntityType, entity: THREE.Object3D) => void
+		spawn_entity_cb: Function,   //(type: EntityType, id: number) => THREE.Object3D
+		dispose_entity_cb: Function, //(type: EntityType, entity: THREE.Object3D, id: number) => void
 	) -> Self {
 		let scene_add =
 			Function::from(Reflect::get(scene, &JsString::from_str("add").unwrap()).unwrap()).bind(scene);

@@ -10,8 +10,8 @@ export type EngineState = Awaited<ReturnType<typeof init>>;
 export async function init(cb: {
 	canvasPromise: HTMLCanvasElement | Promise<HTMLCanvasElement>;
 	onPresentationTick?: (state: EngineState) => void;
-	onSpawnEntity?: (type: ClientRS.EntityKind) => Object3D;
-	onDisposeEntity?: (type: ClientRS.EntityKind, entity: Object3D) => true;
+	onSpawnEntity?: (type: ClientRS.EntityKind, id: number) => Object3D;
+	onDisposeEntity?: (type: ClientRS.EntityKind, entity: Object3D, id: number) => true;
 	onResolutionChange?: (state: Renderer.RendererState) => void;
 	onDisconnect?: () => void;
 }) {
@@ -38,8 +38,8 @@ export async function init(cb: {
 					net.newClientSnapshot,
 					net.inputStream,
 					renderer.scene3D,
-					function (type: ClientRS.EntityKind) {
-						const o3d = cb?.onSpawnEntity?.(type) ?? new Object3D();
+					function (type: ClientRS.EntityKind, id: number) {
+						const o3d = cb?.onSpawnEntity?.(type, id) ?? new Object3D();
 						o3d.userData.entityKind = type;
 						o3d.userData.getRSPointer = function () {
 							//byteOffset is the pointer to EntityInstanceBindings.mat. this

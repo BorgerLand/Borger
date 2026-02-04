@@ -27,6 +27,7 @@ pub struct EntityInstanceBindings<T: Entity> {
 pub struct EntityInstanceJSBindings {
 	pub o3d: JsValue,          //THREE.Object3D
 	pub matrix_world: JsValue, //THREE.Object3D.matrixWorld
+	pub slot_id: JsValue,      //number
 }
 
 pub struct EntityInstanceRSBindings<T: Entity> {
@@ -42,6 +43,7 @@ impl<T: Entity> Default for EntityInstanceBindings<T> {
 			js: EntityInstanceJSBindings {
 				o3d: JsValue::default(),
 				matrix_world: JsValue::default(),
+				slot_id: JsValue::default(),
 			},
 			rs: EntityInstanceRSBindings {
 				slot_id: 0,
@@ -148,16 +150,21 @@ pub fn interpolate_type<T: Entity>(
 						//new entity
 
 						//call spawn_entity_cb
+						let js_slot_id = JsValue::from(slot_id);
 						let o3d = cache
 							.spawn_entity_cb
-							.call1(&JsValue::NULL, &JsValue::from(T::KIND))
+							.call2(&JsValue::NULL, &JsValue::from(T::KIND), &js_slot_id)
 							.unwrap_or_else(|err| throw_val(err));
 
 						//call THREE.Scene.add(new_entity);
 						cache.scene_add.call1(&JsValue::NULL, &o3d).unwrap();
 						let matrix_world = Reflect::get(&o3d, &cache.matrix_world_str).unwrap();
 
-						EntityInstanceJSBindings { o3d, matrix_world }
+						EntityInstanceJSBindings {
+							o3d,
+							matrix_world,
+							slot_id: js_slot_id,
+						}
 					},
 					rs: EntityInstanceRSBindings {
 						slot_id,
@@ -184,7 +191,12 @@ pub fn interpolate_type<T: Entity>(
 				//call dispose_entity_cb
 				cache
 					.dispose_entity_cb
-					.call2(&JsValue::NULL, &JsValue::from(T::KIND), &bindings_js.o3d)
+					.call3(
+						&JsValue::NULL,
+						&JsValue::from(T::KIND),
+						&bindings_js.o3d,
+						&bindings_js.slot_id,
+					)
 					.unwrap_or_else(|err| throw_val(err));
 			}
 		}

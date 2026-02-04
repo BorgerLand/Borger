@@ -36,10 +36,10 @@ impl PresentationController {
 		input_stream: WritableStreamDefaultWriter,
 
 		#[wasm_bindgen(unchecked_param_type = "import('three').Scene")] scene: &JsValue,
-		#[wasm_bindgen(unchecked_param_type = "(type: EntityType) => import('three').Object3D")]
+		#[wasm_bindgen(unchecked_param_type = "(type: EntityType, id: number) => import('three').Object3D")]
 		spawn_entity_cb: Function,
 		#[wasm_bindgen(
-			unchecked_param_type = "(type: EntityType, entity: import('three').Object3D) => void"
+			unchecked_param_type = "(type: EntityType, entity: import('three').Object3D, id: number) => void"
 		)]
 		dispose_entity_cb: Function,
 	) -> Self {
