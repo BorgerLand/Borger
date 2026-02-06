@@ -14,14 +14,14 @@ edition = "2024"
 [workspace.dependencies]
 #shared
 log = { version = "*", default-features = false }
-glam = { version = "*", default-features = false, features = ["std"] }
+glam = { version = "0.30.10", default-features = false, features = ["std"] } #match version to rapier
 atomicbox = { version = "*", default-features = false }
 tokio = { version = "*", default-features = false, features = ["rt"] }
 num_enum = { version = "*", default-features = false }
 rapier3d = { version = "*", features = [ "simd-nightly" ] }
 
 #wasm-specific shims (used in base to make client happier)
-wasm-bindgen = { version = "=0.2.105", default-features = false } #0.2.106 is borked. fails to compile
+wasm-bindgen = { version = "*", default-features = false }
 wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33
 web-time = { version = "*", default-features = false }
 

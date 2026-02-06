@@ -1,4 +1,7 @@
 #nightly required for multithreading
 [toolchain]
-channel = "nightly-2026-01-03" #make sure to restart ide's rust analyzer after updating
+channel = "nightly-2026-01-29" #make sure to restart ide's rust analyzer after updating
 components = ["rust-src"]
+
+#borked:
+#2026-01-30 - 2026-02-06 (simba does not compile)
