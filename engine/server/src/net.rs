@@ -21,7 +21,10 @@ pub const NET_INPUT_SIZE_LIMIT: usize32 = 512; //in bytes
 
 pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>, flags: &Flags) {
 	let identity = match (&flags.fullchain, &flags.privkey) {
-		(Some(fullchain), Some(privkey)) => Identity::load_pemfiles(fullchain, privkey).await.unwrap(),
+		(Some(fullchain), Some(privkey)) => {
+			info!("Loaded HTTPS/TLS certificates");
+			Identity::load_pemfiles(fullchain, privkey).await.unwrap()
+		}
 		(None, None) => Identity::self_signed(["localhost"]).unwrap(),
 		_ => {
 			panic!("--fullchain and --privkey must both be provided, or neither");
