@@ -2,7 +2,6 @@ use crate::interpolation::EntityBindings;
 use crate::networked_types::primitive::usize32;
 use glam::Mat4;
 use js_sys::{Float32Array, Function, JsString, Reflect, SharedArrayBuffer, Uint32Array, WebAssembly};
-use std::str::FromStr;
 use wasm_bindgen::JsValue;
 use web_sys::WritableStreamDefaultWriter;
 
@@ -44,18 +43,17 @@ impl JSBindings {
 		spawn_entity_cb: Function,   //(type: EntityType, id: number) => THREE.Object3D
 		dispose_entity_cb: Function, //(type: EntityType, entity: THREE.Object3D, id: number) => void
 	) -> Self {
-		let scene_add =
-			Function::from(Reflect::get(scene, &JsString::from_str("add").unwrap()).unwrap()).bind(scene);
+		let scene_add = Function::from(Reflect::get(scene, &JsString::from("add")).unwrap()).bind(scene);
 
 		Self {
 			camera: CameraBindings::default(),
 			entities: EntityBindings::default(),
 
 			cache: JSValueCache {
-				elements_str: JsString::from_str("elements").unwrap(),
-				matrix_world_str: JsString::from_str("matrixWorld").unwrap(),
+				elements_str: JsString::from("elements"),
+				matrix_world_str: JsString::from("matrixWorld"),
 				scene_add,
-				remove_from_parent_str: JsString::from_str("removeFromParent").unwrap(),
+				remove_from_parent_str: JsString::from("removeFromParent"),
 				input_stream,
 				spawn_entity_cb,
 				dispose_entity_cb,
@@ -125,7 +123,7 @@ pub unsafe fn bind_camera(
 			cache,
 		);
 		bind_matrix(
-			&Reflect::get(cam_ts, &JsString::from_str("matrixWorldInverse").unwrap()).unwrap(),
+			&Reflect::get(cam_ts, &JsString::from("matrixWorldInverse")).unwrap(),
 			&cam_rs.mat_inv,
 			cache,
 		);
