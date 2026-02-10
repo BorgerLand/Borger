@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 #make sure code generator runs before anything else
 cd engine/code_generator
