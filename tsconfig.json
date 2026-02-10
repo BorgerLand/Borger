@@ -21,5 +21,5 @@
 		"allowImportingTsExtensions": true,
 		"jsx": "react-jsx"
 	},
-	"include": ["engine/code_generator/src/Main.ts", "game/ts/src/Index.ts", "*.config.ts"]
+	"include": ["engine/code_generator/src/main.ts", "game/ts/src/index.ts", "*.config.ts"]
 }

@@ -1,9 +1,9 @@
-import { init } from "@engine/client_ts/PresentationController.ts";
-import * as Pipeline from "@game/presentation/scene/Pipeline.ts";
-import * as Entities from "@game/presentation/scene/Entities.ts";
-import * as UI from "@game/presentation/ui/Index.tsx";
-import * as Crosshair from "@game/presentation/scene/Crosshair.ts";
-import * as Input from "@game/simulation/Input.ts";
+import { init } from "@engine/client_ts/presentation_controller.ts";
+import * as Pipeline from "@game/presentation/scene/pipeline.ts";
+import * as Entities from "@game/presentation/scene/entities.ts";
+import * as UI from "@game/presentation/ui/index.tsx";
+import * as Crosshair from "@game/presentation/scene/crosshair.ts";
+import * as Input from "@game/simulation/input.ts";
 import { BoxGeometry, Color, DirectionalLight, LightProbe, Mesh, SphericalHarmonics3, Vector3 } from "three";
 
 Crosshair.init();

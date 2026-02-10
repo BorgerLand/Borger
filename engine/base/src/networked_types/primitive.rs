@@ -87,7 +87,7 @@ pub(crate) fn ser_input_primitive<T: PrimitiveSerDes>(
 	tx_new_value.ser_tx(buffer);
 }
 
-//implementors list taken from Validator.ts/rustPrimitiveSchema
+//implementors list taken from state_schema.ts/primitiveTypeSchema
 //rollback - read with pop_back. rollback data stays local so compression is not as necessary
 //tx = read with pop_front. some primitives have special compression strategies to reduce bandwidth
 pub(crate) trait PrimitiveSerDes: Copy + 'static {

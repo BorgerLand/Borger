@@ -6,7 +6,7 @@ import {
 	type AllFlattenedStructs,
 	VALID_TYPES,
 	type FlattenedField,
-} from "@engine/code_generator/Common.ts";
+} from "@engine/code_generator/common.ts";
 
 //the way the generated file generally works is:
 //given a deserialized diff path and value, write

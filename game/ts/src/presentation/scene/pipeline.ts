@@ -1,6 +1,6 @@
-import * as Input from "@game/simulation/Input.ts";
-import * as Renderer from "@engine/client_ts/Renderer.ts";
-import type { EngineState } from "@engine/client_ts/PresentationController.ts";
+import * as Input from "@game/simulation/input.ts";
+import * as Renderer from "@engine/client_ts/renderer.ts";
+import type { EngineState } from "@engine/client_ts/presentation_controller.ts";
 
 //purely client sided rendering pipeline. it should
 //be able to able to render the game in any state,

@@ -3,7 +3,7 @@ use base::interpolation::interpolate_entities;
 use base::prelude::*;
 use js_sys::{Function, Reflect};
 
-//see comments in Pipeline.ts: this allows calling
+//see comments in pipeline.ts: this allows calling
 //rust code during the js-driven presentation loop
 pub fn presentation_tick(
 	prv_tick: Option<&SimulationOutput>,

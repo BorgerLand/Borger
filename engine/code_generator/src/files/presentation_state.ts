@@ -4,8 +4,8 @@ import {
 	VALID_TYPES,
 	type FlattenedStruct,
 	isPrimitive,
-} from "@engine/code_generator/Common.ts";
-import { simplePrimitives, type multiFieldPrimitives } from "@engine/code_generator/StateSchema.ts";
+} from "@engine/code_generator/common.ts";
+import { simplePrimitives, type multiFieldPrimitives } from "@engine/code_generator/state_schema.ts";
 
 //key is an outerType, value is CloneToPresentationState::PresentationType
 const PRESENTATION_TYPE = new Map<string, (innerType: string) => string>([

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { DeeplyPartial } from "@engine/code_generator/Common.ts";
+import type { DeeplyPartial } from "@engine/code_generator/common.ts";
 
 //true single-field primitives that can be easily read
 //directly from wasm memory

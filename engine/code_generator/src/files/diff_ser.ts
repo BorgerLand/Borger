@@ -5,7 +5,7 @@ import {
 	isPrimitive,
 	type AllFlattenedStructs,
 	getFullFieldPath,
-} from "@engine/code_generator/Common.ts";
+} from "@engine/code_generator/common.ts";
 
 export function generateDiffSerRS(structs: AllFlattenedStructs) {
 	Bun.write(

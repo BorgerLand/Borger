@@ -12,7 +12,7 @@ cp --update=none .vscode/settings.json.example .vscode/settings.json
 
 #build it for the first time so that dev.sh doesn't kick off even more setting up
 cd engine/code_generator
-bun src/Main.ts
+bun src/main.ts
 cd ../server
 cargo build --profile server-dev --features server
 cd ../client/rs

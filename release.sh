@@ -77,7 +77,7 @@ if [ -n "$BUILD" ]; then
 	
 	mkdir -p release/client/assets
 	cd engine/code_generator
-	bun src/Main.ts
+	bun src/main.ts
 	cd ../server
 	cargo build --profile server-release --features server
 	cd ../client/rs

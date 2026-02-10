@@ -1,4 +1,4 @@
-import type { RendererState } from "@engine/client_ts/Renderer.ts";
+import type { RendererState } from "@engine/client_ts/renderer.ts";
 import { Sprite, SpriteMaterial, TextureLoader } from "three";
 
 let spr: Sprite;

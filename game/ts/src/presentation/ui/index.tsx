@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { HUD } from "@game/presentation/ui/HUD.tsx";
+import { HUD } from "@game/presentation/ui/hud.tsx";
 import "@game/presentation/ui/index.css"; //what does it mean to import a css file. that makes no sense
 
 export function init() {

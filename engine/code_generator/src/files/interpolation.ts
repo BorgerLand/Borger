@@ -6,8 +6,8 @@ import {
 	STATE_WARNING,
 	VALID_TYPES,
 	type FlattenedStruct,
-} from "@engine/code_generator/Common.ts";
-import type { PrimitiveType } from "@engine/code_generator/StateSchema.ts";
+} from "@engine/code_generator/common.ts";
+import type { PrimitiveType } from "@engine/code_generator/state_schema.ts";
 
 export function generateInterpolationRS(simStructs: FlattenedStruct[][]) {
 	const entities = simStructs[0][0].fields

@@ -1,4 +1,4 @@
-import { BLUE, BOLD, BROWN, styledLog } from "@engine/client_ts/ConsoleLog.ts";
+import { BLUE, BOLD, BROWN, styledLog } from "@engine/client_ts/console_log.ts";
 
 export async function testCompat() {
 	//logging is temporary for easy diagnostic purposes.

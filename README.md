@@ -166,10 +166,10 @@ Now visit http://localhost:5173 for a good meal
 
 Files of interest:
 
-- `game/ts/src/Index.ts` - Client entry point
-- `game/State.ts` - Defines the data structure representing the entire networked scene/world
+- `game/ts/src/index.ts` - Client entry point
+- `game/state.ts` - Defines the data structure representing the entire networked scene/world
 - `game/rs/src/simulation/pipeline.rs` - Entry point for the game logic simulation loop (30Hz fixed)
-- `game/ts/src/presentation/Pipeline.ts` - Entry point for the rendering loop (VSync)
+- `game/ts/src/presentation/pipeline.ts` - Entry point for the rendering loop (VSync)
 
 ### Acknowledgements & Inspirations
 

@@ -109,7 +109,7 @@
 ///the SimulationState object and how usage of netVisibility
 ///affects the required multiplayer_tradeoff)
 ///```typescript
-///import type { SimulationState } from "@engine/code_generator/StateSchema.ts";
+///import type { SimulationState } from "@engine/code_generator/state_schema.ts";
 ///
 ///export default {
 ///	//represents a real person connected to a server

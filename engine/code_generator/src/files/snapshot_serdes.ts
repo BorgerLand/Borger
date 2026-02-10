@@ -5,7 +5,7 @@ import {
 	type FlattenedStruct,
 	getFullFieldPath,
 	type FlattenedField,
-} from "@engine/code_generator/Common.ts";
+} from "@engine/code_generator/common.ts";
 
 //new client: all public data should be serialized
 //predict remove: all locally accessible data should be serialized. "all" has different meanings depending on server/client

@@ -3,15 +3,15 @@ import {
 	type Field,
 	type Struct,
 	NET_VISIBILITY_DEFAULT,
-} from "@engine/code_generator/StateSchema.ts";
+} from "@engine/code_generator/state_schema.ts";
 import type {
 	FlattenedStruct,
 	AllFlattenedStructs,
 	FlattenedField,
 	DiffPath,
 	ClientStateKind,
-} from "@engine/code_generator/Common.ts";
-import { isPrimitive, isUtility } from "@engine/code_generator/Common.ts";
+} from "@engine/code_generator/common.ts";
+import { isPrimitive, isUtility } from "@engine/code_generator/common.ts";
 
 //recursively traverse the state object and "flatten" it
 //into a big list of structs

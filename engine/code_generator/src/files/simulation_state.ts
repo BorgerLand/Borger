@@ -4,7 +4,7 @@ import {
 	VALID_TYPES,
 	isPrimitive,
 	type AllFlattenedStructs,
-} from "@engine/code_generator/Common.ts";
+} from "@engine/code_generator/common.ts";
 
 export function generateSimulationStateRS(structs: AllFlattenedStructs) {
 	Bun.write(

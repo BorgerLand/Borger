@@ -87,7 +87,7 @@ impl SimControllerInternals {
 			#[cfg(feature = "client")]
 			let input_iter = iter::once((&self.local_client_id, &mut self.input_history));
 
-			//populate the mythical client.input as defined in State.ts
+			//populate the mythical client.input as defined in state.ts
 			for (&client_id, input_history) in input_iter {
 				#[cfg(feature = "server")]
 				let mut buffer;

@@ -1,9 +1,9 @@
-import * as Renderer from "@engine/client_ts/Renderer.ts";
-import * as Net from "@engine/client_ts/Net.ts";
+import * as Renderer from "@engine/client_ts/renderer.ts";
+import * as Net from "@engine/client_ts/net.ts";
 import ClientRSInit, * as ClientRS from "@engine/client_rs";
-import * as ConsoleLog from "@engine/client_ts/ConsoleLog.ts";
+import * as ConsoleLog from "@engine/client_ts/console_log.ts";
 import { Object3D } from "three";
-import { testCompat } from "@engine/client_ts/Compat.ts";
+import { testCompat } from "@engine/client_ts/compat.ts";
 
 export type EngineState = Awaited<ReturnType<typeof init>>;
 

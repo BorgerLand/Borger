@@ -6,7 +6,7 @@ import {
 	type NetVisibility,
 	type PrimitiveType,
 	type UtilityType,
-} from "@engine/code_generator/StateSchema.ts";
+} from "@engine/code_generator/state_schema.ts";
 
 export const BASE_GENERATED_DIR = "../base/src/generated";
 

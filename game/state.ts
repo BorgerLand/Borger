@@ -1,4 +1,4 @@
-import type { SimulationState } from "@engine/code_generator/StateSchema.ts";
+import type { SimulationState } from "@engine/code_generator/state_schema.ts";
 
 //make sure field names are snake_case or else you will anger rustc
 export default {

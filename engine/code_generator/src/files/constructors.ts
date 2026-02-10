@@ -6,7 +6,7 @@ import {
 	type FlattenedStruct,
 	isUtility,
 	isCollection,
-} from "@engine/code_generator/Common.ts";
+} from "@engine/code_generator/common.ts";
 
 export function generateConstructorsRS(simStructs: FlattenedStruct[][]) {
 	Bun.write(

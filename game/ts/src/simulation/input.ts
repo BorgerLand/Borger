@@ -1,4 +1,4 @@
-import { InputPoll } from "@engine/client_ts/InputPoll.ts";
+import { InputPoll } from "@engine/client_ts/input_poll.ts";
 import * as ClientRS from "@engine/client_rs";
 
 let poll: InputPoll;

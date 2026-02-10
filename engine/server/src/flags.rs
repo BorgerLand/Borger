@@ -13,7 +13,7 @@ pub struct Flags {
 	///to satisfy WebTransport's TLS requirement. The
 	///server (net.rs) will generate a self-signed
 	///certificate at the provided path upon startup.
-	///The client (Net.ts) ships this certificate to
+	///The client (net.ts) ships this certificate to
 	///the browser in order to allow it to connect. Do
 	///not use in production.
 	#[arg(long, value_name = "FILE")]

@@ -4,7 +4,7 @@ import {
 	VALID_TYPES,
 	type FlattenedStruct,
 	isCollection,
-} from "@engine/code_generator/Common.ts";
+} from "@engine/code_generator/common.ts";
 
 export function generateUntracked(simStructs: FlattenedStruct[][]) {
 	Bun.write(
