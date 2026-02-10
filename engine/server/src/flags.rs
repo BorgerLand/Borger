@@ -1,10 +1,9 @@
+use crate::SERVER_TITLE;
 use clap::Parser;
 use std::path::PathBuf;
 
-pub const SERVER_DESCRIPTION: &str = "Borger Game Server";
-
 #[derive(Parser, Debug)]
-#[command(about = SERVER_DESCRIPTION)]
+#[command(about = SERVER_TITLE)]
 pub struct Flags {
 	///Port number to run the server on (0-65535)
 	#[arg(short, long, default_value = "6969")]

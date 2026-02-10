@@ -1,4 +1,5 @@
-use crate::flags::{Flags, SERVER_DESCRIPTION};
+use crate::SERVER_TITLE;
+use crate::flags::Flags;
 use base::networked_types::primitive::usize_to_32;
 use base::networked_types::primitive::usize32;
 use base::thread_comms::{ClientToSimCommand, SimToClientCommand};
@@ -60,7 +61,7 @@ pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientComma
 
 	info!(
 		"\x1b[102;30m{}, port {}{}: it's alive.\x1b[0m",
-		SERVER_DESCRIPTION,
+		SERVER_TITLE,
 		actual_port,
 		if flags.port == 0 { " (randomized)" } else { "" }
 	);

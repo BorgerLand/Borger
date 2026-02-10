@@ -6,6 +6,8 @@ pub mod flags;
 #[cfg(feature = "server")]
 pub mod net;
 
+pub const SERVER_TITLE: &str = "Borger Game Server";
+
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() {
 	#[cfg(feature = "server")]
