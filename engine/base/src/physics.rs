@@ -1,6 +1,6 @@
 use crate::tick::TickInfo;
 use crate::untracked::UntrackedState;
-use glam::{Quat, Vec3};
+use glam::Vec3;
 use rapier3d::prelude::*;
 use std::fmt::{Debug, Error, Formatter};
 
@@ -27,10 +27,6 @@ pub struct Physics {
 	pub multibody_joints: MultibodyJointSet,
 	///Resets every tick
 	pub ccd_solver: CCDSolver,
-	///Resets every tick
-	pub hooks: Box<dyn PhysicsHooks>,
-	///Resets every tick
-	pub events: Box<dyn EventHandler>,
 
 	level_col_handle: ColliderHandle,
 }
@@ -58,8 +54,6 @@ impl UntrackedState for Physics {
 		self.impulse_joints = ImpulseJointSet::new();
 		self.multibody_joints = MultibodyJointSet::new();
 		self.ccd_solver = CCDSolver::new();
-		self.hooks = Box::new(());
-		self.events = Box::new(());
 
 		self.level_col_handle = self.colliders.insert(level_col);
 	}
@@ -75,10 +69,7 @@ impl Physics {
 	#[allow(unused)]
 	pub(crate) fn default() -> Self {
 		let level_col = ColliderBuilder::cuboid(100.0, 25.0, 100.0)
-			.position(Pose3 {
-				translation: Vec3::new(0.0, -25.0, 0.0),
-				rotation: Quat::from_axis_angle(Vec3::X, 10.0_f32.to_radians()),
-			})
+			.translation(Vec3::new(0.0, -25.0, 0.0))
 			.build();
 		let mut colliders = ColliderSet::new();
 		let level_col_handle = colliders.insert(level_col);
@@ -93,14 +84,12 @@ impl Physics {
 			impulse_joints: ImpulseJointSet::new(),
 			multibody_joints: MultibodyJointSet::new(),
 			ccd_solver: CCDSolver::new(),
-			hooks: Box::new(()),
-			events: Box::new(()),
 
 			level_col_handle,
 		}
 	}
 
-	pub fn step(&mut self, gravity: Vec3) {
+	pub fn step(&mut self, gravity: Vec3, hooks: &dyn PhysicsHooks, events: &dyn EventHandler) {
 		PhysicsPipeline::new().step(
 			gravity,
 			&self.integration_parameters,
@@ -112,8 +101,17 @@ impl Physics {
 			&mut self.impulse_joints,
 			&mut self.multibody_joints,
 			&mut self.ccd_solver,
-			self.hooks.as_ref(),
-			self.events.as_ref(),
+			hooks,
+			events,
 		);
+	}
+
+	pub fn query<'a>(&'a self, filter: QueryFilter<'a>) -> QueryPipeline<'a> {
+		self.broad_phase.as_query_pipeline(
+			self.narrow_phase.query_dispatcher(),
+			&self.rigid_bodies,
+			&self.colliders,
+			filter,
+		)
 	}
 }
