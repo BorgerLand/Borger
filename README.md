@@ -159,7 +159,7 @@ cd MyGame
 #wait a few seconds for it to stop spamming the console
 ```
 
-Now visit http://localhost:5173 for a good meal
+Now visit https://localhost:5173 for a good meal (you'll see a security warning but you can safely dismiss it)
 
 ![Despicable Physics](readme/demo2.webp)
 ![4 Clients](readme/demo1.webp)

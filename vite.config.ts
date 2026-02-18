@@ -3,12 +3,13 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import * as path from "path";
 import packageJson from "./package.json";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 
 //https://vite.dev/config/
 export default defineConfig({
 	root: "game",
 	publicDir: "assets",
-	plugins: [react(), tailwindcss()],
+	plugins: [react(), tailwindcss(), basicSsl()],
 	resolve: {
 		alias: {
 			//should match tsconfig.json
