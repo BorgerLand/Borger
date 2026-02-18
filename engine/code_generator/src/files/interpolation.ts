@@ -25,20 +25,26 @@ export function generateInterpolationRS(simStructs: FlattenedStruct[][]) {
 		`${BASE_GENERATED_DIR}/interpolation.rs`,
 		`${STATE_WARNING}
 
-use crate::presentation_state::*;
-use wasm_bindgen::prelude::*;
-use crate::js_bindings::JSBindings;
-use glam::Mat4;
-use crate::interpolation::
+use crate::interpolation::Interpolate;
+
+#[cfg(feature = "client")]
+use
 {
-	interpolate_type,
-	Interpolate,
-	Entity,
-	EntityInstanceBindings
+	crate::presentation_state::*,
+	wasm_bindgen::prelude::*,
+	crate::js_bindings::JSBindings,
+	glam::Mat4,
+	crate::interpolation::
+	{
+		interpolate_type,
+		Entity,
+		EntityInstanceBindings
+	},
 };
 
 ${VALID_TYPES}
 
+#[cfg(feature = "client")]
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[wasm_bindgen]
 pub enum EntityKind
@@ -46,6 +52,7 @@ pub enum EntityKind
 ${entities.map((entity) => `	${entity.mainStruct.name},`).join("\n")}
 }
 
+#[cfg(feature = "client")]
 #[derive(Default)]
 pub struct EntityBindings
 {
@@ -54,7 +61,8 @@ ${entities.map((entity) => `	pub ${entity.field.name}: Vec<EntityInstanceBinding
 
 ${entities
 	.map(
-		(entity) => `impl Entity for ${entity.mainStruct.name}
+		(entity) => `#[cfg(feature = "client")]
+impl Entity for ${entity.mainStruct.name}
 {
 	const KIND: EntityKind = EntityKind::${entity.mainStruct.name};
 	
@@ -71,6 +79,7 @@ ${entities
 	)
 	.join("\n\n")}
 
+#[cfg(feature = "client")]
 pub fn interpolate_entities
 (
 	prv_tick: Option<&SimulationOutput>,
@@ -100,7 +109,8 @@ ${entities
 	.map((entity) =>
 		entity.group
 			.map(function generateInterpolator(struct) {
-				return `impl Interpolate for ${struct.name}
+				return `#[cfg(feature = "client")]
+impl Interpolate for ${struct.name}
 {
 	fn interpolate(prv: &Self, cur: &Self, amount: f32) -> Self
 	{

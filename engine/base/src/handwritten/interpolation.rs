@@ -1,10 +1,13 @@
-use crate::interpolation::EntityKind;
-use crate::js_bindings::{JSValueCache, bind_matrix};
-use crate::networked_types::primitive::usize32;
-use glam::Mat4;
-use js_sys::{Function, Reflect};
-use std::collections::HashMap;
-use wasm_bindgen::{JsValue, throw_val};
+#[cfg(feature = "client")]
+use {
+	crate::interpolation::EntityKind,
+	crate::js_bindings::{JSValueCache, bind_matrix},
+	crate::networked_types::primitive::usize32,
+	glam::Mat4,
+	js_sys::{Function, Reflect},
+	std::collections::HashMap,
+	wasm_bindgen::{JsValue, throw_val},
+};
 
 //keeping this a separate trait for a future where other
 //parts of the simulation state can be interpolated
@@ -12,17 +15,20 @@ pub trait Interpolate {
 	fn interpolate(prv: &Self, cur: &Self, amount: f32) -> Self;
 }
 
+#[cfg(feature = "client")]
 pub trait Entity: Interpolate + Default + Clone {
 	const KIND: EntityKind;
 
 	fn get_matrix_world(&self) -> Mat4;
 }
 
+#[cfg(feature = "client")]
 pub struct EntityInstanceBindings<T: Entity> {
 	pub js: EntityInstanceJSBindings,
 	pub rs: EntityInstanceRSBindings<T>,
 }
 
+#[cfg(feature = "client")]
 #[derive(Clone)]
 pub struct EntityInstanceJSBindings {
 	pub o3d: JsValue,          //THREE.Object3D
@@ -30,6 +36,7 @@ pub struct EntityInstanceJSBindings {
 	pub slot_id: JsValue,      //number
 }
 
+#[cfg(feature = "client")]
 pub struct EntityInstanceRSBindings<T: Entity> {
 	pub slot_id: usize32, //the slot id this entity lives in on the simulation side
 	pub interpolated: T,  //the interpolated presentation state
@@ -37,6 +44,7 @@ pub struct EntityInstanceRSBindings<T: Entity> {
 }
 
 //derive macro not working...
+#[cfg(feature = "client")]
 impl<T: Entity> Default for EntityInstanceBindings<T> {
 	fn default() -> Self {
 		Self {
@@ -59,6 +67,7 @@ impl<T: Entity> Default for EntityInstanceBindings<T> {
 //as much as possible. calling js should only happen
 //when prv_entities and cur_entities contain different
 //sets of entities and received_new_tick is true
+#[cfg(feature = "client")]
 pub fn interpolate_type<T: Entity>(
 	received_new_tick: bool,
 	prv_entities: &[(usize32, T)],

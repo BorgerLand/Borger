@@ -1,3 +1,4 @@
+use crate::interpolation::Interpolate;
 use std::f32::consts::{PI, TAU};
 
 ///Shortest distance between two angles in range [-PI, PI)
@@ -15,6 +16,10 @@ pub fn wrap_angle(angle: f32) -> f32 {
 	diff
 }
 
-pub fn map_range(value: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32 {
-	(value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+pub fn map_range<T>(value: f32, in_min: f32, in_max: f32, out_min: T, out_max: T) -> T
+where
+	T: Interpolate,
+{
+	let amount = (value - in_min) / (in_max - in_min);
+	T::interpolate(&out_min, &out_max, amount)
 }

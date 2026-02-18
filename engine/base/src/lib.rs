@@ -46,26 +46,22 @@ mod handwritten {
 	pub(crate) mod constructors;
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
+	pub(crate) mod interpolation;
 	pub(crate) mod presentation_state;
 	pub(crate) mod simulation_state;
 	pub(crate) mod snapshot_serdes;
 	pub(crate) mod untracked;
-
-	#[cfg(feature = "client")]
-	pub(crate) mod interpolation;
 }
 
 mod generated {
 	pub(crate) mod constructors;
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
+	pub(crate) mod interpolation;
 	pub(crate) mod presentation_state;
 	pub(crate) mod simulation_state;
 	pub(crate) mod snapshot_serdes;
 	pub(crate) mod untracked;
-
-	#[cfg(feature = "client")]
-	pub(crate) mod interpolation;
 }
 
 ///Constructors for simulation state objects
@@ -136,9 +132,10 @@ pub(crate) mod untracked {
 }
 
 ///Interpolation and presentation of entities
-#[cfg(feature = "client")]
 pub mod interpolation {
+	#[cfg(feature = "client")]
 	pub use super::generated::interpolation::*;
+
 	pub use super::handwritten::interpolation::*;
 }
 
