@@ -132,6 +132,7 @@ const fullchain = process.env.FULLCHAIN;
 const privkey = process.env.PRIVKEY;
 const port = parseInt(process.env.PORT) || 5173;
 const headers = {
+	//should match vite.config.ts
 	\"Cross-Origin-Opener-Policy\": \"same-origin\",
 	\"Cross-Origin-Embedder-Policy\": \"require-corp\",
 	\"Cache-Control\": \"no-store, no-cache, must-revalidate\",

@@ -20,9 +20,13 @@ export default defineConfig({
 	},
 	server: {
 		headers: {
+			//should match release.sh
 			"Cross-Origin-Opener-Policy": "same-origin",
 			"Cross-Origin-Embedder-Policy": "require-corp",
-			"Cache-Control": "no-store",
+			"Cache-Control": "no-store, no-cache, must-revalidate",
+			Pragma: "no-cache",
+			Expires: "0",
+			"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 		},
 	},
 	optimizeDeps: {
