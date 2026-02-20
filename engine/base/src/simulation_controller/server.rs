@@ -35,7 +35,7 @@ impl SimControllerInternals {
 
 		//if client has an input for this tick id already, it's
 		//probably trying to cheat, so kick it
-		let tick_id_too_early = self.ctx.tick.id_cur + TickInfo::get_ticks(INPUT_TOO_LATE);
+		let tick_id_too_early = self.ctx.tick.id_cur + TickInfo::get_ticks(INPUT_TOO_EARLY);
 
 		//if client doesn't have an input for this tick id yet,
 		//put it in timeout mode
