@@ -25,7 +25,7 @@ type InitializingNetStateRest = {
 export type NetState = Awaited<ReturnType<typeof init>>;
 
 export async function init(useWebTransport: boolean) {
-	let uninitNet: InitializingNetState;
+	let net: InitializingNetState;
 	let stateStream: AsyncGenerator<Uint8Array, void, unknown>;
 	let writeInput: (stateBytes: Uint8Array) => void;
 
@@ -39,16 +39,23 @@ export async function init(useWebTransport: boolean) {
 
 		const transport = new WebTransport(`https://${location.hostname}:${PORT_WEBTRANSPORT}`, config);
 
-		uninitNet = {
+		net = {
 			transport,
 			established: false,
 			open: true,
 			onDisconnect: [() => {}],
 		};
 
-		wtListenOnClose(uninitNet);
-		await wtListenOnOpen(uninitNet);
-		uninitNet.established = true;
+		wtListenOnDisconnect(net);
+
+		try {
+			await net.transport.ready;
+		} catch (oops) {
+			triggerDisconnect(net, { reason: String(oops) });
+			throw oops;
+		}
+
+		net.established = true;
 
 		const simulationStream = await transport.createBidirectionalStream();
 		stateStream = wtListenForState(simulationStream.readable.getReader());
@@ -65,7 +72,7 @@ export async function init(useWebTransport: boolean) {
 		const ws = new WebSocket(`wss://${location.hostname}:${PORT_WEBSOCKET}`);
 		ws.binaryType = "arraybuffer";
 
-		uninitNet = {
+		net = {
 			transport: ws,
 			established: false,
 			open: true,
@@ -73,13 +80,13 @@ export async function init(useWebTransport: boolean) {
 		};
 
 		ws.onclose = function (e) {
-			onClose(uninitNet, { reason: e.reason, closeCode: e.code });
+			triggerDisconnect(net, { reason: e.reason, closeCode: e.code });
 		};
 
 		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
-		uninitNet.established = true;
+		net.established = true;
 
-		stateStream = wsListenForState(uninitNet);
+		stateStream = wsListenForState(net);
 		writeInput = ws.send.bind(ws);
 	}
 
@@ -96,11 +103,11 @@ export async function init(useWebTransport: boolean) {
 	const newClientSnapshot = (await stateStream.next()).value!;
 
 	return {
-		transport: uninitNet.transport,
+		transport: net.transport,
 		newClientSnapshot,
 		writeInput,
 		stateStream,
-		onDisconnect: uninitNet.onDisconnect,
+		onDisconnect: net.onDisconnect,
 	};
 }
 
@@ -115,9 +122,9 @@ export function onDisconnect(net: NetState, cb: () => void) {
 	net.onDisconnect[0] = cb;
 }
 
-function onClose(net: InitializingNetState, oops: WebTransportCloseInfo) {
+function triggerDisconnect(net: InitializingNetState, oops: WebTransportCloseInfo) {
 	if (!net.open) return;
-	net.open = false; //might be a bug here setting .open on the wrong state object?
+	net.open = false;
 	net.transport.close();
 
 	try {
@@ -149,19 +156,12 @@ function onClose(net: InitializingNetState, oops: WebTransportCloseInfo) {
 		const code = oops.closeCode !== undefined ? ` (${protocol} error code ${oops.closeCode})` : "";
 		const full = `Lost connection to game server${reason}${code}`;
 
-		//the tab is now borked. need proper error handling
+		//the tab is now borked. need proper retry handling
 		alert(full);
 	}
 }
 
-async function wtListenOnOpen(net: WTInitializingNetState) {
-	try {
-		await net.transport.ready;
-	} catch (oops) {
-		onClose(net, { reason: String(oops) });
-		throw oops;
-	}
-}
+//---WEBTRANSPORT---//
 
 //the equivalent "listen_for_input" happens in rust
 async function* wtListenForState(stateStream: ReadableStreamDefaultReader) {
@@ -179,7 +179,7 @@ async function* wtListenForState(stateStream: ReadableStreamDefaultReader) {
 	}
 }
 
-async function wtListenOnClose(net: WTInitializingNetState) {
+async function wtListenOnDisconnect(net: WTInitializingNetState) {
 	let closeInfo;
 	try {
 		closeInfo = await net.transport.closed;
@@ -187,7 +187,7 @@ async function wtListenOnClose(net: WTInitializingNetState) {
 		closeInfo = { reason: String(oops) };
 	}
 
-	onClose(net, closeInfo);
+	triggerDisconnect(net, closeInfo);
 }
 
 //stoopid api doesn't let you request to read
@@ -225,11 +225,13 @@ async function wtReceivePacket(
 	return { packet: packetBuffer, excess: newExcessBuffer! };
 }
 
+//---WEBSOCKET---//
+
 async function* wsListenForState(net: WSInitializingNetState) {
 	//buffer incoming messages so the async generator can yield them on demand
 	const queue: Uint8Array[] = [];
 	let resolve: (() => void) | null = null;
-	let timeout = wsListenOnClose(net);
+	let timeout = wsListenOnDisconnect(net);
 
 	net.transport.onmessage = (e: MessageEvent) => {
 		queue.push(new Uint8Array(e.data as ArrayBuffer));
@@ -237,7 +239,7 @@ async function* wsListenForState(net: WSInitializingNetState) {
 		resolve = null;
 
 		clearTimeout(timeout);
-		timeout = wsListenOnClose(net);
+		timeout = wsListenOnDisconnect(net);
 	};
 
 	while (true) {
@@ -248,6 +250,6 @@ async function* wsListenForState(net: WSInitializingNetState) {
 	}
 }
 
-function wsListenOnClose(net: WSInitializingNetState) {
-	return setTimeout(() => onClose(net, { reason: "Timed out" }), NET_TIMEOUT * 1000);
+function wsListenOnDisconnect(net: WSInitializingNetState) {
+	return setTimeout(() => triggerDisconnect(net, { reason: "Timed out" }), NET_TIMEOUT * 1000);
 }
