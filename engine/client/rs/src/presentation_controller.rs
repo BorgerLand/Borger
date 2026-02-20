@@ -49,7 +49,7 @@ impl PresentationController {
 			)
 		}));
 
-		console_log::init().unwrap();
+		console_log::init_with_level(log::Level::Info).unwrap();
 
 		Self {
 			sim: game_rs::simulation::init(new_client_snapshot.to_vec()),

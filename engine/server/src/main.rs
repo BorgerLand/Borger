@@ -13,7 +13,7 @@ pub async fn main() {
 	#[cfg(feature = "server")]
 	{
 		SimpleLogger::new()
-			.with_module_level("tungstenite", log::LevelFilter::Info)
+			.with_level(log::LevelFilter::Info)
 			.init()
 			.unwrap();
 
