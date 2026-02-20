@@ -5,6 +5,7 @@
 - _Documentation_
 - _Triggering of VFX/SFX events_
 - _Access game state from Three/React (in progress, partial support)_
+- _Static level geometry import_
 
 [Follow my unhinged gamedev journey for updates!](https://www.youtube.com/@borgerland)
 
@@ -153,7 +154,7 @@ Fork this repo first, in order to use it as a blank template. Then:
 ```Bash
 git clone https://github.com/Username/MyGame.git
 cd MyGame
-./setup.sh
+./setup.sh #takes a good while
 ./dev.sh
 #wait a few seconds for it to stop spamming the console
 ```
