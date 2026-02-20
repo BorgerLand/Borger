@@ -152,7 +152,6 @@ function checkAuth(req) {
 
 const serverOptions = {
 	port,
-	hostname: \"0.0.0.0\",
 	async fetch(req) {
 		if (!checkAuth(req)) {
 			return new Response(\"Unauthorized\", {
