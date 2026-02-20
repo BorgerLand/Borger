@@ -116,9 +116,9 @@ if [ -n "$RUN" ]; then
 	cd release
 	
 	if [ -n "$FULLCHAIN" ]; then
-		SERVER_CMD="./server -p 6969 --fullchain \"$FULLCHAIN\" --privkey \"$PRIVKEY\""
+		SERVER_CMD="./server --fullchain \"$FULLCHAIN\" --privkey \"$PRIVKEY\""
 	else
-		SERVER_CMD="./server -p 6969 --devcert client/devcert.json"
+		SERVER_CMD="./server --devcert client/devcert.json"
 	fi
 	
 	bun concurrently \
@@ -177,11 +177,12 @@ const serverOptions = {
 };
 
 if (fullchain && privkey) {
-	console.log(\"Loaded HTTPS/TLS certificates\");
 	serverOptions.tls = {
 		cert: Bun.file(fullchain),
 		key: Bun.file(privkey),
 	};
+
+	console.log(\"Loaded HTTPS/TLS certificates\");
 }
 
 const protocol = (fullchain && privkey) ? \"HTTPS\" : \"HTTP\";

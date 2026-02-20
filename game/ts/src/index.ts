@@ -17,7 +17,7 @@ const engine = await init({
 	onDisconnect: Input.dispose,
 });
 
-Input.init(engine.renderer.renderer.domElement, engine.rsInput);
+Input.init(engine.renderer.renderer.domElement, engine.rsInput, engine.compat.Touchscreen.supported);
 
 engine.renderer.renderer.setClearColor(new Color(0));
 const scene = engine.renderer.scene3D;

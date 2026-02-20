@@ -12,7 +12,11 @@ pub const SERVER_TITLE: &str = "Borger Game Server";
 pub async fn main() {
 	#[cfg(feature = "server")]
 	{
-		SimpleLogger::new().init().unwrap();
+		SimpleLogger::new()
+			.with_module_level("tungstenite", log::LevelFilter::Info)
+			.init()
+			.unwrap();
+
 		let flags = flags::Flags::parse();
 		let sim = game_rs::simulation::init();
 		let sim_loop = tokio::task::spawn_blocking(move || sim.thread.join().unwrap());

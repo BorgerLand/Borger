@@ -16,8 +16,8 @@ const INPUT_SETTINGS = {
 	undo: ["control", "z"],
 };
 
-export function init(canvas: HTMLCanvasElement, rsInputObj: ClientRS.InputState) {
-	poll = new InputPoll(canvas, false);
+export function init(canvas: HTMLCanvasElement, rsInputObj: ClientRS.InputState, touchscreenMode: boolean) {
+	poll = new InputPoll(canvas, touchscreenMode);
 	poll.setAllowPointerLock(true);
 
 	rsInput = rsInputObj;

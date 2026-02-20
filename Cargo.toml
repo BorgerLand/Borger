@@ -24,21 +24,8 @@ rapier3d = { version = "*", features = [ "simd-nightly" ] }
 wasm-bindgen = { version = "*", default-features = false }
 wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33
 web-time = { version = "*", default-features = false }
-
-#server only
-wtransport = { version = "*", default-features = false, features = ["ring", "self-signed"] }
-simple_logger = { version = "*", default-features = false, features = ["colors"] }
-clap = { version = "*", default-features = false, features = ["std", "derive", "color", "error-context", "help", "suggestions", "usage"] }
-progenitor = { version = "*", default-features = false, features = ["macro"] }
-reqwest = { version = "*", default-features = false }
-serde = { version = "*", default-features = false }
-uuid = { version = "*", default-features = false, features = ["serde"] }
-futures = { version = "*", default-features = false }
-
-#client only
-console_log = { version = "*", default-features = false, features = ["color"] }
 js-sys = { version = "*", default-features = false }
-web-sys = { version = "*", default-features = false, features = ["WritableStreamDefaultWriter"] }
+web-sys = { version = "*", default-features = false }
 
 #dev build
 [profile.server-dev]

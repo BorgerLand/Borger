@@ -63,14 +63,13 @@ export class InputPoll {
 		mouseup: (e: MouseEvent) => void;
 		mousemove: (e: MouseEvent) => void;
 		pointerlockchange: () => void;
-		pointerdown: () => void;
 	};
 
 	constructor(
 		public element: HTMLCanvasElement,
-		public isMobileBrowser: boolean,
+		public touchscreenMode: boolean,
 	) {
-		if (!this.isMobileBrowser) {
+		if (!this.touchscreenMode) {
 			//with mouse as hid, the mouse is the only pointer
 			this.pointerPos.set(0, new Vector2());
 			this.pointerDelta.set(0, new Vector2());
@@ -178,6 +177,7 @@ export class InputPoll {
 			//element
 			mousedown: (e) => {
 				this.#pointerState.set(e.button, ButtonState.JUST_PRESSED);
+				if (!this.#pointerLock) element.requestPointerLock();
 			},
 
 			//element
@@ -205,11 +205,6 @@ export class InputPoll {
 				this.reset();
 				this.#pointerLock = document.pointerLockElement === element;
 			},
-
-			//element
-			pointerdown: () => {
-				if (!this.#pointerLock) element.requestPointerLock();
-			},
 		});
 
 		document.addEventListener("keyup", e.keyup);
@@ -219,7 +214,7 @@ export class InputPoll {
 		window.addEventListener("focus", e.focus);
 		window.addEventListener("blur", e.blur);
 
-		if (isMobileBrowser) {
+		if (this.touchscreenMode) {
 			element.addEventListener("touchstart", e.touchstart);
 			element.addEventListener("touchend", e.touchend);
 			element.addEventListener("touchmove", e.touchmove);
@@ -351,16 +346,14 @@ export class InputPoll {
 	}
 
 	setAllowPointerLock(allow: boolean) {
-		if (this.isMobileBrowser) {
+		if (this.touchscreenMode) {
 			this.#allowPointerLock = allow;
 			this.#pointerLock = allow;
 		} else {
 			if (allow && !this.#allowPointerLock) {
 				document.addEventListener("pointerlockchange", this.#events.pointerlockchange);
-				this.element.addEventListener("pointerdown", this.#events.pointerdown);
 			} else if (!allow && this.#allowPointerLock) {
 				document.removeEventListener("pointerlockchange", this.#events.pointerlockchange);
-				this.element.removeEventListener("pointerdown", this.#events.pointerdown);
 
 				this.#pointerLock = false;
 				this.reset();
@@ -385,7 +378,7 @@ export class InputPoll {
 
 		for (const i of this.#pointerState.keys()) {
 			if (this.#pointerState.get(i) === ButtonState.DOWN_QUICK) {
-				if (this.isMobileBrowser) {
+				if (this.touchscreenMode) {
 					this.pointerPos.delete(i);
 					this.pointerDelta.delete(i);
 				}
@@ -412,7 +405,7 @@ export class InputPoll {
 
 		this.setAllowPointerLock(false);
 
-		if (this.isMobileBrowser) {
+		if (this.touchscreenMode) {
 			element.removeEventListener("touchmove", e.touchmove);
 			element.removeEventListener("touchend", e.touchend);
 			element.removeEventListener("touchstart", e.touchstart);
@@ -434,7 +427,7 @@ export class InputPoll {
 		this.#keyState.clear();
 		this.#pointerState.clear();
 
-		if (this.isMobileBrowser) {
+		if (this.touchscreenMode) {
 			this.pointerPos.clear();
 			this.pointerDelta.clear();
 		} else {

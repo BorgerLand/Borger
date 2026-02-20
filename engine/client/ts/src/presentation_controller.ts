@@ -15,15 +15,16 @@ export async function init(cb: {
 	onResolutionChange?: (state: Renderer.RendererState) => void;
 	onDisconnect?: () => void;
 }) {
-	await testCompat();
+	const compat = await testCompat();
 
 	//init procedure has been parallelized as much as possible
 	const state = {
 		dt: 0,
 		prvTime: 0,
+		compat,
 
 		...(await Promise.all([
-			Net.init(),
+			Net.init(compat.WebTransport.supported),
 			Promise.resolve(cb.canvasPromise).then(async function (canvas) {
 				return await Renderer.init(canvas, cb.onResolutionChange ?? (() => {}));
 			}),
@@ -36,7 +37,7 @@ export async function init(cb: {
 			}>(function (resolve) {
 				const rsController = new ClientRS.PresentationController(
 					net.newClientSnapshot,
-					net.inputStream,
+					net.writeInput,
 					renderer.scene3D,
 					function (type: ClientRS.EntityKind, id: number) {
 						const o3d = cb?.onSpawnEntity?.(type, id) ?? new Object3D();

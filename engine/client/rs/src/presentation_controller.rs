@@ -1,5 +1,4 @@
 use base::js_bindings::{JSBindings, bind_camera};
-use base::networked_types::primitive::usize_to_32;
 use base::presentation_state::SimulationOutput;
 use base::simulation_controller::SimControllerExternals;
 use base::simulation_state::InputState;
@@ -11,7 +10,7 @@ use std::panic;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
-use web_sys::{WritableStreamDefaultWriter, console};
+use web_sys::console;
 use web_time::Instant;
 
 #[wasm_bindgen]
@@ -33,7 +32,7 @@ impl PresentationController {
 	#[wasm_bindgen(constructor)]
 	pub fn new(
 		new_client_snapshot: Uint8Array,
-		input_stream: WritableStreamDefaultWriter,
+		#[wasm_bindgen(unchecked_param_type = "(tx: Uint8Array) => void")] write_input: Function,
 
 		#[wasm_bindgen(unchecked_param_type = "import('three').Scene")] scene: &JsValue,
 		#[wasm_bindgen(unchecked_param_type = "(type: EntityType, id: number) => import('three').Object3D")]
@@ -55,7 +54,7 @@ impl PresentationController {
 		Self {
 			sim: game_rs::simulation::init(new_client_snapshot.to_vec()),
 			now: Instant::now(),
-			bindings: JSBindings::new(input_stream, scene, spawn_entity_cb, dispose_entity_cb),
+			bindings: JSBindings::new(write_input, scene, spawn_entity_cb, dispose_entity_cb),
 
 			is_ready: false,
 			tick_buffers: [None, None],
@@ -86,15 +85,11 @@ impl PresentationController {
 		while let Ok(sim_msg) = self.sim.comms.from_sim.try_recv() {
 			match sim_msg {
 				SimToPresentationCommand::InputDiff(input_diff) => {
-					#[allow(unused_must_use)]
-					self.bindings.cache.input_stream.write_with_chunk(
-						&Uint8Array::from(usize_to_32(input_diff.len()).to_le_bytes().as_slice()).into(),
-					);
-					#[allow(unused_must_use)]
 					self.bindings
 						.cache
-						.input_stream
-						.write_with_chunk(&Uint8Array::from(input_diff.as_slice()).into());
+						.write_input
+						.call1(&JsValue::NULL, &Uint8Array::from(input_diff.as_slice()).into())
+						.unwrap();
 				}
 			};
 		}
