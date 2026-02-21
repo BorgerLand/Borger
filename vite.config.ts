@@ -19,6 +19,7 @@ export default defineConfig({
 		},
 	},
 	server: {
+		allowedHosts: true,
 		headers: {
 			//should match release.sh
 			"Cross-Origin-Opener-Policy": "same-origin",

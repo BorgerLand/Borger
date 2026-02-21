@@ -70,12 +70,19 @@ pub fn validate(sus: &mut InputState) {
 		cam_pitch: valid_f32(sus.cam_pitch).clamp(-89.9_f32.to_radians(), 89.9_f32.to_radians()),
 		cam_radius: valid_f32(sus.cam_radius).clamp(0., f32::INFINITY),
 
-		omnidir: Vec3::new(
-			valid_f32(sus.omnidir.x).clamp(-1., 1.),
-			valid_f32(sus.omnidir.y).clamp(-1., 1.),
-			valid_f32(sus.omnidir.z).clamp(-1., 1.),
-		)
-		.normalize_or_zero(),
+		omnidir: {
+			let omnidir = Vec3::new(
+				valid_f32(sus.omnidir.x).clamp(-1., 1.),
+				valid_f32(sus.omnidir.y).clamp(-1., 1.),
+				valid_f32(sus.omnidir.z).clamp(-1., 1.),
+			);
+
+			if omnidir.length_squared() > 1.0 {
+				omnidir.normalize_or_zero()
+			} else {
+				omnidir
+			}
+		},
 	};
 }
 

@@ -38,7 +38,7 @@ const ButtonState = {
 type ButtonStateValue = (typeof ButtonState)[keyof typeof ButtonState];
 
 export class InputPoll {
-	pixelRatio = 1;
+	pixelRatio = devicePixelRatio;
 	pointerPos = new Map<number, Vector2>();
 	pointerDelta = new Map<number, Vector2>();
 	scrollDelta = new Vector3();
@@ -66,7 +66,7 @@ export class InputPoll {
 	};
 
 	constructor(
-		public element: HTMLCanvasElement,
+		public canvas: HTMLCanvasElement,
 		public touchscreenMode: boolean,
 	) {
 		if (!this.touchscreenMode) {
@@ -78,7 +78,7 @@ export class InputPoll {
 		const e = (this.#events = {
 			//document
 			keydown: (e) => {
-				if (!e.key) return;
+				if (!e.key || e.repeat) return;
 
 				const key = e.key.toLowerCase();
 
@@ -88,14 +88,7 @@ export class InputPoll {
 					e.preventDefault();
 				}
 
-				if (e.repeat) return;
-
-				if (
-					this.#keyState.get(key) === ButtonState.UP ||
-					this.#keyState.get(key) === ButtonState.DOWN_QUICK
-				) {
-					this.#keyState.set(key, ButtonState.JUST_PRESSED);
-				}
+				this.#keyState.set(key, ButtonState.JUST_PRESSED);
 			},
 
 			//document
@@ -110,7 +103,7 @@ export class InputPoll {
 				}
 			},
 
-			//element
+			//canvas
 			wheel: (e) => {
 				const r = this.pixelRatio;
 				this.scrollDelta.x += e.deltaX * r;
@@ -118,7 +111,7 @@ export class InputPoll {
 				this.scrollDelta.z += e.deltaZ * r;
 			},
 
-			//element
+			//canvas
 			contextmenu: (e) => e.preventDefault(),
 
 			//window
@@ -127,7 +120,7 @@ export class InputPoll {
 			//window
 			blur: () => this.reset(),
 
-			//element
+			//canvas
 			touchstart: (e) => {
 				for (const touch of e.changedTouches) {
 					const id = touch.identifier;
@@ -136,13 +129,13 @@ export class InputPoll {
 					this.#pointerState.set(id, ButtonState.JUST_PRESSED);
 					this.pointerPos.set(
 						id,
-						new Vector2(touch.clientX * r, element.height - touch.clientY * r),
+						new Vector2(touch.clientX * r, canvas.height - touch.clientY * r),
 					);
 					this.pointerDelta.set(id, new Vector2(0, 0));
 				}
 			},
 
-			//element
+			//canvas
 			touchend: (e) => {
 				for (const touch of e.changedTouches) {
 					const id = touch.identifier;
@@ -156,7 +149,7 @@ export class InputPoll {
 				}
 			},
 
-			//element
+			//canvas
 			touchmove: (e) => {
 				e.preventDefault();
 
@@ -167,20 +160,20 @@ export class InputPoll {
 					const pointerPos = this.pointerPos.get(id)!;
 
 					const x = touch.clientX * r;
-					const y = element.height - touch.clientY * r;
+					const y = canvas.height - touch.clientY * r;
 					pointerDelta.x += x - pointerPos.x;
 					pointerDelta.y += y - pointerPos.y;
 					pointerPos.set(x, y);
 				}
 			},
 
-			//element
+			//canvas
 			mousedown: (e) => {
 				this.#pointerState.set(e.button, ButtonState.JUST_PRESSED);
-				if (!this.#pointerLock) element.requestPointerLock();
+				if (!this.#pointerLock) canvas.requestPointerLock();
 			},
 
-			//element
+			//canvas
 			mouseup: (e) => {
 				const id = e.button;
 				if (this.#pointerState.get(id) === ButtonState.JUST_PRESSED) {
@@ -190,11 +183,11 @@ export class InputPoll {
 				}
 			},
 
-			//element
+			//canvas
 			mousemove: (e) => {
 				const r = this.pixelRatio;
 
-				this.pointerPos.get(0)!.set(e.clientX * r, element.height - e.clientY * r);
+				this.pointerPos.get(0)!.set(e.clientX * r, canvas.height - e.clientY * r);
 				const pointerDelta = this.pointerDelta.get(0)!;
 				pointerDelta.x += e.movementX * r;
 				pointerDelta.y -= e.movementY * r;
@@ -203,25 +196,25 @@ export class InputPoll {
 			//document
 			pointerlockchange: () => {
 				this.reset();
-				this.#pointerLock = document.pointerLockElement === element;
+				this.#pointerLock = document.pointerLockElement === canvas;
 			},
 		});
 
 		document.addEventListener("keyup", e.keyup);
 		document.addEventListener("keydown", e.keydown);
 		document.addEventListener("wheel", e.wheel);
-		element.addEventListener("contextmenu", e.contextmenu);
+		canvas.addEventListener("contextmenu", e.contextmenu);
 		window.addEventListener("focus", e.focus);
 		window.addEventListener("blur", e.blur);
 
 		if (this.touchscreenMode) {
-			element.addEventListener("touchstart", e.touchstart);
-			element.addEventListener("touchend", e.touchend);
-			element.addEventListener("touchmove", e.touchmove);
+			canvas.addEventListener("touchstart", e.touchstart);
+			canvas.addEventListener("touchend", e.touchend);
+			canvas.addEventListener("touchmove", e.touchmove);
 		} else {
-			element.addEventListener("mousedown", e.mousedown);
-			element.addEventListener("mouseup", e.mouseup);
-			element.addEventListener("mousemove", e.mousemove);
+			canvas.addEventListener("mousedown", e.mousedown);
+			canvas.addEventListener("mouseup", e.mouseup);
+			canvas.addEventListener("mousemove", e.mousemove);
 		}
 	}
 
@@ -337,6 +330,13 @@ export class InputPoll {
 		return Boolean(this.#pointerState.get(id));
 	}
 
+	/**
+	 * Iterate over all pointer ID's who were just pressed since the last frame
+	 */
+	*getNewPointers() {
+		for (const [id, state] of this.#pointerState.entries()) if (state) yield id;
+	}
+
 	isPointerLocked() {
 		return this.#pointerLock;
 	}
@@ -400,24 +400,24 @@ export class InputPoll {
 	 * Removes all event listeners
 	 */
 	dispose() {
-		const element = this.element;
+		const canvas = this.canvas;
 		const e = this.#events;
 
 		this.setAllowPointerLock(false);
 
 		if (this.touchscreenMode) {
-			element.removeEventListener("touchmove", e.touchmove);
-			element.removeEventListener("touchend", e.touchend);
-			element.removeEventListener("touchstart", e.touchstart);
+			canvas.removeEventListener("touchmove", e.touchmove);
+			canvas.removeEventListener("touchend", e.touchend);
+			canvas.removeEventListener("touchstart", e.touchstart);
 		} else {
-			element.removeEventListener("mousemove", e.mousemove);
-			element.removeEventListener("mouseup", e.mouseup);
-			element.removeEventListener("mousedown", e.mousedown);
+			canvas.removeEventListener("mousemove", e.mousemove);
+			canvas.removeEventListener("mouseup", e.mouseup);
+			canvas.removeEventListener("mousedown", e.mousedown);
 		}
 
 		window.removeEventListener("blur", e.blur);
 		window.removeEventListener("focus", e.focus);
-		element.removeEventListener("contextmenu", e.contextmenu);
+		canvas.removeEventListener("contextmenu", e.contextmenu);
 		document.removeEventListener("wheel", e.wheel);
 		document.removeEventListener("keydown", e.keydown);
 		document.removeEventListener("keyup", e.keyup);

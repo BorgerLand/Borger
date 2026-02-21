@@ -3,11 +3,13 @@ import { createRoot } from "react-dom/client";
 import { HUD } from "@game/presentation/ui/hud.tsx";
 import "@game/presentation/ui/index.css"; //what does it mean to import a css file. that makes no sense
 
+//warning this root component doesn't hot reload. changing it
+//requires a full page refresh. try modifying hud instead
 export function init() {
 	return new Promise<HTMLCanvasElement>(function (resolve) {
 		createRoot(document.getElementById("root")!).render(
 			<StrictMode>
-				<div className="h-screen w-screen overflow-hidden">
+				<div className="h-screen w-screen touch-none select-none overflow-hidden overscroll-none">
 					<GameCanvas />
 					<HUD />
 				</div>
