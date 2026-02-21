@@ -3,9 +3,10 @@
 ### _⚠️ This is an ongoing R&D project. Many essential features don't exist yet: ⚠️_
 
 - _Documentation_
-- _Triggering of VFX/SFX events_
+- _Triggering of VFX/SFX events (haptic predictions)_
 - _Access game state from Three/React (in progress, partial support)_
 - _Static level geometry import_
+- _Send UI RPC's from client to server_
 
 [Follow my unhinged gamedev journey for updates!](https://www.youtube.com/@borgerland)
 
