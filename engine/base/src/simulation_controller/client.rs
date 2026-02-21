@@ -174,30 +174,31 @@ impl SimControllerInternals {
 		//(tick_id_received >= self.ctx.tick.id_received)
 		let mut safe_buffers = Vec::new();
 
-		//while building the list, simulate what would happen to
-		//tick.id_consensus if the received buffer were to go through
-		let mut tick_id_consensus_simulated = self.ctx.tick.id_consensus;
-
 		for buffer in received {
 			let buffer_iter = &mut buffer.iter().cloned();
 			let tick_type = TickType::des_rx(buffer_iter).unwrap();
+
+			//simulate what would happen to tick.id_cur/consensus using the
+			//same tick incrementing math from the other "match tick_type" in
+			//the "do it for real now" section, storing the reuslts in
+			//tick.id_cur/consensus_received
 			let tick_id_received = match tick_type {
-				TickType::NetEvents => tick_id_consensus_simulated,
+				TickType::NetEvents => self.ctx.tick.id_consensus_received,
 				TickType::Consensus => {
-					tick_id_consensus_simulated += 1;
-					tick_id_consensus_simulated - 1
+					self.ctx.tick.id_consensus_received += 1;
+					self.ctx.tick.id_consensus_received - 1
 				}
 				TickType::Predicted => TickID::des_rx(buffer_iter).unwrap(),
 			};
 
-			if tick_id_received >= self.ctx.tick.id_received {
-				self.ctx.tick.id_received = tick_id_received;
-				safe_buffers.append(&mut self.ctx.tick.received_buffers);
+			if tick_id_received >= self.ctx.tick.id_cur_received {
+				self.ctx.tick.id_cur_received = tick_id_received;
+				safe_buffers.append(&mut self.ctx.tick.pending_received_buffers);
 				safe_buffers.push(buffer);
 			} else {
 				//not enough buffers have been received yet to advance the
 				//simulation forward. store the packet for later reconciliation
-				self.ctx.tick.received_buffers.push(buffer);
+				self.ctx.tick.pending_received_buffers.push(buffer);
 			}
 		}
 
