@@ -25,8 +25,8 @@ const INPUT_SETTINGS = {
 type TouchscreenStore = {
 	touchscreenMode: boolean;
 	dpr: number;
-	look: NippleStore;
 	move: NippleStore;
+	look: NippleStore;
 
 	upButton: boolean;
 	downButton: boolean;
@@ -37,8 +37,8 @@ type NippleStore = { active: boolean; id: number; start: Vector2 };
 export const useTouchscreenStore = create<TouchscreenStore>(() => ({
 	touchscreenMode: false,
 	dpr: devicePixelRatio,
-	look: makeNipple(),
 	move: makeNipple(),
+	look: makeNipple(),
 
 	upButton: false,
 	downButton: false,
