@@ -1,4 +1,8 @@
-import { useTouchscreenStore } from "@game/simulation/input.ts";
+import { useTouchscreenStore, type TouchscreenStore } from "@game/simulation/input.ts";
+
+type ButtonField = {
+	[K in keyof TouchscreenStore]: K extends `${string}Button` ? K : never;
+}[keyof TouchscreenStore];
 
 export function Buttons({ size, padding }: { size: number; padding: number }) {
 	return (
@@ -12,15 +16,7 @@ export function Buttons({ size, padding }: { size: number; padding: number }) {
 	);
 }
 
-function Button({
-	text,
-	size,
-	stateField,
-}: {
-	text: string;
-	size: number;
-	stateField: "upButton" | "downButton";
-}) {
+function Button({ text, size, stateField }: { text: string; size: number; stateField: ButtonField }) {
 	const pressed = useTouchscreenStore((s) => s[stateField]);
 
 	return (
@@ -36,7 +32,6 @@ function Button({
 			}}
 			onPointerDown={() => useTouchscreenStore.setState({ [stateField]: true })}
 			onPointerUp={() => useTouchscreenStore.setState({ [stateField]: false })}
-			onPointerLeave={() => useTouchscreenStore.setState({ [stateField]: false })}
 		>
 			<span className="text-2xl text-white">{text}</span>
 		</button>

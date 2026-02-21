@@ -22,7 +22,7 @@ const INPUT_SETTINGS = {
 	undo: ["control", "z"],
 };
 
-type TouchscreenStore = {
+export type TouchscreenStore = {
 	touchscreenMode: boolean;
 	dpr: number;
 	move: NippleStore;
@@ -115,20 +115,20 @@ export function update() {
 			const lookDX = pointerDelta?.x ?? 0;
 			const lookDY = pointerDelta?.y ?? 0;
 
-			const leftButton = poll.keysAreDown(INPUT_SETTINGS.left);
-			const rightButton = poll.keysAreDown(INPUT_SETTINGS.right);
-			const backwardButton = poll.keysAreDown(INPUT_SETTINGS.backward);
-			const downButton = poll.keysAreDown(INPUT_SETTINGS.down);
-			const upButton = poll.keysAreDown(INPUT_SETTINGS.up);
-			const forwardButton = poll.keysAreDown(INPUT_SETTINGS.forward);
+			const leftKey = poll.keysAreDown(INPUT_SETTINGS.left);
+			const rightKey = poll.keysAreDown(INPUT_SETTINGS.right);
+			const backwardKey = poll.keysAreDown(INPUT_SETTINGS.backward);
+			const downKey = poll.keysAreDown(INPUT_SETTINGS.down);
+			const upKey = poll.keysAreDown(INPUT_SETTINGS.up);
+			const forwardKey = poll.keysAreDown(INPUT_SETTINGS.forward);
 
 			ClientRS.populate_input(
 				rsInput,
 				lookDX * INPUT_SETTINGS.lookSensitivityMouse,
 				lookDY * INPUT_SETTINGS.lookSensitivityMouse,
-				Number(rightButton) - Number(leftButton),
-				Number(upButton) - Number(downButton),
-				Number(forwardButton) - Number(backwardButton),
+				Number(rightKey) - Number(leftKey),
+				Number(upKey) - Number(downKey),
+				Number(forwardKey) - Number(backwardKey),
 			);
 		}
 	} else {

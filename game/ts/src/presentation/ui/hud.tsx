@@ -6,10 +6,7 @@ export function HUD() {
 	const touchscreenMode = useTouchscreenStore((s) => s.touchscreenMode);
 
 	return (
-		<div
-			className="pointer-events-none absolute left-0 top-0 h-full w-full text-xl text-white"
-			onContextMenu={(e) => e.preventDefault()}
-		>
+		<div className="pointer-events-none absolute left-0 top-0 h-full w-full text-xl text-white">
 			{touchscreenMode ? (
 				<>
 					Left half of the screen - Move

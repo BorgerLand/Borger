@@ -33,7 +33,7 @@ export default defineConfig({
 	optimizeDeps: {
 		include: Object.entries(packageJson.dependencies)
 			.map(([dep]) => dep)
-			.concat("react-dom/client", "three/webgpu", "three/tsl"),
+			.concat("react-dom/client", "three/webgpu", "three/tsl", "three/examples/jsm/Addons.js"),
 	},
 	build: {
 		outDir: "../release/client",

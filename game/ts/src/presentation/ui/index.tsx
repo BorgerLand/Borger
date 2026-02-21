@@ -9,7 +9,10 @@ export function init() {
 	return new Promise<HTMLCanvasElement>(function (resolve) {
 		createRoot(document.getElementById("root")!).render(
 			<StrictMode>
-				<div className="h-screen w-screen touch-none select-none overflow-hidden overscroll-none">
+				<div
+					className="h-screen w-screen touch-none select-none overflow-hidden overscroll-none"
+					onContextMenu={(e) => e.preventDefault()}
+				>
 					<GameCanvas />
 					<HUD />
 				</div>
