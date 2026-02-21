@@ -6,12 +6,18 @@ use base::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
 use game_rs::presentation::on_client_start;
 use game_rs::presentation::pipeline::presentation_tick as game_presentation_tick;
 use js_sys::{Function, Uint8Array};
+use log::Level;
 use std::panic;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 use web_time::Instant;
+
+#[cfg(not(debug_assertions))]
+const LOG_LEVEL: Level = Level::Info;
+#[cfg(debug_assertions)]
+const LOG_LEVEL: Level = Level::Debug;
 
 #[wasm_bindgen]
 pub struct PresentationController {
@@ -49,7 +55,7 @@ impl PresentationController {
 			)
 		}));
 
-		console_log::init_with_level(log::Level::Info).unwrap();
+		console_log::init_with_level(LOG_LEVEL).unwrap();
 
 		Self {
 			sim: game_rs::simulation::init(new_client_snapshot.to_vec()),

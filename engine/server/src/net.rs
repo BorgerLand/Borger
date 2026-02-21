@@ -5,7 +5,7 @@ use base::networked_types::primitive::usize32;
 use base::thread_comms::{ClientToSimCommand, SimToClientCommand};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
-use log::info;
+use log::{error, info};
 use std::array::TryFromSliceError;
 use std::io::Error as IOError;
 use std::net::SocketAddr;
@@ -291,10 +291,9 @@ async fn ws_listen_on_connect(
 	let tls_stream = match certs.accept(incoming_session.0).await {
 		Ok(tls_stream) => tls_stream,
 		Err(oops) => {
-			return log::error!(
+			return error!(
 				"[{}] WebSocket client reported invalid certificates (have you dismissed the browser warning?): {:?}",
-				ip,
-				oops
+				ip, oops
 			);
 		}
 	};

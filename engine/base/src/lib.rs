@@ -195,11 +195,6 @@ pub fn init(
 
 	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> SimControllerExternals {
-	#[cfg(debug_assertions)]
-	log::set_max_level(log::LevelFilter::Debug);
-	#[cfg(not(debug_assertions))]
-	log::set_max_level(log::LevelFilter::Info);
-
 	simulation_controller::init(
 		cb,
 		#[cfg(feature = "client")]
