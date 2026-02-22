@@ -122,6 +122,8 @@ export class InputPoll {
 
 			//canvas
 			touchstart: (e) => {
+				e.preventDefault();
+
 				for (const touch of e.changedTouches) {
 					const id = touch.identifier;
 					const r = this.pixelRatio;

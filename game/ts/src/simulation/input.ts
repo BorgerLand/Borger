@@ -11,7 +11,7 @@ const tmpOmnidir = new Vector2();
 const INPUT_SETTINGS = {
 	lookSensitivityMouse: 0.0025, //radians/pixel
 	lookSensitivityTouchscreen: 0.006, //radians/pixel
-	moveSensitivityTouchscreen: 75, //pixels (fewer = more sensitive)
+	moveSensitivityTouchscreen: 125, //pixels (drag distance required to hit full speed)
 
 	left: ["a"],
 	right: ["d"],

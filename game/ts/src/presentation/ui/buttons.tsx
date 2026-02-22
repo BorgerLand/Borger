@@ -21,7 +21,7 @@ function Button({ text, size, stateField }: { text: string; size: number; stateF
 
 	return (
 		<button
-			className="flex touch-none items-center justify-center rounded-full"
+			className="flex items-center justify-center rounded-full"
 			style={{
 				width: `${size}rem`,
 				height: `${size}rem`,
@@ -33,7 +33,7 @@ function Button({ text, size, stateField }: { text: string; size: number; stateF
 			onPointerDown={() => useTouchscreenStore.setState({ [stateField]: true })}
 			onPointerUp={() => useTouchscreenStore.setState({ [stateField]: false })}
 		>
-			<span className="text-2xl text-white">{text}</span>
+			<span className="text-5xl text-white">{text}</span>
 		</button>
 	);
 }
