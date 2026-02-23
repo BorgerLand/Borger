@@ -1,12 +1,12 @@
 #![feature(vec_deque_truncate_front)] //https://github.com/rust-lang/rust/issues/140667
 
-use crate::context::{GameContext, Immediate};
+use crate::multiplayer_tradeoff::{GameContext, Immediate};
 use crate::networked_types::primitive::usize32;
 use crate::simulation_controller::SimControllerExternals;
 use crate::simulation_state::{InputState, SimulationState};
 
 #[cfg(feature = "server")]
-use {crate::context::WaitForConsensus, crate::diff_ser::DiffSerializer, crate::tick::TickID};
+use {crate::diff_ser::DiffSerializer, crate::multiplayer_tradeoff::WaitForConsensus, crate::tick::TickID};
 
 pub mod math;
 pub mod multiplayer_tradeoff;
@@ -23,10 +23,6 @@ pub mod thread_comms;
 
 ///Time-keeping
 pub mod tick;
-
-///Enforces correct nesting of multiplayer_tradeoff!
-///using Rust's type system
-pub mod context;
 
 ///Serdes strategies for all networked state types
 pub mod networked_types;
@@ -141,12 +137,9 @@ pub mod interpolation {
 
 ///Helpful types and macros when writing simulation+presentation logic
 pub mod prelude {
-	pub use crate::context::{
-		AnyTradeoff, GameContext, Immediate, ImmediateOrWaitForServer, WaitForConsensus, WaitForServer,
-	};
-
 	pub use crate::diff_ser::DiffSerializer;
-	pub use crate::multiplayer_tradeoff;
+	pub use crate::multiplayer_tradeoff; //macro
+	pub use crate::multiplayer_tradeoff::*;
 	pub use crate::simulation_state::*;
 	pub use crate::tick::{TickID, TickInfo};
 	pub use log::*;

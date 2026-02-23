@@ -15,7 +15,7 @@ export function generateDiffSerRS(structs: AllFlattenedStructs) {
 use crate::simulation_state::*;
 use crate::diff_ser::DiffSerializer;
 use crate::networked_types::primitive::ser_sim_primitive;
-use crate::context::AnyTradeoff;
+use crate::multiplayer_tradeoff::AnyTradeoff;
 
 #[cfg(feature = "server")]
 use crate::NetVisibility;
@@ -24,7 +24,7 @@ use crate::NetVisibility;
 use
 {
 	crate::networked_types::primitive::ser_input_primitive,
-	crate::context::Impl,
+	crate::multiplayer_tradeoff::Impl,
 };
 
 ${VALID_TYPES}

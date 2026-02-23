@@ -1,5 +1,5 @@
 use crate::DiffOperation;
-use crate::context::{AnyTradeoff, Impl};
+use crate::multiplayer_tradeoff::{AnyTradeoff, Impl};
 use crate::networked_types::primitive::{PrimitiveSerDes, SliceSerDes, usize32};
 use crate::tick::TickType;
 use std::marker::PhantomData;

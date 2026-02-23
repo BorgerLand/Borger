@@ -5,7 +5,7 @@ use crate::{DeserializeOopsy, DiffOperation};
 use std::collections::VecDeque;
 
 #[cfg(feature = "client")]
-use {crate::context::Impl, crate::diff_ser::DiffSerializer, std::vec};
+use {crate::diff_ser::DiffSerializer, crate::multiplayer_tradeoff::Impl, std::vec};
 
 pub(crate) trait DiffDeserializeState {
 	fn set_field_rollback(&mut self, field_id: usize32, buffer: &mut Vec<u8>)

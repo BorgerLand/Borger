@@ -1,7 +1,7 @@
 use crate::constructors::ConstructCollectionOrUtilityType;
-use crate::context::AnyTradeoff;
 use crate::diff_des::DiffDeserializeState;
 use crate::diff_ser::DiffSerializer;
+use crate::multiplayer_tradeoff::AnyTradeoff;
 use crate::networked_types::primitive::{PrimitiveSerDes, SliceSerDes, usize_to_32, usize32};
 use crate::presentation_state::CloneToPresentationState;
 use crate::snapshot_serdes::SnapshotState;
@@ -15,7 +15,7 @@ use std::rc::Rc;
 use crate::NetVisibility;
 
 #[cfg(feature = "client")]
-use {crate::context::Impl, crate::simulation_state::ClientState, std::any::TypeId, std::vec};
+use {crate::multiplayer_tradeoff::Impl, crate::simulation_state::ClientState, std::any::TypeId, std::vec};
 
 //like a hashmap, except the key is an internally generated, unique, numeric id.
 //currently does not do any sort of generational tracking

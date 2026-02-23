@@ -1,8 +1,8 @@
 use crate::ClientStateKind;
 use crate::SimulationCallbacks;
 use crate::constructors::ConstructCustomStruct;
-use crate::context::{GameContext, Impl};
 use crate::diff_ser::DiffSerializer;
+use crate::multiplayer_tradeoff::{GameContext, Impl};
 use crate::networked_types::primitive::usize32;
 use crate::simulation_state::{InputState, SimulationState};
 use crate::thread_comms::*;

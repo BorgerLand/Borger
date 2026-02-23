@@ -31,7 +31,7 @@ use crate::simulation_state::InputState;
 use
 {
 	crate::diff_ser::DiffSerializer,
-	crate::context::Impl,
+	crate::multiplayer_tradeoff::Impl,
 	std::vec,
 };
 
