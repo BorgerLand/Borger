@@ -7,6 +7,8 @@
 - _Access game state from Three/React (in progress, partial support)_
 - _Static level geometry import_
 - _Send UI RPC's from client to server_
+- _"Favor the shooter" (client view query)_
+- _Network filtering/culling: by proximity to camera, by custom rules/permissions_
 
 [Follow my unhinged gamedev journey for updates!](https://www.youtube.com/@borgerland)
 
