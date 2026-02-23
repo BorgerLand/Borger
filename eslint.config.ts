@@ -82,6 +82,7 @@ export default [
 			"no-nested-ternary": "error",
 
 			//ts-specific
+			"no-undef": "off", //tsc handles this better than eslint
 			"@typescript-eslint/no-this-alias": "off",
 			"@typescript-eslint/no-explicit-any": "off",
 			"@typescript-eslint/consistent-type-imports": "error",
