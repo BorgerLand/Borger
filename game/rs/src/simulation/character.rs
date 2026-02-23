@@ -74,6 +74,6 @@ pub fn get_character<'a>(client: &ClientState_owned, characters: &'a SlotMap<Cha
 pub fn get_character_mut<'a>(
 	client: &ClientState_owned,
 	characters: &'a mut SlotMap<Character>,
-) -> &'a Character {
+) -> &'a mut Character {
 	characters.get_mut(client.get_character_id()).unwrap()
 }
