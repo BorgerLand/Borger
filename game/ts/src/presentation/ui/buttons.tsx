@@ -32,6 +32,7 @@ function Button({ text, size, stateField }: { text: string; size: number; stateF
 			}}
 			onPointerDown={() => useTouchscreenStore.setState({ [stateField]: true })}
 			onPointerUp={() => useTouchscreenStore.setState({ [stateField]: false })}
+			onPointerCancel={() => useTouchscreenStore.setState({ [stateField]: false })}
 		>
 			<span className="text-5xl text-white">{text}</span>
 		</button>
