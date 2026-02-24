@@ -287,8 +287,10 @@ async fn ws_listen_on_connect(
 	certs: TlsAcceptor,
 ) {
 	let incoming_session = incoming_session.unwrap();
+	let stream = incoming_session.0;
+	stream.set_nodelay(true).unwrap(); //https://discord.com/channels/1032873609280106566/1037044340830244904/1475937300222578743
 	let ip = incoming_session.1.ip();
-	let tls_stream = match certs.accept(incoming_session.0).await {
+	let tls_stream = match certs.accept(stream).await {
 		Ok(tls_stream) => tls_stream,
 		Err(oops) => {
 			return error!(
