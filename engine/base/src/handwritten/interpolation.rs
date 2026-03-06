@@ -72,7 +72,7 @@ pub fn interpolate_type<T: Entity>(
 	let allocated_len = prv_entities.len().max(cur_entities.len());
 	let prv_data_ptr = out_entities.as_ptr();
 
-	out_entities.resize_with(cur_entities.len(), || EntityInstanceBindings {
+	out_entities.resize_with(allocated_len, || EntityInstanceBindings {
 		js: EntityInstanceJSBindings {
 			o3d: JsValue::default(),
 			matrix_world: JsValue::default(),
