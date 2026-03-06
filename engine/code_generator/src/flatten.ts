@@ -1,9 +1,4 @@
-import {
-	type EntitySlotMap,
-	type Field,
-	type Struct,
-	NET_VISIBILITY_DEFAULT,
-} from "@engine/code_generator/state_schema.ts";
+import { type EntitySlotMap, type Field, type Struct } from "@engine/code_generator/state_schema.ts";
 import type {
 	FlattenedStruct,
 	AllFlattenedStructs,
@@ -48,7 +43,7 @@ export function flatten(
 	else structsFlattened.input.push(parentStructFlattened);
 
 	for (const [childFieldName, childField] of Object.entries(parentStruct)) {
-		const netVisibility = childField.netVisibility ?? NET_VISIBILITY_DEFAULT;
+		const netVisibility = childField.netVisibility;
 		let childClientKind = parentClientKind;
 
 		let netVisibilityAttribute;
@@ -94,7 +89,7 @@ export function flatten(
 				isCustomStruct: childField.type === "struct",
 				isPresentation: childField.presentation ?? false,
 				isEntity: (childField as EntitySlotMap).entity ?? false,
-				netVisibility: childField.netVisibility ?? NET_VISIBILITY_DEFAULT,
+				netVisibility: childField.netVisibility,
 				netVisibilityAttribute: netVisibilityAttribute!,
 				fieldID,
 			};

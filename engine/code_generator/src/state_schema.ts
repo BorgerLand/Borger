@@ -48,9 +48,8 @@ export const nonGenericTypeSchema = z.enum(
 	typeSchema.options.filter((type) => !genericTypeSchema.options.includes(type as any)),
 ) as z.ZodEnum<{ [K in NonGenericType]: K }>;
 
-export const NET_VISIBILITY_DEFAULT = "Private";
 export const netVisibilitySchema = z.enum([
-	NET_VISIBILITY_DEFAULT, //only server can access
+	"Private", //only server can access
 	"Owner", //only server and the owning client can access
 	"Public", //everyone can access
 	"Untracked", //disable networking/diff tracking
@@ -118,10 +117,11 @@ const fieldSchema = z.lazy(() =>
 export type Field =
 	| ((
 			| {
-					netVisibility?: Exclude<NetVisibility, "Untracked">;
+					netVisibility: Exclude<NetVisibility, "Untracked">;
 					presentation?: false;
 			  }
 			| {
+					//disallow { netVisibility: "Private", presentation: true }
 					netVisibility: Exclude<NetVisibility, "Private" | "Untracked">;
 					presentation: true;
 			  }
@@ -284,8 +284,7 @@ const simulationStateSchema = structSchema
 	.refine((state) =>
 		validateRecursively({
 			struct: state,
-			test: (path, child) =>
-				path[0] !== "clients" && (child.netVisibility ?? NET_VISIBILITY_DEFAULT) === "Owner",
+			test: (path, child) => path[0] !== "clients" && child.netVisibility === "Owner",
 			error: (path) => `"Owner" visibility used outside of clients for "${path.join(".")}"`,
 		}),
 	)
@@ -297,24 +296,21 @@ const simulationStateSchema = structSchema
 
 				const hierarchy = netVisibilitySchema.options;
 				return (
-					hierarchy.indexOf(child.netVisibility ?? NET_VISIBILITY_DEFAULT) >
-						hierarchy.indexOf(parent.netVisibility ?? NET_VISIBILITY_DEFAULT) &&
-					(child.netVisibility ?? NET_VISIBILITY_DEFAULT) !== "Untracked"
+					hierarchy.indexOf(child.netVisibility) > hierarchy.indexOf(parent.netVisibility) &&
+					child.netVisibility !== "Untracked"
 				);
 			},
 			error: (path, child, parent) =>
-				`Net visibility "${child.netVisibility ?? NET_VISIBILITY_DEFAULT}" for "${path.join(".")}" is more permissive than parent "${parent!.netVisibility ?? NET_VISIBILITY_DEFAULT}"`,
+				`Net visibility "${child.netVisibility}" for "${path.join(".")}" is more permissive than parent "${parent!.netVisibility}"`,
 		}),
 	)
 	.refine((state) =>
 		validateRecursively({
 			struct: state,
 			test: (path, child) =>
-				path[0] === "clients" &&
-				path[1] === "input" &&
-				(child.netVisibility ?? NET_VISIBILITY_DEFAULT) !== "Owner",
+				path[0] === "clients" && path[1] === "input" && child.netVisibility !== "Owner",
 			error: (path, child) =>
-				`Client input state's net visibility "${child.netVisibility ?? NET_VISIBILITY_DEFAULT}" for "${path.join(".")}" must be changed to "Owner"`,
+				`Client input state's net visibility "${child.netVisibility}" for "${path.join(".")}" must be changed to "Owner"`,
 		}),
 	)
 	.refine((state) =>
@@ -350,8 +346,7 @@ const simulationStateSchema = structSchema
 			struct: state,
 			test: (path, child) =>
 				child.type === "HapticPredictionEmitter" &&
-				((child.netVisibility ?? NET_VISIBILITY_DEFAULT) === "Untracked" ||
-					(child.netVisibility ?? NET_VISIBILITY_DEFAULT) === "Private"),
+				(child.netVisibility === "Untracked" || child.netVisibility === "Private"),
 			//this is not a hard technical requirement, but it makes no sense
 			//to use haptic predictions in this manner
 			error: (path) =>
@@ -363,7 +358,7 @@ const simulationStateSchema = structSchema
 			struct: state,
 			test: (path, child, parent) =>
 				parent?.type === "HapticPredictionEmitter" &&
-				((child.netVisibility ?? NET_VISIBILITY_DEFAULT) !== "Untracked" || !child.presentation),
+				(child.netVisibility !== "Untracked" || !child.presentation),
 			error: (path) =>
 				`HapticPredictionEmitter field at "${path.join(".")}" must use { netVisibility: "Untracked, presentation: true }"`,
 		}),
