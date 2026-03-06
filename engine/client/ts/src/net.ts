@@ -117,7 +117,7 @@ export async function onStateReceived(net: NetState, cb: (stateBuffer: Uint8Arra
 }
 
 export function onDisconnect(net: NetState, cb: () => void) {
-	//note this is a tuple so that the change propogates to both
+	//note this is a tuple so that the change propagates to both
 	//the current NetState and the original InitializingNetState
 	net.onDisconnect[0] = cb;
 }

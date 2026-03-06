@@ -25,7 +25,7 @@ const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 impl SimControllerInternals {
 	//receive and process data from client's presentation thread
 	pub(super) fn scheduled_tick_impl(&mut self) {
-		let rx_buffers = self.propogate_input(true);
+		let rx_buffers = self.propagate_input(true);
 		let offset = self.reconcile(rx_buffers);
 
 		if self.ctx.tick.id_target > self.ctx.tick.id_consensus {
@@ -75,7 +75,7 @@ impl SimControllerInternals {
 
 				if average_offset < 0 {
 					for _ in average_offset..0 {
-						self.propogate_input(false);
+						self.propagate_input(false);
 					}
 
 					self.simulate();
@@ -109,7 +109,7 @@ impl SimControllerInternals {
 		);
 	}
 
-	fn propogate_input(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
+	fn propagate_input(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
 		let mut input_is_late = true;
 		let mut new_input = InputState::default();
 		let mut rx_buffers: Vec<Vec<u8>> = Vec::new();
