@@ -18,7 +18,10 @@ glam = { version = "0.30.10", default-features = false, features = ["std"] } #ma
 atomicbox = { version = "*", default-features = false }
 tokio = { version = "*", default-features = false, features = ["rt"] }
 num_enum = { version = "*", default-features = false }
-rapier3d = { version = "*", features = [ "simd-nightly" ] }
+rapier3d = { version = "*", default-features = false, features = ["simd-nightly", "dim3", "f32"] }
+crossbeam-channel = { version = "*", default-features = false, features = ["std"] }
+serde = { version = "*", default-features = false }
+postcard = { version = "*", default-features = false, features = ["use-std"] }
 
 #wasm-specific shims (used in base to make client happier)
 wasm-bindgen = { version = "*", default-features = false }

@@ -12,7 +12,7 @@ use std::mem;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
-use crate::NetVisibility;
+use {crate::NetVisibility, crate::diff_ser::NO_EXTRA_FILTER};
 
 #[cfg(feature = "client")]
 use {crate::multiplayer_tradeoff::Impl, crate::simulation_state::ClientState, std::any::TypeId, std::vec};
@@ -45,6 +45,7 @@ pub struct SlotMap<V: NetState> {
 //---presentation_state---//
 
 impl<V: NetState> CloneToPresentationState for SlotMap<V> {
+	#[cfg(feature = "client")]
 	type PresentationState = Vec<(usize32, V::PresentationState)>;
 
 	#[cfg(feature = "client")]
@@ -113,7 +114,7 @@ impl<V: NetState> SlotMap<V> {
 		}
 
 		#[cfg(feature = "server")]
-		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility) {
+		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
 			op.ser_tx(buffer);
 			self.field_id.ser_tx(buffer);
 		}
@@ -155,7 +156,7 @@ impl<V: NetState> SlotMap<V> {
 		}
 
 		#[cfg(feature = "server")]
-		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility) {
+		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
 			op.ser_tx(buffer);
 			self.field_id.ser_tx(buffer);
 			id.ser_tx(buffer);
@@ -182,7 +183,7 @@ impl<V: NetState> SlotMap<V> {
 		}
 
 		#[cfg(feature = "server")]
-		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility) {
+		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
 			op.ser_tx(buffer);
 			self.field_id.ser_tx(buffer);
 		}
@@ -245,7 +246,7 @@ impl<V: NetState> SlotMap<V> {
 //---diff_des---//
 
 //wrapper to eliminate slotmap's generics and allow
-//DeserializeState trait to be dyn compatible
+//DiffDeserializeState trait to be dyn compatible
 pub(crate) trait SlotMapDynCompat {
 	fn get_des(&mut self, id: usize32) -> Option<&mut dyn DiffDeserializeState>;
 

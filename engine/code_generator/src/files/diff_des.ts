@@ -33,6 +33,7 @@ use
 	crate::diff_ser::DiffSerializer,
 	crate::multiplayer_tradeoff::Impl,
 	std::vec,
+	crate::networked_types::haptic_prediction::HapticPredictionEmitterDynCompat
 };
 
 ${VALID_TYPES}
@@ -126,6 +127,8 @@ ${group
 	}
 	
 	${generateGetCollectionOrUtility("get_slotmap", "dyn SlotMapDynCompat", (field) => field.outerType === "SlotMap")}
+	
+	${generateGetCollectionOrUtility("get_haptic_prediction_emitter", "dyn HapticPredictionEmitterDynCompat", (field) => field.outerType === "HapticPredictionEmitter", { needsMutability: false, clientOnly: true })}
 }`;
 
 		//need to call this for every collection and utility type
@@ -133,8 +136,15 @@ ${group
 			getterName: string,
 			returnType: string,
 			structFilter: (field: FlattenedField) => boolean,
+			extra = { needsMutability: true, clientOnly: false },
 		) {
-			return `fn ${getterName}(&mut self, field_id: usize32) -> Result<&mut ${returnType}, DeserializeOopsy>
+			const mutability = extra.needsMutability ? "mut " : "";
+			const clientOnly = extra.clientOnly
+				? `#[cfg(feature = "client")]
+	`
+				: ``;
+
+			return `${clientOnly}fn ${getterName}(&${mutability}self, field_id: usize32) -> Result<&${mutability}${returnType}, DeserializeOopsy>
 	{
 		match field_id
 		{
@@ -146,7 +156,7 @@ ${group
 				const field = getFullFieldPath(rootStruct.path, struct.path, name);
 
 				return `			${netVisibilityAttribute}
-			${fieldID} => Ok(&mut self.${field}),`;
+			${fieldID} => Ok(&${mutability}self.${field}),`;
 			})
 			.join("\n\t\t\n"),
 	)

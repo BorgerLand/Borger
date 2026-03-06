@@ -63,9 +63,12 @@ pub struct TickInfo {
 	//or decrease due to local rollbacks, causing old ticks to be
 	//resimulated
 	pub(crate) id_cur: TickID,
-	//
-	//id_consensus <= id_consensus_received <= id_cur_received <= id_cur
-	//the wider the gap between id's (particularly consensus+cur),
+
+	//by the end of the current scheduled tick, id_cur should be here
+	pub(crate) id_target: TickID,
+
+	//id_consensus <= id_consensus_received <= id_cur_received <= id_cur <= id_target
+	//the wider the gap between id's (particularly consensus+target),
 	//the worse the performance due to more rollbacks and
 	//retransmitting old ticks. this also means that the laggiest
 	//client will hurt performance for everyone, including the server.
@@ -98,6 +101,7 @@ impl TickInfo {
 			id_cur_received: id_start,
 
 			id_cur: id_start,
+			id_target: id_start + fast_forward_ticks,
 
 			#[cfg(feature = "client")]
 			pending_received_buffers: Vec::new(),
@@ -112,12 +116,20 @@ impl TickInfo {
 	//non-deterministic code is allowed, and large transition events
 	//(objective complete, game end, etc.) are encouraged to happen now
 	#[cfg(feature = "server")]
-	pub fn has_consensus(&self) -> bool {
+	#[doc(hidden)]
+	pub fn _has_consensus(&self) -> bool {
 		//seems counterintuitive that consensus can be higher
 		//than cur, but this is because id_consensus is
 		//incremented at the start of a tick while id_cur of
 		//a tick while id_cur is incremented at the end
 		self.id_consensus > self.id_cur
+	}
+
+	//analogous to InputStateAge::Fresh - true if this is the first time
+	//the current tick ID is being simulated, false on resimulation
+	#[cfg(feature = "client")]
+	pub(crate) fn is_fresh(&self) -> bool {
+		self.id_cur == self.id_target - 1
 	}
 
 	pub const fn get_ticks(dur: Duration) -> TickID {
@@ -137,17 +149,21 @@ impl TickInfo {
 	}
 
 	//recalibration is needed when server and client have
-	//differing tick_id_target. this is unrelated to ping.
+	//differing tick.id_target. this is unrelated to ping.
 	//it causes client to exist at the wrong time, either
 	//too far into the past or future
 	#[cfg(feature = "client")]
 	pub(crate) fn recalibrate(&mut self, offset_from_server: i16) {
 		if offset_from_server >= 0 {
 			//early relative to server
-			self.first += Self::get_duration(offset_from_server as TickID);
+			let offset_from_server = offset_from_server as TickID;
+			self.first += Self::get_duration(offset_from_server);
+			self.id_target -= offset_from_server;
 		} else {
 			//late relative to server
-			self.first -= Self::get_duration((-offset_from_server) as TickID);
+			let offset_from_server = (-offset_from_server) as TickID;
+			self.first -= Self::get_duration(offset_from_server);
+			self.id_target += offset_from_server;
 		}
 	}
 }

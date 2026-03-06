@@ -12,6 +12,7 @@ base = { path = "../base" }
 game_rs = { path = "../../game/rs" }
 log.workspace = true
 tokio.workspace = true
+crossbeam-channel.workspace = true
 
 wtransport = { version = "*", default-features = false, features = ["ring", "self-signed"] }
 simple_logger = { version = "*", default-features = false, features = ["colors"] }

@@ -12,16 +12,8 @@ use {
 
 pub type ClientState = ClientStateGeneric<ClientState_owned, ClientState_remote>;
 
-impl Clone for ClientState {
-	fn clone(&self) -> Self {
-		match self {
-			Self::Owned(client) => Self::Owned(client.clone()),
-			Self::Remote(client) => Self::Remote(client.clone()),
-		}
-	}
-}
-
 pub(crate) trait CloneToPresentationState {
+	#[cfg(feature = "client")]
 	type PresentationState;
 
 	#[cfg(feature = "client")]
@@ -29,6 +21,7 @@ pub(crate) trait CloneToPresentationState {
 }
 
 impl CloneToPresentationState for simulation_state::ClientState {
+	#[cfg(feature = "client")]
 	type PresentationState = ClientState;
 
 	#[cfg(feature = "client")]
@@ -57,6 +50,6 @@ pub(crate) unsafe fn get_presentation_from_mat<'a, T: Entity>(rs_ptr: *const Mat
 	let offset = mem::offset_of!(EntityInstanceRSBindings<T>, mat);
 	unsafe {
 		let bindings_rs = &*(rs_ptr.byte_sub(offset) as *const EntityInstanceRSBindings<T>);
-		&bindings_rs.interpolated
+		bindings_rs.interpolated()
 	}
 }

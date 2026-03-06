@@ -1,6 +1,7 @@
 use crate::simulation::character;
 use base::networked_types::primitive::usize32;
 use base::prelude::*;
+use base::tick::TickID;
 
 //all callbacks are guaranteed to be triggered
 //in order of declaration, on the server only,

@@ -2,17 +2,21 @@ import {
 	BASE_GENERATED_DIR,
 	STATE_WARNING,
 	VALID_TYPES,
-	type FlattenedStruct,
 	isPrimitive,
+	type AllFlattenedStructs,
 } from "@engine/code_generator/common.ts";
-import { simplePrimitives, type multiFieldPrimitives } from "@engine/code_generator/state_schema.ts";
+import {
+	simplePrimitiveTypeSchema,
+	type MultiFieldPrimitiveType,
+} from "@engine/code_generator/state_schema.ts";
 
 //key is an outerType, value is CloneToPresentationState::PresentationType
 const PRESENTATION_TYPE = new Map<string, (innerType: string) => string>([
 	["SlotMap", (innerType) => `Vec<(usize32, ${innerType})>`],
+	["HapticPredictionEmitter", (innerType) => `SyncReceiver<simulation_state::${innerType}>`],
 ]);
 
-export function generatePresentationStateRS(simStructs: FlattenedStruct[][]) {
+export function generatePresentationStateRS(structs: AllFlattenedStructs) {
 	Bun.write(
 		`${BASE_GENERATED_DIR}/presentation_state.rs`,
 		`${STATE_WARNING}
@@ -22,7 +26,11 @@ use crate::presentation_state::CloneToPresentationState;
 use wasm_bindgen::prelude::*;
 
 #[allow(unused_imports)]
-use crate::presentation_state::ClientState;
+use
+{
+	crate::presentation_state::ClientState,
+	crossbeam_channel::Receiver as SyncReceiver,
+};
 
 #[cfg(feature = "client")]
 use
@@ -33,14 +41,14 @@ use
 
 ${VALID_TYPES}
 
-${simStructs
+${structs.sim
 	.map((group) =>
 		group
 			.map(function generatePresentationStruct(struct) {
 				const presentationStructName =
 					struct.name === "SimulationState" ? "PresentationState" : struct.name;
 
-				return `#[derive(Debug, Clone, Default)]
+				return `#[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
 #[wasm_bindgen]
 pub struct ${presentationStructName}
@@ -60,6 +68,7 @@ ${struct.fields
 
 impl CloneToPresentationState for simulation_state::${struct.name}
 {
+	#[cfg(feature = "client")]
 	type PresentationState = ${presentationStructName};
 	
 	#[cfg(feature = "client")]
@@ -91,11 +100,11 @@ ${struct.fields
 		({ netVisibility, isPresentation, outerType }) =>
 			struct.isEntity && isPresentation && netVisibility !== "Private" && isPrimitive(outerType),
 	)
-	.map(function ({ name, fullType }) {
-		if ((simplePrimitives as readonly string[]).includes(fullType)) {
+	.map(function ({ name, fullType }): string {
+		if ((simplePrimitiveTypeSchema.options as readonly string[]).includes(fullType)) {
 			return generateJSReader(presentationStructName, name, fullType);
 		} else {
-			switch (fullType as (typeof multiFieldPrimitives)[number]) {
+			switch (fullType as MultiFieldPrimitiveType) {
 				case "Vec2":
 					return generateMultiFieldReader(presentationStructName, name, "xy", "f32");
 				case "DVec2":

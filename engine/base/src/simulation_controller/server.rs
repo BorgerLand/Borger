@@ -4,8 +4,8 @@ use crate::snapshot_serdes;
 use crate::snapshot_serdes::NewClientHeader;
 use crate::tick::{TickID, TickInfo, TickType, UnrollbackableNetEvent};
 use crate::{ClientStateKind, diff_des};
+use crossbeam_channel::unbounded as sync_unbounded_channel;
 use log::debug;
-use std::sync::mpsc as sync_mpsc;
 
 //allow receiving client input state this early/late.
 const INPUT_TOO_EARLY: Duration = Duration::from_millis(1000); //too early = kick
@@ -13,7 +13,7 @@ const INPUT_TOO_LATE: Duration = Duration::from_millis(1500); //too late = serve
 
 impl SimControllerInternals {
 	//receive and process data from server's main thread
-	pub(super) fn scheduled_tick_impl(&mut self, tick_id_target: TickID) {
+	pub(super) fn scheduled_tick_impl(&mut self) {
 		//in order to minimize the amount of rolling back
 		//for processing non-deterministic net_events,
 		//inputs need to be deserialized first. remember
@@ -23,7 +23,7 @@ impl SimControllerInternals {
 
 		//connect event received from new_connection_receiver
 		while let Ok(to_client) = self.new_connection_receiver.try_recv() {
-			let (to_sim, from_client) = sync_mpsc::channel();
+			let (to_sim, from_client) = sync_unbounded_channel();
 			let comms = SimToClientChannel {
 				to_client,
 				from_client,
@@ -88,6 +88,7 @@ impl SimControllerInternals {
 								if history.timed_out_ticks == 0 {
 									history.entries.push_back(InternalInputEntry {
 										input: new_input.clone(),
+										age: InputStateAge::Fresh,
 										ping: Some(
 											tick_id_associated.wrapping_sub(self.ctx.tick.id_cur) as i16
 										),
@@ -175,7 +176,7 @@ impl SimControllerInternals {
 		//tick.id_consensus is calculated based on
 		//what is the oldest tick id for which an input
 		//has been received from all clients
-		let max_advance = tick_id_target - self.ctx.tick.id_consensus;
+		let max_advance = self.ctx.tick.id_target - self.ctx.tick.id_consensus;
 		let advance = self
 			.input_history
 			.values()
@@ -189,13 +190,13 @@ impl SimControllerInternals {
 			})
 			.min()
 			.map(|min| min as TickID)
-			.unwrap_or(max_advance) //if there are no clients, insta-advance to tick_id_target
+			.unwrap_or(max_advance) //if there are no clients, insta-advance to tick.id_target
 			.min(max_advance); //if all clients are living in the future, prevent them from fast forwarding the whole server
 
 		debug_assert!(self.ctx.tick.id_cur == self.ctx.tick.id_consensus || advance == 0);
 		self.ctx.tick.id_consensus += advance;
 
-		self.simulate(tick_id_target);
+		self.simulate();
 	}
 
 	fn trigger_net_events(&mut self, mut rollback_amount: TickID) {

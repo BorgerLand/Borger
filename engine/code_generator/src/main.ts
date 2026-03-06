@@ -18,7 +18,7 @@ console.time("Great success");
 
 const structs = flatten(validate(state));
 generateSimulationStateRS(structs);
-generatePresentationStateRS(structs.sim);
+generatePresentationStateRS(structs);
 generateConstructorsRS(structs.sim);
 generateUntracked(structs.sim);
 generateDiffSerRS(structs);

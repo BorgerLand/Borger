@@ -2,15 +2,15 @@ use crate::ClientStateKind;
 use crate::SimulationCallbacks;
 use crate::constructors::ConstructCustomStruct;
 use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::{GameContext, Impl};
+use crate::multiplayer_tradeoff::{AnyTradeoff, Impl};
 use crate::networked_types::primitive::usize32;
-use crate::simulation_state::{InputState, SimulationState};
+use crate::simulation_state::{InputState, InputStateAge, SimulationState};
 use crate::thread_comms::*;
 use crate::tick::{TickID, TickInfo};
+use crossbeam_channel::unbounded as sync_unbounded_channel;
 use log::debug;
 use std::collections::VecDeque;
 use std::rc::Rc;
-use std::sync::mpsc as sync_mpsc;
 use std::time::Duration;
 use wasm_thread as thread;
 use web_time::Instant;
@@ -18,8 +18,8 @@ use web_time::Instant;
 #[cfg(feature = "server")]
 use {
 	crate::tick::UnrollbackableNetEvent,
+	crossbeam_channel::{Receiver as SyncReceiver, Sender as SyncSender},
 	std::collections::HashMap,
-	std::sync::mpsc::{Receiver as SyncReceiver, Sender as SyncSender},
 	tokio::sync::mpsc::UnboundedSender as AsyncSender,
 };
 
@@ -106,6 +106,12 @@ pub(crate) struct SimControllerInternals {
 	initial_calibration: bool,
 }
 
+pub struct GameContext<Tradeoff: AnyTradeoff> {
+	pub state: SimulationState,
+	pub tick: TickInfo,
+	pub diff: DiffSerializer<Tradeoff>,
+}
+
 #[derive(Default, Debug)]
 struct InternalInputHistory {
 	//element at index 0 corresponds to the most recently
@@ -141,6 +147,9 @@ struct InternalInputHistory {
 struct InternalInputEntry {
 	input: InputState,
 
+	#[cfg(feature = "server")]
+	age: InputStateAge,
+
 	//ping is measured in 2 different ways depending on
 	//whether this is the server or client:
 	//1. server: time in ticks between the tick that this entry
@@ -149,13 +158,13 @@ struct InternalInputEntry {
 	//client as part of its state diff packet header (see the
 	//signaling scheme). normally negative but can be positive
 	//if client is ahead
-	//2. server: rtt in ticks between the time the client sends
+	//2. client: rtt in ticks between the time the client sends
 	//this input and the time it receives the corresponding
 	//authoritative state diff from server. can only be
 	//positive
 	//together these 2 numbers are used to calibrate the
-	//client's tick_id_target to try to match the server's
-	//tick_id_target in real world time, in case they have
+	//client's tick.id_target to try to match the server's
+	//tick.id_target in real world time, in case they have
 	//become desynced with each other. the time between
 	//the client receiving the initial state snapshot and
 	//actually starting the simulation always causes a
@@ -172,12 +181,12 @@ pub(crate) fn init(
 	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> SimControllerExternals {
 	#[cfg(feature = "server")]
-	let (new_connection_sender, new_connection_receiver) = sync_mpsc::channel();
+	let (new_connection_sender, new_connection_receiver) = sync_unbounded_channel();
 
 	#[cfg(feature = "client")]
-	let (to_presentation, from_sim) = sync_mpsc::channel();
+	let (to_presentation, from_sim) = sync_unbounded_channel();
 	#[cfg(feature = "client")]
-	let (to_sim, from_presentation) = sync_mpsc::channel();
+	let (to_sim, from_presentation) = sync_unbounded_channel();
 
 	#[cfg(feature = "client")]
 	let presentation_comms = SimToPresentationChannel {
@@ -268,11 +277,9 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 
 	#[cfg(feature = "client")]
 	{
-		let tick_id_fast_forward = sim.ctx.tick.id_cur + header.fast_forward_ticks;
 		sim.input_history.generate_bogus_inputs(header.fast_forward_ticks);
-
 		if header.fast_forward_ticks > 0 {
-			sim.simulate(tick_id_fast_forward);
+			sim.simulate();
 		}
 	}
 
@@ -283,6 +290,7 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 
 impl SimControllerInternals {
 	fn scheduled_tick(&mut self) {
+		self.ctx.tick.id_target += 1;
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("begin scheduled tick @{:?}", self.ctx.tick);
 		}
@@ -312,7 +320,7 @@ impl SimControllerInternals {
 		//remember tick.id_cur is the number of completed ticks. the
 		//target/goal of this iteration of the loop is to simulate 1
 		//more tick than has currently finished simulating
-		self.scheduled_tick_impl(self.ctx.tick.id_cur + 1);
+		self.scheduled_tick_impl();
 
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("end scheduled tick");

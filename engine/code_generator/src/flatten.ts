@@ -11,7 +11,7 @@ import type {
 	DiffPath,
 	ClientStateKind,
 } from "@engine/code_generator/common.ts";
-import { isPrimitive, isUtility } from "@engine/code_generator/common.ts";
+import { isGeneric } from "@engine/code_generator/common.ts";
 
 //recursively traverse the state object and "flatten" it
 //into a big list of structs
@@ -19,11 +19,12 @@ export function flatten(
 	parentStruct: Struct,
 	parentPath: string[] = ["simulation_state"], //pathToStructName will change this to SimulationState
 	parentField?: Field,
+	parentClientKind: ClientStateKind = "NA",
 	structsFlattened: AllFlattenedStructs = {
 		sim: [[]],
 		input: [],
+		hapticPrediction: [],
 	},
-	clientKind: ClientStateKind = "NA",
 	diffPathInfo: { path: DiffPath; depth: number; structGroupID: number; fieldID: number } = {
 		path: [],
 		depth: 0,
@@ -31,21 +32,24 @@ export function flatten(
 		fieldID: 0,
 	},
 ) {
-	const childStructFlattened: FlattenedStruct = {
-		name: generateStructName(parentField?.typeName ?? pathToStructName(parentPath), clientKind),
+	const parentStructFlattened: FlattenedStruct = {
+		name: generateStructName(parentField?.typeName ?? pathToStructName(parentPath), parentClientKind),
 		path: parentPath,
-		clientKind,
+		clientKind: parentClientKind,
 		fields: [],
 		collectionNestDepth: diffPathInfo.depth,
 		isEntity: (parentField as EntitySlotMap | undefined)?.entity ?? false,
 	};
 
-	if (parentPath[0] === "simulation_state")
-		structsFlattened.sim[diffPathInfo.structGroupID].push(childStructFlattened);
-	else structsFlattened.input.push(childStructFlattened);
+	if (parentField?.type === "HapticPredictionEmitter")
+		structsFlattened.hapticPrediction.push(parentStructFlattened); //HapticPredictionEmitter can not have nested structs (yet?)
+	else if (parentPath[0] === "simulation_state")
+		structsFlattened.sim[diffPathInfo.structGroupID].push(parentStructFlattened);
+	else structsFlattened.input.push(parentStructFlattened);
 
 	for (const [childFieldName, childField] of Object.entries(parentStruct)) {
 		const netVisibility = childField.netVisibility ?? NET_VISIBILITY_DEFAULT;
+		let childClientKind = parentClientKind;
 
 		let netVisibilityAttribute;
 
@@ -62,8 +66,8 @@ export function flatten(
 
 		if (childField.netVisibility === "Untracked") {
 			netVisibilityAttribute = "//Untracked";
-		} else if (clientKind === "NA" || clientKind === "Owned") {
-			const comment = `//ClientStateKind::${clientKind}, NetVisibility::${netVisibility}${formattedDiffPath}`;
+		} else if (childClientKind === "NA" || childClientKind === "Owned") {
+			const comment = `//ClientStateKind::${childClientKind}, NetVisibility::${netVisibility}${formattedDiffPath}`;
 
 			//global or local client owned
 			if (netVisibility === "Public") netVisibilityAttribute = comment;
@@ -95,29 +99,24 @@ export function flatten(
 				fieldID,
 			};
 
-			childStructFlattened.fields.push(childFieldFlattened);
+			parentStructFlattened.fields.push(childFieldFlattened);
 		}
 
 		if (
-			!(
-				isPrimitive(childField.type) ||
-				isUtility(childField.type) ||
-				childField.netVisibility === "Untracked"
-			)
+			(isGeneric(childField.type) || childField.type === "struct") &&
+			childField.netVisibility !== "Untracked"
 		) {
 			//field has nested data (child struct or collection)
 			let childPath = [...parentPath, childFieldName];
-
-			//swap from generating simulation state to
-			//generating input state
 			const childBaseTypeName = childField.typeName ?? pathToStructName(childPath);
-			if (childBaseTypeName === "InputState") {
-				if (clientKind === "Owned") {
-					childPath = ["input_state"];
-				} else {
-					//avoid generating remote variant of InputState
-					continue;
-				}
+			const isOwnableStruct =
+				childBaseTypeName === "InputState" || childField.type === "HapticPredictionEmitter";
+			let skipRemoteVariant = false;
+
+			if (isOwnableStruct) {
+				//disable _owner/_remote suffix. the struct is agnostic to scope
+				if (childClientKind === "Remote") skipRemoteVariant = true;
+				childClientKind = "NA";
 			}
 
 			if (!skipGeneratingField && /*redundant:*/ childFieldFlattened) {
@@ -126,18 +125,21 @@ export function flatten(
 					childFieldFlattened.fullType =
 						childFieldFlattened.outerType =
 						childFieldFlattened.innerType =
-							generateStructName(childBaseTypeName, clientKind);
+							generateStructName(childBaseTypeName, childClientKind);
 				} else {
 					//collection/dynamic allocation - the content must
 					//always be a struct, even if the declaration only
 					//requests a primitive. this gives the _diff_path
 					//field and state-tracking setter method a home
-					const innerType = generateStructName(childBaseTypeName, clientKind);
+					const innerType = generateStructName(childBaseTypeName, childClientKind);
 					childFieldFlattened.fullType = `${childField.type}<${innerType}>`;
 					childFieldFlattened.outerType = childField.type;
 					childFieldFlattened.innerType = innerType;
 				}
 			}
+
+			if (skipRemoteVariant) continue; //avoid generating remote variant. only need 1 struct
+			if (childBaseTypeName === "InputState") childPath = ["input_state"]; //swap from generating simulation state to generating input state
 
 			let childStruct: Struct;
 			if (typeof childField.content === "object") {
@@ -156,7 +158,7 @@ export function flatten(
 			}
 
 			function getChildDiffPathInfo() {
-				if (childBaseTypeName === "InputState") {
+				if (childBaseTypeName === "InputState" || childField.type === "HapticPredictionEmitter") {
 					return { path: [], depth: 0, structGroupID: 0, fieldID: 0 }; //start over from scratch
 				} else if (childField.type === "struct") {
 					return diffPathInfo; //different struct but still within the same block of contiguous memory
@@ -186,16 +188,16 @@ export function flatten(
 					childStruct,
 					childPath,
 					childField,
-					structsFlattened,
 					"Owned",
+					structsFlattened,
 					getChildDiffPathInfo(),
 				);
 				flatten(
 					childStruct,
 					childPath,
 					childField,
-					structsFlattened,
 					"Remote",
+					structsFlattened,
 					getChildDiffPathInfo(),
 				);
 			} else {
@@ -203,8 +205,8 @@ export function flatten(
 					childStruct,
 					childPath,
 					childField,
+					childClientKind,
 					structsFlattened,
-					clientKind,
 					getChildDiffPathInfo(),
 				);
 			}
@@ -215,8 +217,6 @@ export function flatten(
 }
 
 function generateStructName(baseTypeName: string, clientKind: ClientStateKind) {
-	if (baseTypeName.startsWith("InputState")) clientKind = "NA";
-
 	switch (clientKind) {
 		case "Owned":
 			return `${baseTypeName}_owned`;

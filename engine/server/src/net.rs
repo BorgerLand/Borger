@@ -3,19 +3,20 @@ use crate::flags::Flags;
 use base::networked_types::primitive::usize_to_32;
 use base::networked_types::primitive::usize32;
 use base::thread_comms::{ClientToSimCommand, SimToClientCommand};
+use crossbeam_channel::Sender as SyncSender;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use std::array::TryFromSliceError;
 use std::io::Error as IOError;
 use std::net::SocketAddr;
-use std::sync::mpsc::Sender as SyncSender;
 use std::time::Duration;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc::{
-	self as async_mpsc, UnboundedReceiver as AsyncReceiver, UnboundedSender as AsyncSender,
+	UnboundedReceiver as AsyncReceiver, UnboundedSender as AsyncSender,
+	unbounded_channel as async_unbounded_channel,
 };
 use tokio::time::timeout;
 use tokio_rustls::TlsAcceptor;
@@ -132,7 +133,7 @@ pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientComma
 async fn inform_sim_of_client(
 	new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>,
 ) -> (SyncSender<ClientToSimCommand>, AsyncReceiver<SimToClientCommand>) {
-	let (to_client, mut from_sim) = async_mpsc::unbounded_channel();
+	let (to_client, mut from_sim) = async_unbounded_channel();
 	new_connection_sender.send(to_client).unwrap();
 
 	let to_sim = match from_sim.recv().await {

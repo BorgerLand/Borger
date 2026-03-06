@@ -1,8 +1,8 @@
 #![feature(vec_deque_truncate_front)] //https://github.com/rust-lang/rust/issues/140667
 
-use crate::multiplayer_tradeoff::{GameContext, Immediate};
+use crate::multiplayer_tradeoff::Immediate;
 use crate::networked_types::primitive::usize32;
-use crate::simulation_controller::SimControllerExternals;
+use crate::simulation_controller::{GameContext, SimControllerExternals};
 use crate::simulation_state::{InputState, SimulationState};
 
 #[cfg(feature = "server")]
@@ -140,12 +140,10 @@ pub mod prelude {
 	pub use crate::diff_ser::DiffSerializer;
 	pub use crate::multiplayer_tradeoff; //macro
 	pub use crate::multiplayer_tradeoff::*;
+	pub use crate::simulation_controller::GameContext;
 	pub use crate::simulation_state::*;
-	pub use crate::tick::{TickID, TickInfo};
+	pub use crate::tick::TickInfo;
 	pub use log::*;
-
-	#[cfg(feature = "client")]
-	pub use {crate::js_bindings::JSBindings, crate::presentation_state::SimulationOutput};
 }
 
 pub struct SimulationCallbacks {

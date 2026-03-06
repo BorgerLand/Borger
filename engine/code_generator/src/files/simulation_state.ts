@@ -15,6 +15,9 @@ use crate::simulation_state::{ClientState, InputStateHistory};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+#[allow(unused_imports)]
+use serde::{Serialize, Deserialize};
+
 ${VALID_TYPES}
 
 ${structs.input
@@ -79,6 +82,22 @@ pub struct ${struct.name}
 			})
 			.join("\n\n"),
 	)
+	.join("\n\n")}
+
+${structs.hapticPrediction
+	.map(function generatePresentationStruct(struct) {
+		return `#[derive(Serialize, Deserialize, Debug)]
+#[allow(non_camel_case_types)]
+pub struct ${struct.name}
+{
+${struct.fields
+	.filter((field) => field.isPresentation)
+	.map(function ({ name, fullType }) {
+		return `	pub ${name}: ${fullType},`;
+	})
+	.join("\n\n")}
+}`;
+	})
 	.join("\n\n")}
 `,
 	);

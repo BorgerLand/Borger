@@ -1,11 +1,8 @@
+use super::*;
 use crate::diff_des;
-use crate::multiplayer_tradeoff::{GameContext, Impl};
-use crate::simulation_controller::{InternalInputEntry, SimControllerInternals, TRACE_TICK_ADVANCEMENT};
-use crate::simulation_state::get_owned_client_mut;
-use crate::tick::{TickID, TickType};
+use crate::simulation_state::InputStateHistoryEntry;
+use crate::tick::TickType;
 use crate::untracked::UntrackedState;
-use log::debug;
-use std::collections::VecDeque;
 
 #[cfg(feature = "server")]
 use {
@@ -52,12 +49,12 @@ impl SimControllerInternals {
 		amount
 	}
 
-	//to is exclusive (do not simulate that tick)
-	pub(super) fn simulate(&mut self, to: TickID) {
-		debug_assert!(to > self.ctx.tick.id_cur);
+	//self.ctx.tick.id_target is exclusive (do not simulate that tick)
+	pub(super) fn simulate(&mut self) {
+		debug_assert!(self.ctx.tick.id_target > self.ctx.tick.id_cur);
 
 		if TRACE_TICK_ADVANCEMENT {
-			let total_simulate_amount = to - self.ctx.tick.id_cur;
+			let total_simulate_amount = self.ctx.tick.id_target - self.ctx.tick.id_cur;
 			if total_simulate_amount > 0 {
 				let consensus_simulate_amount =
 					self.ctx.tick.id_consensus.saturating_sub(self.ctx.tick.id_cur);
@@ -70,9 +67,9 @@ impl SimControllerInternals {
 			}
 		}
 
-		while self.ctx.tick.id_cur < to {
+		while self.ctx.tick.id_cur < self.ctx.tick.id_target {
 			#[cfg(feature = "server")]
-			let has_consensus = self.ctx.tick.has_consensus();
+			let has_consensus = self.ctx.tick._has_consensus();
 			#[cfg(feature = "client")]
 			let has_consensus = false; //when a client is simulating a tick it is always a prediction
 
@@ -94,100 +91,131 @@ impl SimControllerInternals {
 				#[cfg(feature = "server")]
 				let acked_input;
 
-				let ((input_prv, input_prv_is_predicted), (input_cur, input_cur_is_predicted)) =
-					if has_consensus {
-						#[cfg(feature = "server")]
-						{
-							buffer = self.ctx.diff.tx_begin_tick(client_id, true);
-							let buffer = buffer.as_mut().unwrap();
-							tick_type.ser_tx(buffer);
+				let (input_prv, input_cur) = if has_consensus {
+					#[cfg(feature = "server")]
+					{
+						buffer = self.ctx.diff.tx_begin_tick(client_id, true);
+						let buffer = buffer.as_mut().unwrap();
+						tick_type.ser_tx(buffer);
 
-							//there should be 2 inputs for this tick on all clients,
-							//where index 0 is associated with the most recent
-							//consensus tick and index 1 is the tick reaching
-							//consensus now. if there are fewer than 2 inputs, this
-							//is a forced timeout due to not receiving client's
-							//inputs in time, in which case the server's prediction
-							//becomes final, in order to prevent WaitForConsensus
-							//game logic from stalling forever
-							let prv = input_history.entries.pop_front().unwrap();
+						//there should be 2 inputs for this tick on all clients,
+						//where index 0 is associated with the most recent
+						//consensus tick and index 1 is the tick reaching
+						//consensus now. if there are fewer than 2 inputs, this
+						//is a forced timeout due to not receiving client's
+						//inputs in time, in which case the server's prediction
+						//becomes final, in order to prevent WaitForConsensus
+						//game logic from stalling forever
+						let prv = input_history.entries.pop_front().unwrap();
 
-							let cur = match input_history.entries.front().cloned() {
-								Some(input) => {
-									acked_input = true;
-									input
-								}
-								None => {
-									//this client caused a consensus timeout
-									input_history.timed_out_ticks += 1;
-
-									let finalized_prediction = InternalInputEntry {
-										input: (self.cb.input_predict_late)(
-											&prv.input,
-											&self.ctx.state,
-											client_id,
-										),
-										ping: None,
-									};
-
-									input_history.entries.push_back(finalized_prediction.clone());
-
-									acked_input = false;
-									finalized_prediction
-								}
-							};
-
-							acked_input.ser_tx(buffer);
-							((prv, false), (cur, false))
-						}
-
-						#[cfg(feature = "client")]
-						{
-							unreachable!()
-						}
-					} else {
-						//tick is not at consensus so no guarantee of any inputs existing
-						let prv = get_input(
-							self.ctx.tick.id_cur - 1,
-							&self.ctx,
-							&mut input_history.entries,
-							#[cfg(feature = "server")]
-							self.cb.input_predict_late,
-							#[cfg(feature = "server")]
-							client_id,
-						);
-
-						let cur = get_input(
-							self.ctx.tick.id_cur,
-							&self.ctx,
-							&mut input_history.entries,
-							#[cfg(feature = "server")]
-							self.cb.input_predict_late,
-							#[cfg(feature = "server")]
-							client_id,
-						);
-
-						#[cfg(feature = "server")]
-						{
-							acked_input = !cur.1;
-							buffer = self.ctx.diff.tx_begin_tick(client_id, acked_input);
-							if let Some(buffer) = &mut buffer {
-								tick_type.ser_tx(buffer);
-								self.ctx.tick.id_cur.ser_tx(buffer);
+						let cur = match input_history.entries.front_mut() {
+							Some(entry) => {
+								acked_input = true;
+								let clone = entry.clone();
+								entry.age = InputStateAge::Resimulating;
+								clone
 							}
-						}
+							None => {
+								//this client caused a consensus timeout
+								input_history.timed_out_ticks += 1;
 
+								let finalized_prediction = InternalInputEntry {
+									input: (self.cb.input_predict_late)(
+										&prv.input,
+										&self.ctx.state,
+										client_id,
+									),
+									ping: None,
+									age: InputStateAge::Fresh,
+								};
+
+								let mut clone = finalized_prediction.clone();
+								clone.age = InputStateAge::Resimulating;
+								input_history.entries.push_back(clone);
+
+								acked_input = false;
+								finalized_prediction
+							}
+						};
+
+						acked_input.ser_tx(buffer);
 						(prv, cur)
-					};
+					}
 
-				let input = &mut get_owned_client_mut(&mut self.ctx.state.clients, client_id)
+					#[cfg(feature = "client")]
+					{
+						unreachable!()
+					}
+				} else {
+					//tick is not at consensus so no guarantee of any inputs existing
+					let prv = get_input(
+						self.ctx.tick.id_cur - 1,
+						&self.ctx,
+						&mut input_history.entries,
+						#[cfg(feature = "server")]
+						self.cb.input_predict_late,
+						#[cfg(feature = "server")]
+						client_id,
+					);
+
+					let cur = get_input(
+						self.ctx.tick.id_cur,
+						&self.ctx,
+						&mut input_history.entries,
+						#[cfg(feature = "server")]
+						self.cb.input_predict_late,
+						#[cfg(feature = "server")]
+						client_id,
+					);
+
+					#[cfg(feature = "server")]
+					{
+						acked_input = cur.age != InputStateAge::Predicted;
+						buffer = self.ctx.diff.tx_begin_tick(client_id, acked_input);
+						if let Some(buffer) = &mut buffer {
+							tick_type.ser_tx(buffer);
+							self.ctx.tick.id_cur.ser_tx(buffer);
+						}
+					}
+
+					(prv, cur)
+				};
+
+				let input = &mut self
+					.ctx
+					.state
+					.clients
+					.get_mut(client_id)
+					.unwrap()
+					.as_owned_mut()
 					.unwrap()
 					.input;
 
-				input.prv = input_prv.input;
-				input.prv_predicted = input_prv_is_predicted;
-				input.cur = input_cur.input;
-				input.cur_predicted = input_cur_is_predicted;
+				input.prv = InputStateHistoryEntry {
+					state: input_prv.input,
+
+					#[cfg(feature = "server")]
+					age: input_prv.age,
+					#[cfg(feature = "client")]
+					age: if self.ctx.tick.is_fresh() {
+						InputStateAge::Fresh
+					} else {
+						InputStateAge::Resimulating
+					},
+				};
+
+				input.cur = InputStateHistoryEntry {
+					state: input_cur.input,
+
+					#[cfg(feature = "server")]
+					age: input_cur.age,
+					#[cfg(feature = "client")]
+					age: if self.ctx.tick.is_fresh() {
+						InputStateAge::Fresh
+					} else {
+						InputStateAge::Resimulating
+					},
+				};
 
 				#[cfg(feature = "server")]
 				if let Some(server_offset_ping) = input_cur.ping {
@@ -211,7 +239,6 @@ impl SimControllerInternals {
 	}
 }
 
-//.1 false = acked input, .1 true = generated by predict_late
 fn get_input(
 	tick: TickID,
 	ctx: &GameContext<Impl>,
@@ -224,7 +251,7 @@ fn get_input(
 	) -> InputState,
 
 	#[cfg(feature = "server")] client_id: usize32,
-) -> (InternalInputEntry, bool) {
+) -> InternalInputEntry {
 	let input_idx = 1 + tick - ctx.tick.id_consensus;
 	match history.get_mut(input_idx as usize) {
 		//input has been received. server acks it
@@ -233,11 +260,11 @@ fn get_input(
 
 			#[cfg(feature = "server")]
 			{
-				//only send the ping the first time this input is acked
-				entry.ping = None;
+				entry.age = InputStateAge::Resimulating;
+				entry.ping = None; //only send the ping the first time this input is acked
 			}
 
-			(clone, false)
+			clone
 		}
 
 		//input hasn't arrived for this tick yet (not acked)
@@ -249,7 +276,11 @@ fn get_input(
 				input = predict_late(&input, &ctx.state, client_id);
 			}
 
-			(InternalInputEntry { input, ping: None }, true)
+			InternalInputEntry {
+				input,
+				age: InputStateAge::Predicted,
+				ping: None,
+			}
 		}
 
 		//client locally will always have its own inputs. 0 latency!

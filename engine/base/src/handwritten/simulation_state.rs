@@ -1,71 +1,61 @@
 use crate::ClientStateGeneric;
-use crate::networked_types::collections::slotmap::SlotMap;
-use crate::networked_types::primitive::usize32;
 use crate::simulation_state::InputState;
 use crate::simulation_state::{ClientState_owned, ClientState_remote};
 
 pub type ClientState = ClientStateGeneric<ClientState_owned, ClientState_remote>;
 
-pub fn get_owned_client(clients: &SlotMap<ClientState>, id: usize32) -> Option<&ClientState_owned> {
-	clients.get(id)?.as_owned()
-}
-
-pub fn get_owned_client_mut(
-	clients: &mut SlotMap<ClientState>,
-	id: usize32,
-) -> Option<&mut ClientState_owned> {
-	clients.get_mut(id)?.as_owned_mut()
-}
-
-impl SlotMap<ClientState> {
-	pub fn owned_clients(&self) -> impl Iterator<Item = &ClientState_owned> {
-		self.values().filter_map(|client| match client {
-			ClientState::Owned(owned) => Some(owned),
-			_ => None,
-		})
-	}
-
-	pub fn owned_clients_mut(&mut self) -> impl Iterator<Item = &mut ClientState_owned> {
-		self.values_mut().filter_map(|client| match client {
-			ClientState::Owned(owned) => Some(owned),
-			_ => None,
-		})
-	}
-}
-
 //wraps input state in a separate struct to allow disjoint
 //borrows from the client state
 #[derive(Debug)]
 pub struct InputStateHistory {
-	pub(crate) cur: InputState,
-	pub(crate) cur_predicted: bool,
-	pub(crate) prv: InputState,
-	pub(crate) prv_predicted: bool,
+	pub(crate) cur: InputStateHistoryEntry,
+	pub(crate) prv: InputStateHistoryEntry,
 }
 
 impl InputStateHistory {
 	pub(crate) fn default() -> Self {
 		Self {
-			cur: InputState::default(),
-			cur_predicted: false,
-			prv: InputState::default(),
-			prv_predicted: false,
+			cur: InputStateHistoryEntry::default(),
+			prv: InputStateHistoryEntry::default(),
 		}
 	}
 
-	pub fn get(&self) -> &InputState {
+	pub fn get(&self) -> &InputStateHistoryEntry {
 		&self.cur
 	}
 
-	pub fn is_predicted(&self) -> bool {
-		self.cur_predicted
-	}
-
-	pub fn get_prv(&self) -> &InputState {
+	pub fn get_prv(&self) -> &InputStateHistoryEntry {
 		&self.prv
 	}
+}
 
-	pub fn is_prv_predicted(&self) -> bool {
-		self.prv_predicted
-	}
+#[derive(Default, Debug)]
+pub struct InputStateHistoryEntry {
+	pub state: InputState,
+	pub age: InputStateAge,
+}
+
+#[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
+pub enum InputStateAge {
+	///This is the first time that this client's input has
+	///run through the current simulation tick ID. For each
+	///simulated tick, each client guarantees that its
+	///current input state will be fresh exactly 1 or 0 times
+	///(0 in the case that the client disconnects before the
+	///server either acknowledges their input or times them
+	///out)
+	#[default]
+	Fresh,
+
+	///This is NOT the first time this client's input has
+	///run through the current simulation tick ID. This tick
+	///ID is being resimulated due to another client's inputs
+	///arriving (or timing out)
+	Resimulating,
+
+	///This client's inputs have not arrived yet for the
+	///current simulation tick ID. The state was predicted by
+	///the server using input::predict_late. A client will
+	///never see InputStateAge::PREDICTED.
+	Predicted,
 }

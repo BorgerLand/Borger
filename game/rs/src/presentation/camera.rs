@@ -1,11 +1,13 @@
 use crate::presentation::get_local_entity;
 use crate::simulation::character;
+use base::js_bindings::JSBindings;
 use base::prelude::*;
+use base::presentation_state::SimulationOutput;
 use glam::Mat4;
 
 pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBindings) {
 	//treasure hunt for the position of this client's character
-	let cam_target = get_local_entity(tick, bindings).rs.interpolated.pos;
+	let cam_target = get_local_entity(tick, bindings).rs.interpolated().pos;
 
 	//players' toleration for latency between moving the mouse and seeing camera
 	//movement is so extremely low that not even multiplayer_tradeoff!(Immediate)

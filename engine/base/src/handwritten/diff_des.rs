@@ -5,7 +5,10 @@ use crate::{DeserializeOopsy, DiffOperation};
 use std::collections::VecDeque;
 
 #[cfg(feature = "client")]
-use {crate::diff_ser::DiffSerializer, crate::multiplayer_tradeoff::Impl, std::vec};
+use {
+	crate::diff_ser::DiffSerializer, crate::multiplayer_tradeoff::Impl,
+	crate::networked_types::haptic_prediction::HapticPredictionEmitterDynCompat, std::vec,
+};
 
 pub(crate) trait DiffDeserializeState {
 	fn set_field_rollback(&mut self, field_id: usize32, buffer: &mut Vec<u8>)
@@ -21,6 +24,12 @@ pub(crate) trait DiffDeserializeState {
 
 	//collections+utilities
 	fn get_slotmap(&mut self, field_id: usize32) -> Result<&mut dyn SlotMapDynCompat, DeserializeOopsy>;
+
+	#[cfg(feature = "client")]
+	fn get_haptic_prediction_emitter(
+		&self,
+		field_id: usize32,
+	) -> Result<&dyn HapticPredictionEmitterDynCompat, DeserializeOopsy>;
 }
 
 impl DiffDeserializeState for ClientState {
@@ -54,6 +63,17 @@ impl DiffDeserializeState for ClientState {
 			Self::Remote(client) => client.get_slotmap(field_id),
 		}
 	}
+
+	#[cfg(feature = "client")]
+	fn get_haptic_prediction_emitter(
+		&self,
+		field_id: usize32,
+	) -> Result<&dyn HapticPredictionEmitterDynCompat, DeserializeOopsy> {
+		match self {
+			Self::Owned(client) => client.get_haptic_prediction_emitter(field_id),
+			Self::Remote(client) => client.get_haptic_prediction_emitter(field_id),
+		}
+	}
 }
 
 //revert predictions
@@ -85,6 +105,11 @@ pub fn des_rollback(state: &mut SimulationState, buffer: &mut Vec<u8>) -> Result
 			Ok(DiffOperation::TrackSlotMapClear) => {
 				let field_id = usize32::des_rollback(buffer)?;
 				cur_nav_state.get_slotmap(field_id)?.rollback_clear(buffer)?;
+			}
+			Ok(DiffOperation::TrackHapticPrediction) => {
+				//the whole thing with haptic predictions is that they
+				//can't be rolled back
+				return Err(DeserializeOopsy::HapticPredictionRollback);
 			}
 
 			Ok(DiffOperation::NavigateUp) => {
@@ -156,6 +181,12 @@ pub fn des_rx_state(
 			Ok(DiffOperation::TrackSlotMapClear) => {
 				let field_id = usize32::des_rx(buffer)?;
 				cur_nav_state.get_slotmap(field_id)?.rx_clear(diff);
+			}
+			Ok(DiffOperation::TrackHapticPrediction) => {
+				let field_id = usize32::des_rx(buffer)?;
+				cur_nav_state
+					.get_haptic_prediction_emitter(field_id)?
+					.rx(buffer)?;
 			}
 
 			Ok(DiffOperation::NavigateUp) => {

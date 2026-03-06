@@ -1,6 +1,6 @@
 use base::interpolation::EntityInstanceBindings;
-use base::prelude::*;
-use base::presentation_state::Character;
+use base::js_bindings::JSBindings;
+use base::presentation_state::{Character, SimulationOutput};
 
 pub mod camera;
 pub mod pipeline;

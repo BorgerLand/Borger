@@ -9,6 +9,9 @@ use std::rc::Rc;
 #[cfg(feature = "server")]
 use {crate::NetVisibility, std::collections::HashMap};
 
+#[cfg(feature = "server")]
+pub(crate) const NO_EXTRA_FILTER: Option<fn(u32) -> bool> = None;
+
 //diff serializer's purpose is to capture any and
 //all changes to state. a serializer of differences.
 //the generic param functionally does nothing, and
@@ -88,19 +91,24 @@ impl DiffSerializer<Impl> {
 		&mut self,
 		path: &Rc<Vec<usize32>>,
 		visibility: NetVisibility,
+		mut extra_filter: Option<impl FnMut(usize32) -> bool>, //accepts client id, returns false to skip this client
 	) -> impl Iterator<Item = &mut Vec<u8>> {
 		self.tx
 			.iter_mut()
-			.filter(move |(tx_client_id, tx)| {
+			.filter(move |&(&tx_client_id, ref tx)| {
 				//scope filtering: skip sending this state to any
 				//client who doesn't need to know about this change
 				tx.enabled
+					&& extra_filter
+						.as_mut()
+						.map(|filter| filter(tx_client_id))
+						.unwrap_or(true)
 					&& match visibility {
 						NetVisibility::Public => true,
 						NetVisibility::Private => false,
 						NetVisibility::Owner => {
 							let modified_client_id = path[1];
-							**tx_client_id == modified_client_id //yuck
+							tx_client_id == modified_client_id
 						}
 					}
 			})

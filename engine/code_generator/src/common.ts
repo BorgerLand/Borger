@@ -1,8 +1,10 @@
 import {
 	collectionTypeSchema,
+	genericTypeSchema,
 	primitiveTypeSchema,
 	utilityTypeSchema,
 	type CollectionType,
+	type GenericType,
 	type NetVisibility,
 	type PrimitiveType,
 	type UtilityType,
@@ -22,6 +24,7 @@ use
 	glam::{Vec2, DVec2, Vec3, DVec3, Quat, DQuat},
 	crate::networked_types::primitive::{usize32, isize32},
 	crate::networked_types::collections::slotmap::SlotMap,
+	crate::networked_types::haptic_prediction::HapticPredictionEmitter,
 };`;
 
 export type ClientStateKind = "NA" | "Owned" | "Remote";
@@ -70,6 +73,7 @@ export type DiffPath = (string | number)[];
 export type AllFlattenedStructs = {
 	sim: FlattenedStruct[][]; //inner layer = structs that are grouped in the same diff path, outer layer = all
 	input: FlattenedStruct[];
+	hapticPrediction: FlattenedStruct[];
 };
 
 //should be able to pass in fullType/innerType too.
@@ -82,10 +86,12 @@ export function isCollection(outerType: string): outerType is CollectionType {
 	return (collectionTypeSchema.options as string[]).includes(outerType);
 }
 
-//should be able to pass in fullType/innerType too.
-//just chose outerType to match the other isType api
 export function isUtility(outerType: string): outerType is UtilityType {
 	return (utilityTypeSchema.options as string[]).includes(outerType);
+}
+
+export function isGeneric(outerType: string): outerType is GenericType {
+	return (genericTypeSchema.options as string[]).includes(outerType);
 }
 
 /*

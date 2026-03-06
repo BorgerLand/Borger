@@ -3,14 +3,11 @@
 ### _⚠️ This is an ongoing R&D project. Many essential features don't exist yet: ⚠️_
 
 - _Documentation_
-- _Triggering of VFX/SFX events (haptic predictions)_
 - _Access game state from Three/React (in progress, partial support)_
 - _Static level geometry import_
 - _Send UI RPC's from client to server_
 - _"Favor the shooter" (client view query)_
 - _Network filtering/culling: by proximity to camera, by custom rules/permissions_
-
-[Follow my unhinged gamedev journey for updates!](https://www.youtube.com/@borgerland)
 
 <div style="display: flex; gap: 10px;">
 	<img src="readme/flintlockwood1.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">

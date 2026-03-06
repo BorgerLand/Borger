@@ -7,3 +7,5 @@ pub mod collections;
 ///(you'd get a broken build)
 #[cfg(target_endian = "little")]
 pub mod primitive;
+
+pub mod haptic_prediction;

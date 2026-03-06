@@ -1,6 +1,8 @@
 use crate::presentation::{camera, get_local_entity};
 use base::interpolation::interpolate_entities;
+use base::js_bindings::JSBindings;
 use base::prelude::*;
+use base::presentation_state::SimulationOutput;
 use js_sys::{Function, Reflect};
 
 //see comments in pipeline.ts: this allows calling

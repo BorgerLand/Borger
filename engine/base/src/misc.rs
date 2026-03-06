@@ -56,7 +56,7 @@ pub enum ClientStateKind {
 
 //generic client state reused by both
 //simulation+presentation
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ClientStateGeneric<O, R> {
 	//owned:
 	//- server can access everything. it owns all client objects
@@ -107,6 +107,7 @@ pub enum DiffOperation {
 	TrackSlotMapAdd,
 	TrackSlotMapRemove,
 	TrackSlotMapClear,
+	TrackHapticPrediction,
 
 	//path navigation
 	NavigateUp,    //unix analogy: "cd ../../.." go to parent directory
@@ -128,7 +129,9 @@ pub enum DeserializeOopsy {
 	CorruptTickType,
 	CorruptChar,
 	CorruptVarInt,
+	CorruptHapticPrediction,
 	ObeseVarInt,
 	PathNotFound,
 	FieldNotFound,
+	HapticPredictionRollback,
 }

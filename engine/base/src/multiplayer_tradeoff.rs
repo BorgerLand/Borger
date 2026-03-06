@@ -1,6 +1,5 @@
 use crate::diff_ser::DiffSerializer;
-use crate::simulation_state::SimulationState;
-use crate::tick::TickInfo;
+use crate::simulation_controller::GameContext;
 use std::mem;
 
 ///Although all game logic code is meant to be interpreted as server authoritative and
@@ -275,12 +274,6 @@ macro_rules! multiplayer_tradeoff
 			}
 		}
 	};
-}
-
-pub struct GameContext<Tradeoff: AnyTradeoff> {
-	pub state: SimulationState,
-	pub tick: TickInfo,
-	pub diff: DiffSerializer<Tradeoff>,
 }
 
 pub struct Immediate; //to immediate/server/consensus

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import type { DeeplyPartial } from "@engine/code_generator/common.ts";
+import { isGeneric, type DeeplyPartial } from "@engine/code_generator/common.ts";
 
 //true single-field primitives that can be easily read
 //directly from wasm memory
-export const simplePrimitives = [
+export const simplePrimitiveTypeSchema = z.enum([
 	"bool",
 	"u8",
 	"i8",
@@ -18,21 +18,35 @@ export const simplePrimitives = [
 	"char", //utf-32
 	"usize32",
 	"isize32",
-] as const;
+]);
 
-export const multiFieldPrimitives = [
+const multiFieldPrimitiveTypeSchema = z.enum([
 	"Vec2", //xy, f32
 	"DVec2", //xy, f64
 	"Vec3", //xyz, f32
 	"DVec3", //xyz, f64
 	"Quat", //xyzw, f32
 	"DQuat", //xyzw, f64
-] as const;
+]);
 
-export const primitiveTypeSchema = z.enum([...simplePrimitives, ...multiFieldPrimitives]);
-
+export const primitiveTypeSchema = z.enum([
+	...simplePrimitiveTypeSchema.options,
+	...multiFieldPrimitiveTypeSchema.options,
+]);
 export const collectionTypeSchema = z.enum(["SlotMap"]);
-export const utilityTypeSchema = z.enum([]);
+export const utilityTypeSchema = z.enum(["HapticPredictionEmitter"]);
+const typeSchema = z.enum([
+	...primitiveTypeSchema.options,
+	...collectionTypeSchema.options,
+	...utilityTypeSchema.options,
+]);
+
+//"generic type" for now just means a type with one generic param
+export const genericTypeSchema = z.enum([...collectionTypeSchema.options, "HapticPredictionEmitter"]);
+//unfortunately zod does not seem to have an enum subtraction method
+export const nonGenericTypeSchema = z.enum(
+	typeSchema.options.filter((type) => !genericTypeSchema.options.includes(type as any)),
+) as z.ZodEnum<{ [K in NonGenericType]: K }>;
 
 export const NET_VISIBILITY_DEFAULT = "Private";
 export const netVisibilitySchema = z.enum([
@@ -43,9 +57,13 @@ export const netVisibilitySchema = z.enum([
 ]); //in order from least to most to make comparisons easier
 
 export type NetVisibility = z.infer<typeof netVisibilitySchema>;
+export type MultiFieldPrimitiveType = z.infer<typeof multiFieldPrimitiveTypeSchema>;
 export type PrimitiveType = z.infer<typeof primitiveTypeSchema>;
 export type CollectionType = z.infer<typeof collectionTypeSchema>;
 export type UtilityType = z.infer<typeof utilityTypeSchema>;
+export type TypeSchema = z.infer<typeof typeSchema>;
+export type GenericType = z.infer<typeof genericTypeSchema>;
+export type NonGenericType = Exclude<TypeSchema, GenericType>;
 
 const fieldSchema = z.lazy(() =>
 	z.union([
@@ -69,7 +87,7 @@ const fieldSchema = z.lazy(() =>
 			.and(
 				z.union([
 					z.object({
-						type: z.union([primitiveTypeSchema, utilityTypeSchema]),
+						type: nonGenericTypeSchema,
 						typeName: z.never().optional(),
 						content: z.never().optional(),
 					}),
@@ -79,9 +97,9 @@ const fieldSchema = z.lazy(() =>
 						content: structSchema,
 					}),
 					z.object({
-						type: collectionTypeSchema,
+						type: genericTypeSchema,
 						typeName: z.string().optional(),
-						content: z.union([primitiveTypeSchema, utilityTypeSchema, structSchema]),
+						content: z.union([nonGenericTypeSchema, structSchema]),
 					}),
 				]),
 			),
@@ -110,7 +128,7 @@ export type Field =
 	  ) &
 			(
 				| {
-						type: PrimitiveType | UtilityType;
+						type: NonGenericType;
 						typeName?: never;
 						content?: never;
 				  }
@@ -120,22 +138,26 @@ export type Field =
 						content: Struct;
 				  }
 				| {
-						type: CollectionType;
+						type: GenericType;
 						typeName?: string;
-						content: PrimitiveType | UtilityType | Struct;
+						content: NonGenericType | Struct;
 				  }
 			))
 	| {
 			netVisibility: "Untracked";
 			presentation?: boolean;
 
-			//any type that is Debug+Default should be fine.
-			//alternatively, can be Debug+UntrackedState + contain
-			//a `pub fn default() -> Self` method not associated with
-			//the Default trait. if presentation: true, must also be
-			//Clone. must specify fully qualified name if not a
-			//primitive/utility/collection type. generics <> not
-			//allowed; use a type alias instead
+			//- must specify fully qualified name if not one of the
+			//code generator-recognized primitive/utility/collection
+			//types. note chosen type currently can't contain generic
+			//params <>
+			//- for use in haptic prediction: chosen type must implement
+			//Debug+Serialize+Deserialize. Clone not required
+			//- for other uses: chosen type must either be Debug+Default
+			//OR Debug+UntrackedState+contain a
+			//`pub(crate) fn default() -> Self` method not associated
+			//with the Default trait. if presentation: true, must also
+			//be Clone
 			type: string;
 
 			typeName?: never;
@@ -214,7 +236,7 @@ function validateRecursively({
 	error,
 }: {
 	struct: Struct;
-	test: (path: string[], child: Field, parent?: Field) => boolean; //false on fail
+	test: (path: string[], child: Field, parent?: Field) => boolean; //true on fail
 	error: (path: string[], child: Field, parent?: Field) => string;
 }) {
 	return traverse(struct);
@@ -222,7 +244,7 @@ function validateRecursively({
 		for (const [childFieldName, childField] of Object.entries(childStruct)) {
 			const childPath = [...parentPath, childFieldName];
 
-			if (!test(childPath, childField, parentField)) {
+			if (test(childPath, childField, parentField)) {
 				//eslint-disable-next-line no-console
 				console.error(error(childPath, childField, parentField));
 				return false;
@@ -230,8 +252,7 @@ function validateRecursively({
 
 			if (
 				childField.type === "struct" ||
-				((collectionTypeSchema.options as string[]).includes(childField.type) &&
-					typeof childField.content === "object")
+				(isGeneric(childField.type) && typeof childField.content === "object")
 			) {
 				if (!traverse(childField.content as Struct, childField, childPath)) {
 					return false;
@@ -263,7 +284,8 @@ const simulationStateSchema = structSchema
 	.refine((state) =>
 		validateRecursively({
 			struct: state,
-			test: (path, child) => path[0] === "clients" || child.netVisibility !== "Owner",
+			test: (path, child) =>
+				path[0] !== "clients" && (child.netVisibility ?? NET_VISIBILITY_DEFAULT) === "Owner",
 			error: (path) => `"Owner" visibility used outside of clients for "${path.join(".")}"`,
 		}),
 	)
@@ -271,13 +293,13 @@ const simulationStateSchema = structSchema
 		validateRecursively({
 			struct: state,
 			test: function (path, child, parent) {
-				if (!parent) return true;
+				if (!parent) return false;
 
 				const hierarchy = netVisibilitySchema.options;
 				return (
-					hierarchy.indexOf(child.netVisibility ?? NET_VISIBILITY_DEFAULT) <=
-						hierarchy.indexOf(parent.netVisibility ?? NET_VISIBILITY_DEFAULT) ||
-					child.netVisibility === "Untracked"
+					hierarchy.indexOf(child.netVisibility ?? NET_VISIBILITY_DEFAULT) >
+						hierarchy.indexOf(parent.netVisibility ?? NET_VISIBILITY_DEFAULT) &&
+					(child.netVisibility ?? NET_VISIBILITY_DEFAULT) !== "Untracked"
 				);
 			},
 			error: (path, child, parent) =>
@@ -288,7 +310,9 @@ const simulationStateSchema = structSchema
 		validateRecursively({
 			struct: state,
 			test: (path, child) =>
-				path[0] !== "clients" || path[1] !== "input" || child.netVisibility === "Owner",
+				path[0] === "clients" &&
+				path[1] === "input" &&
+				(child.netVisibility ?? NET_VISIBILITY_DEFAULT) !== "Owner",
 			error: (path, child) =>
 				`Client input state's net visibility "${child.netVisibility ?? NET_VISIBILITY_DEFAULT}" for "${path.join(".")}" must be changed to "Owner"`,
 		}),
@@ -297,12 +321,10 @@ const simulationStateSchema = structSchema
 		validateRecursively({
 			struct: state,
 			test: (path, child) =>
-				!(
-					path[0] === "clients" &&
-					path[1] === "input" &&
-					((collectionTypeSchema.options as string[]).includes(child.type) ||
-						(utilityTypeSchema.options as string[]).includes(child.type))
-				),
+				path[0] === "clients" &&
+				path[1] === "input" &&
+				((collectionTypeSchema.options as string[]).includes(child.type) ||
+					(utilityTypeSchema.options as string[]).includes(child.type)),
 			error: (path, child) =>
 				`Client input state's type "${child.type}" for "${path.join(".")}" can't be a utility or collection type`,
 		}),
@@ -310,19 +332,40 @@ const simulationStateSchema = structSchema
 	.refine((state) =>
 		validateRecursively({
 			struct: state,
-			test: (path, child) => !(path[0] === "clients" && path[1] === "input" && child.presentation),
+			test: (path, child) =>
+				path[0] === "clients" && path[1] === "input" && Boolean(child.presentation),
 			error: (path) => `Client input state "${path.join(".")}" can't use presentation: true`,
 		}),
 	)
 	.refine((state) =>
 		validateRecursively({
 			struct: state,
-			test: function (path, child, parent) {
-				if (child.presentation && parent && !parent.presentation) return false;
-				return true;
-			},
+			test: (path, child, parent) => Boolean(child.presentation && parent && !parent.presentation),
 			error: (path) =>
 				`In order to use presentation: true on "${path.join(".")}", its parent must also have presentation: true`,
+		}),
+	)
+	.refine((state) =>
+		validateRecursively({
+			struct: state,
+			test: (path, child) =>
+				child.type === "HapticPredictionEmitter" &&
+				((child.netVisibility ?? NET_VISIBILITY_DEFAULT) === "Untracked" ||
+					(child.netVisibility ?? NET_VISIBILITY_DEFAULT) === "Private"),
+			//this is not a hard technical requirement, but it makes no sense
+			//to use haptic predictions in this manner
+			error: (path) =>
+				`HapticPredictionEmitter field at "${path.join(".")}" cannot have Untracked or Private netVisibility`,
+		}),
+	)
+	.refine((state) =>
+		validateRecursively({
+			struct: state,
+			test: (path, child, parent) =>
+				parent?.type === "HapticPredictionEmitter" &&
+				((child.netVisibility ?? NET_VISIBILITY_DEFAULT) !== "Untracked" || !child.presentation),
+			error: (path) =>
+				`HapticPredictionEmitter field at "${path.join(".")}" must use { netVisibility: "Untracked, presentation: true }"`,
 		}),
 	);
 

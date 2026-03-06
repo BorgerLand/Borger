@@ -1,4 +1,4 @@
-use std::sync::mpsc::{Receiver as SyncReceiver, Sender as SyncSender};
+use crossbeam_channel::{Receiver as SyncReceiver, Sender as SyncSender};
 
 #[cfg(feature = "server")]
 use tokio::sync::mpsc::UnboundedSender as AsyncSender;

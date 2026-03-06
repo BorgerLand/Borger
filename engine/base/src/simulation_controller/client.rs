@@ -24,18 +24,18 @@ const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 
 impl SimControllerInternals {
 	//receive and process data from client's presentation thread
-	pub(super) fn scheduled_tick_impl(&mut self, tick_id_target: TickID) {
+	pub(super) fn scheduled_tick_impl(&mut self) {
 		let rx_buffers = self.propogate_input(true);
-		let offset = self.reconcile(tick_id_target, rx_buffers);
+		let offset = self.reconcile(rx_buffers);
 
-		if tick_id_target > self.ctx.tick.id_consensus {
+		if self.ctx.tick.id_target > self.ctx.tick.id_consensus {
 			debug_assert_eq!(offset, 0);
-			self.simulate(tick_id_target);
+			self.simulate();
 		} else {
 			//received consensus tick that client hasn't simulated yet.
 			//client is running very behind. fast forward
 			debug_assert_eq!(self.ctx.tick.id_consensus, self.ctx.tick.id_cur);
-			debug_assert_eq!(offset, self.ctx.tick.id_consensus - tick_id_target);
+			debug_assert_eq!(offset, self.ctx.tick.id_consensus - self.ctx.tick.id_target);
 
 			if self.initial_calibration {
 				//attempt to account for the time in between the server
@@ -76,8 +76,9 @@ impl SimControllerInternals {
 				if average_offset < 0 {
 					for _ in average_offset..0 {
 						self.propogate_input(false);
-						self.simulate(self.ctx.tick.id_cur + 1);
 					}
+
+					self.simulate();
 				}
 				//else not much we can do here except freeze the simulation.
 				//can't rewind because inputs have already been sent.
@@ -133,7 +134,7 @@ impl SimControllerInternals {
 			}
 		}
 
-		if input_is_late {
+		if input_is_late && read_comms {
 			new_input = (self.cb.input_predict_late)(
 				&self.input_history.entries.back().unwrap().input,
 				&self.ctx.state,
@@ -165,7 +166,7 @@ impl SimControllerInternals {
 	//returns the number of buffers/ticks received that this client
 	//hasn't simulated yet. anything other than 0 indicates client's
 	//simulation is running very far behind
-	fn reconcile(&mut self, tick_id_target: TickID, received: Vec<Vec<u8>>) -> TickID {
+	fn reconcile(&mut self, received: Vec<Vec<u8>>) -> TickID {
 		//build the list of buffers that will actually be reconciled.
 		//because the server can jump back in time and overwrite its own
 		//previous predictions, there is a risk of seeing other clients'
@@ -294,7 +295,8 @@ impl SimControllerInternals {
 				//offset_estimate = round(input_rtt_ping / 2) + server_offset_ping = round(5 / 2) + -8 = -5 ticks
 				//client is 5 ticks behind of server in real world time, must speed up
 				//positive number would mean ahead of server, must slow down
-				let input_rtt_ping = (tick_id_target + input_underflow - tick_id_received - 1) as i16;
+				let input_rtt_ping =
+					(self.ctx.tick.id_target + input_underflow - tick_id_received - 1) as i16;
 				let server_offset_ping = i16::des_rx(buffer).unwrap();
 				let offset_estimate = (input_rtt_ping + 1) / 2 + server_offset_ping;
 

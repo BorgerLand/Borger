@@ -7,7 +7,7 @@ use std::mem::MaybeUninit;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
-use crate::NetVisibility;
+use {crate::NetVisibility, crate::diff_ser::NO_EXTRA_FILTER};
 
 //the server frequently needs to send usize data to
 //the client. unfortunately the server is usually
@@ -65,7 +65,7 @@ pub(crate) fn ser_sim_primitive<T: PrimitiveSerDes>(
 	}
 
 	#[cfg(feature = "server")]
-	for buffer in diff.ser_tx_begin(path, visibility) {
+	for buffer in diff.ser_tx_begin(path, visibility, NO_EXTRA_FILTER) {
 		op.ser_tx(buffer);
 		field_id.ser_tx(buffer);
 		tx_new_value.ser_tx(buffer);

@@ -13,7 +13,7 @@ pub fn on_client_connect(
 	client_id: usize32,
 	diff: &mut DiffSerializer<WaitForConsensus>,
 ) {
-	let client = get_owned_client_mut(&mut state.clients, client_id).unwrap();
+	let client = state.clients.get_mut(client_id).unwrap().as_owned_mut().unwrap();
 	let character = state.characters.add(diff).0;
 	client.set_character_id(character, diff);
 }
@@ -24,7 +24,7 @@ pub fn on_client_disconnect(
 	client_id: usize32,
 	diff: &mut DiffSerializer<WaitForConsensus>,
 ) {
-	let client = get_owned_client(&mut state.clients, client_id).unwrap();
+	let client = state.clients.get_mut(client_id).unwrap().as_owned_mut().unwrap();
 	let character = client.get_character_id();
 	state.characters.remove(character, diff).unwrap();
 }
@@ -37,9 +37,11 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	//while each client only simulates their own. the
 	//server then informs all players of where all the
 	//other "remote" players are
-	for client in ctx.state.clients.owned_clients_mut() {
-		let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
-		apply_input(character, client.input.get(), &mut ctx.diff);
+	for client in ctx.state.clients.values_mut() {
+		if let ClientState::Owned(client) = client {
+			let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
+			apply_input(character, &client.input.get().state, &mut ctx.diff);
+		}
 	}
 }
 

@@ -1,11 +1,14 @@
 #[cfg(feature = "client")]
 use {
-	crate::interpolation::EntityKind,
-	crate::js_bindings::{JSValueCache, bind_matrix},
-	crate::networked_types::primitive::usize32,
+	crate::{
+		interpolation::EntityKind,
+		js_bindings::{JSValueCache, bind_matrix},
+		networked_types::primitive::usize32,
+	},
 	glam::Mat4,
 	js_sys::{Function, Reflect},
 	std::collections::HashMap,
+	std::mem::MaybeUninit,
 	wasm_bindgen::{JsValue, throw_val},
 };
 
@@ -16,7 +19,7 @@ pub trait Interpolate {
 }
 
 #[cfg(feature = "client")]
-pub trait Entity: Interpolate + Default + Clone {
+pub trait Entity: Interpolate + Clone {
 	const KIND: EntityKind;
 
 	fn get_matrix_world(&self) -> Mat4;
@@ -38,27 +41,17 @@ pub struct EntityInstanceJSBindings {
 
 #[cfg(feature = "client")]
 pub struct EntityInstanceRSBindings<T: Entity> {
-	pub slot_id: usize32, //the slot id this entity lives in on the simulation side
-	pub interpolated: T,  //the interpolated presentation state
-	pub mat: Mat4,        //THREE.Object3D.matrixWorld.elements, output of Entity.get_matrix_world
+	pub slot_id: usize32,         //the slot id this entity lives in on the simulation side
+	pub mat: Mat4,                //THREE.Object3D.matrixWorld.elements, output of Entity.get_matrix_world
+	interpolated: MaybeUninit<T>, //the interpolated presentation state
 }
 
-//derive macro not working...
 #[cfg(feature = "client")]
-impl<T: Entity> Default for EntityInstanceBindings<T> {
-	fn default() -> Self {
-		Self {
-			js: EntityInstanceJSBindings {
-				o3d: JsValue::default(),
-				matrix_world: JsValue::default(),
-				slot_id: JsValue::default(),
-			},
-			rs: EntityInstanceRSBindings {
-				slot_id: 0,
-				interpolated: T::default(),
-				mat: Mat4::IDENTITY,
-			},
-		}
+impl<T: Entity> EntityInstanceRSBindings<T> {
+	pub fn interpolated(&self) -> &T {
+		//safety: interpolated is only in an unsafe state during call
+		//interpolate_type. obviously don't call it in there
+		unsafe { self.interpolated.assume_init_ref() }
 	}
 }
 
@@ -76,10 +69,32 @@ pub fn interpolate_type<T: Entity>(
 	amount: f32,
 	cache: &JSValueCache,
 ) {
-	let allocated_len = prv_entities.len().max(cur_entities.len());
-	let prv_data_ptr = out_entities.as_ptr();
-	out_entities.resize_with(allocated_len, EntityInstanceBindings::default);
-	let rebind_all = prv_data_ptr != out_entities.as_ptr(); //can only be true if rebind is true
+	let rebind_all = if received_new_tick && cur_entities.len() > prv_entities.len() {
+		let prv_data_ptr = out_entities.as_ptr();
+
+		out_entities.resize_with(cur_entities.len(), || EntityInstanceBindings {
+			js: EntityInstanceJSBindings {
+				o3d: JsValue::default(),
+				matrix_world: JsValue::default(),
+				slot_id: JsValue::default(),
+			},
+			rs: EntityInstanceRSBindings {
+				slot_id: 0,
+				mat: Mat4::IDENTITY,
+
+				//safety: by the end of this call to interpolate_type, these new
+				//slots are guaranteed to be initialized. there is no "default
+				//value of T" that can be initialized here due to haptic
+				//prediction's mpmc channels having no default value, and whatever
+				//other custom/untracked fields may have been declared in state.ts
+				interpolated: MaybeUninit::uninit(),
+			},
+		});
+
+		prv_data_ptr != out_entities.as_ptr()
+	} else {
+		false
+	};
 
 	//when entity id's don't match for a given physical
 	//index, store them here to sort out later. using
@@ -93,7 +108,7 @@ pub fn interpolate_type<T: Entity>(
 	//new/removed entities, and interpolate transforms
 	//of entities that existed in both the previous and
 	//current frames
-	for slot_index in 0..allocated_len {
+	for slot_index in 0..prv_entities.len().max(cur_entities.len()) {
 		let prv_entity = prv_entities.get(slot_index);
 		let cur_entity = cur_entities.get(slot_index);
 		if let (Some(prv_entity), Some(cur_entity)) = (prv_entity, cur_entity)
@@ -104,9 +119,17 @@ pub fn interpolate_type<T: Entity>(
 			//as the previous tick so just reinterpolate and let
 			//three.js do the rest
 
+			let interpolated = Interpolate::interpolate(&prv_entity.1, &cur_entity.1, amount);
 			let bindings = &mut out_entities[slot_index];
-			bindings.rs.interpolated = Interpolate::interpolate(&prv_entity.1, &cur_entity.1, amount);
-			bindings.rs.mat = bindings.rs.interpolated.get_matrix_world();
+
+			//safety: interpolated was initialized in a previous tick
+			//because this entity was found in prv
+			unsafe {
+				bindings.rs.interpolated.assume_init_drop();
+			}
+
+			bindings.rs.mat = interpolated.get_matrix_world();
+			bindings.rs.interpolated.write(interpolated);
 
 			if rebind_all {
 				//the matrices array was reallocated in order
@@ -133,12 +156,22 @@ pub fn interpolate_type<T: Entity>(
 
 	if received_new_tick {
 		//allow removed entities to have their js data be gc'ed
-		out_entities.truncate(cur_entities.len());
+		for mut prv_entity in out_entities.drain(cur_entities.len()..) {
+			unsafe {
+				prv_entity.rs.interpolated.assume_init_drop();
+			}
+		}
 
 		//fix any mismatched id's
 		if let Some(mismatch_cur_entities) = mismatch_cur_entities {
 			for (slot_id, (cur_entity, slot_index)) in mismatch_cur_entities {
 				let bindings = &mut out_entities[slot_index];
+				let is_newly_allocated = (slot_index + 1) > prv_entities.len();
+				if !is_newly_allocated {
+					//need to manually drop the old element
+					unsafe { bindings.rs.interpolated.assume_init_drop() }
+				}
+
 				*bindings = EntityInstanceBindings {
 					js: if let Some(prv_entities) = &mut mismatch_prv_entities
 						&& let Some(bindings_js) = prv_entities.remove(&slot_id)
@@ -177,8 +210,8 @@ pub fn interpolate_type<T: Entity>(
 					},
 					rs: EntityInstanceRSBindings {
 						slot_id,
-						interpolated: cur_entity.clone(),
 						mat: cur_entity.get_matrix_world(),
+						interpolated: MaybeUninit::new(cur_entity.clone()),
 					},
 				};
 
