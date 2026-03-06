@@ -69,32 +69,29 @@ pub fn interpolate_type<T: Entity>(
 	amount: f32,
 	cache: &JSValueCache,
 ) {
-	let rebind_all = if received_new_tick && cur_entities.len() > prv_entities.len() {
-		let prv_data_ptr = out_entities.as_ptr();
+	let allocated_len = prv_entities.len().max(cur_entities.len());
+	let prv_data_ptr = out_entities.as_ptr();
 
-		out_entities.resize_with(cur_entities.len(), || EntityInstanceBindings {
-			js: EntityInstanceJSBindings {
-				o3d: JsValue::default(),
-				matrix_world: JsValue::default(),
-				slot_id: JsValue::default(),
-			},
-			rs: EntityInstanceRSBindings {
-				slot_id: 0,
-				mat: Mat4::IDENTITY,
+	out_entities.resize_with(cur_entities.len(), || EntityInstanceBindings {
+		js: EntityInstanceJSBindings {
+			o3d: JsValue::default(),
+			matrix_world: JsValue::default(),
+			slot_id: JsValue::default(),
+		},
+		rs: EntityInstanceRSBindings {
+			slot_id: 0,
+			mat: Mat4::IDENTITY,
 
-				//safety: by the end of this call to interpolate_type, these new
-				//slots are guaranteed to be initialized. there is no "default
-				//value of T" that can be initialized here due to haptic
-				//prediction's mpmc channels having no default value, and whatever
-				//other custom/untracked fields may have been declared in state.ts
-				interpolated: MaybeUninit::uninit(),
-			},
-		});
+			//safety: by the end of this call to interpolate_type, these new
+			//slots are guaranteed to be initialized. there is no "default
+			//value of T" that can be initialized here due to haptic
+			//prediction's mpmc channels having no default value, and whatever
+			//other custom/untracked fields may have been declared in state.ts
+			interpolated: MaybeUninit::uninit(),
+		},
+	});
 
-		prv_data_ptr != out_entities.as_ptr()
-	} else {
-		false
-	};
+	let rebind_all = prv_data_ptr != out_entities.as_ptr(); //can only be true if received_new_tick is true
 
 	//when entity id's don't match for a given physical
 	//index, store them here to sort out later. using
@@ -108,7 +105,7 @@ pub fn interpolate_type<T: Entity>(
 	//new/removed entities, and interpolate transforms
 	//of entities that existed in both the previous and
 	//current frames
-	for slot_index in 0..prv_entities.len().max(cur_entities.len()) {
+	for slot_index in 0..allocated_len {
 		let prv_entity = prv_entities.get(slot_index);
 		let cur_entity = cur_entities.get(slot_index);
 		if let (Some(prv_entity), Some(cur_entity)) = (prv_entity, cur_entity)
