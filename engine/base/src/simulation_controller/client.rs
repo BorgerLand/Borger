@@ -2,13 +2,8 @@ use super::*;
 use crate::diff_des;
 use crate::diff_ser::ser_tx_input_diff;
 use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::presentation_state::{CloneToPresentationState, SimulationOutput};
-use crate::simulation_state::InputState;
-use crate::tick::TickID;
+use crate::presentation_state::CloneToPresentationState;
 use crate::tick::TickType;
-use log::debug;
-use std::collections::VecDeque;
-use std::i16;
 use std::sync::atomic::Ordering;
 
 //how many calibration samples to take before drawing conclusions
@@ -33,7 +28,7 @@ impl SimControllerInternals {
 			self.simulate();
 		} else {
 			//received consensus tick that client hasn't simulated yet.
-			//client is running very behind. fast forward
+			//client is running very behind
 			debug_assert_eq!(self.ctx.tick.id_consensus, self.ctx.tick.id_cur);
 			debug_assert_eq!(offset, self.ctx.tick.id_consensus - self.ctx.tick.id_target);
 
@@ -42,6 +37,10 @@ impl SimControllerInternals {
 				//sending the state snapshot and however long it took the
 				//simulation thread to start running
 				self.ctx.tick.recalibrate(-(offset as i16));
+			} else {
+				//what likely happened is the simulation is taking longer
+				//than SIM_DT per tick. possible death spiral
+				self.ctx.tick.id_target += offset;
 			}
 
 			if TRACE_TICK_ADVANCEMENT {
@@ -97,6 +96,7 @@ impl SimControllerInternals {
 		self.output_sender.store(
 			Some(Box::new(SimulationOutput {
 				time: self.ctx.tick.get_now(),
+				id: self.ctx.tick.id_cur,
 				local_client_id: self.local_client_id,
 				state: self.ctx.state.clone_to_presentation(),
 			})),
