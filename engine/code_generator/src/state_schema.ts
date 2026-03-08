@@ -135,6 +135,7 @@ const fieldSchema = z.lazy(() =>
 //need to manually specify field's type because
 //z.infer doesn't work on recursive structures
 export type Field =
+	//NETWORKED
 	| ((
 			| {
 					netVisibility: Exclude<NetVisibility, "Untracked">;
@@ -163,6 +164,7 @@ export type Field =
 						content: NonGenericType | Struct;
 				  }
 			))
+	//UNTRACKED
 	| ({
 			netVisibility: "Untracked";
 			typeName?: never;
@@ -180,8 +182,7 @@ export type Field =
 					//- for other uses: chosen type must either be Debug+Default
 					//OR Debug+UntrackedState+contain a
 					//`pub(crate) fn default() -> Self` method not associated
-					//with the Default trait. if presentation: true, must also
-					//be Clone
+					//with the Default trait.
 					type: string;
 			  }
 			| {
