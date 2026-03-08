@@ -56,13 +56,22 @@ export const netVisibilitySchema = z.enum([
 ]); //in order from least to most to make comparisons easier
 
 export type NetVisibility = z.infer<typeof netVisibilitySchema>;
-export type MultiFieldPrimitiveType = z.infer<typeof multiFieldPrimitiveTypeSchema>;
+
+//- type
+//	- primitive
+//		- simple primitive
+//		- multi field primitive
+//	- collection
+//	- utility
+export type Type = z.infer<typeof typeSchema>;
 export type PrimitiveType = z.infer<typeof primitiveTypeSchema>;
+export type SimplePrimitiveType = z.infer<typeof simplePrimitiveTypeSchema>;
+export type MultiFieldPrimitiveType = z.infer<typeof multiFieldPrimitiveTypeSchema>;
 export type CollectionType = z.infer<typeof collectionTypeSchema>;
 export type UtilityType = z.infer<typeof utilityTypeSchema>;
-export type TypeSchema = z.infer<typeof typeSchema>;
+
 export type GenericType = z.infer<typeof genericTypeSchema>;
-export type NonGenericType = Exclude<TypeSchema, GenericType>;
+export type NonGenericType = Exclude<Type, GenericType>;
 
 const fieldSchema = z.lazy(() =>
 	z.union([
@@ -102,13 +111,24 @@ const fieldSchema = z.lazy(() =>
 					}),
 				]),
 			),
-		z.object({
-			netVisibility: z.literal("Untracked"),
-			presentation: z.boolean().optional(),
-			type: z.string(),
-			typeName: z.never().optional(),
-			content: z.never().optional(),
-		}),
+		z
+			.object({
+				netVisibility: z.literal("Untracked"),
+				typeName: z.never().optional(),
+				content: z.never().optional(),
+			})
+			.and(
+				z.union([
+					z.object({
+						presentation: z.literal(false).optional(),
+						type: z.string(),
+					}),
+					z.object({
+						presentation: z.literal(true),
+						type: typeSchema,
+					}),
+				]),
+			),
 	]),
 ) as z.ZodType<Field>;
 
@@ -143,26 +163,32 @@ export type Field =
 						content: NonGenericType | Struct;
 				  }
 			))
-	| {
+	| ({
 			netVisibility: "Untracked";
-			presentation?: boolean;
-
-			//- must specify fully qualified name if not one of the
-			//code generator-recognized primitive/utility/collection
-			//types. note chosen type currently can't contain generic
-			//params <>
-			//- for use in haptic prediction: chosen type must implement
-			//Debug+Serialize+Deserialize. Clone not required
-			//- for other uses: chosen type must either be Debug+Default
-			//OR Debug+UntrackedState+contain a
-			//`pub(crate) fn default() -> Self` method not associated
-			//with the Default trait. if presentation: true, must also
-			//be Clone
-			type: string;
-
 			typeName?: never;
 			content?: never;
-	  };
+	  } & (
+			| {
+					presentation?: false;
+
+					//- must specify fully qualified name if not one of the
+					//code generator-recognized primitive/utility/collection
+					//types. note chosen type currently can't contain generic
+					//params <>
+					//- for use in haptic prediction: chosen type must implement
+					//Debug+Serialize+Deserialize. Clone not required
+					//- for other uses: chosen type must either be Debug+Default
+					//OR Debug+UntrackedState+contain a
+					//`pub(crate) fn default() -> Self` method not associated
+					//with the Default trait. if presentation: true, must also
+					//be Clone
+					type: string;
+			  }
+			| {
+					presentation: true;
+					type: Type;
+			  }
+	  ));
 
 const structSchema = z.lazy(() => z.record(z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/), fieldSchema));
 export type Struct = z.infer<typeof structSchema>;
@@ -350,7 +376,7 @@ const simulationStateSchema = structSchema
 			//this is not a hard technical requirement, but it makes no sense
 			//to use haptic predictions in this manner
 			error: (path) =>
-				`HapticPredictionEmitter field at "${path.join(".")}" cannot have Untracked or Private netVisibility`,
+				`HapticPredictionEmitter at "${path.join(".")}" cannot have Untracked or Private netVisibility`,
 		}),
 	)
 	.refine((state) =>
