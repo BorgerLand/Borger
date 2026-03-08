@@ -109,7 +109,3 @@ export function getFullFieldPath(baseGroupPath: string[], fullPath: string[], fi
 		.map((segment) => segment + ".")
 		.join("")}${fieldName}`;
 }
-
-export type DeeplyPartial<T> = {
-	[P in keyof T]?: T[P] extends object ? DeeplyPartial<T[P]> : T[P];
-};

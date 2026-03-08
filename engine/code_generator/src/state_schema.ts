@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isGeneric, type DeeplyPartial } from "@engine/code_generator/common.ts";
+import { isGeneric } from "@engine/code_generator/common.ts";
 
 //true single-field primitives that can be easily read
 //directly from wasm memory
@@ -392,7 +392,6 @@ const simulationStateSchema = structSchema
 	);
 
 export type SimulationState = z.infer<typeof simulationStateSchema>;
-export type SimulationStateMod = DeeplyPartial<SimulationState>;
 
 export function validate(state: unknown) {
 	return simulationStateSchema.parse(state);
