@@ -5,6 +5,7 @@ use crate::simulation_state;
 #[cfg(feature = "client")]
 use {
 	crate::interpolation::{Entity, EntityInstanceRSBindings},
+	crate::networked_types::primitive::usize32,
 	glam::Mat4,
 	std::mem,
 	web_time::Instant,
@@ -40,7 +41,7 @@ impl CloneToPresentationState for simulation_state::ClientState {
 #[cfg(feature = "client")]
 pub struct SimulationOutput {
 	pub time: Instant,
-	pub local_client_idx: usize, //use me to index the clients array
+	pub local_client_id: usize32,
 	pub state: PresentationState,
 }
 

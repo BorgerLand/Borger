@@ -9,6 +9,7 @@ use crate::untracked::UntrackedState;
 use crate::{ClientStateKind, DeserializeOopsy, DiffOperation, NetState};
 use std::collections::HashMap;
 use std::mem;
+use std::ops::Deref;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
@@ -27,73 +28,27 @@ use {crate::multiplayer_tradeoff::Impl, crate::simulation_state::ClientState, st
 //- 	*it will only be in order of insertion so long as elements are not removed from the "middle"
 //- 	*you can grab the most recently inserted slot with .iter().last(), if no slots have been removed since inserting it
 
-//---simulation_state---//
-
-#[derive(Debug)]
-pub struct SlotMap<V: NetState> {
-	_diff_path: Rc<Vec<usize32>>,
-	field_id: usize32,
-
-	#[cfg(feature = "server")]
-	visibility: NetVisibility,
-
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawSlotMap<V> {
 	slots: Vec<(usize32, V)>,
 	random_access: HashMap<usize32, usize32>, //<slot id, physical index>
 	reclaimed_ids: Vec<usize32>,
 }
 
-//---presentation_state---//
-
-impl<V: NetState> CloneToPresentationState for SlotMap<V> {
-	#[cfg(feature = "client")]
-	type PresentationState = Vec<(usize32, V::PresentationState)>;
-
-	#[cfg(feature = "client")]
-	fn clone_to_presentation(&self) -> Self::PresentationState {
-		let mut clone = Vec::with_capacity(self.slots.len());
-		for slot in self.slots.iter() {
-			clone.push((slot.0, slot.1.clone_to_presentation()));
-		}
-
-		clone
-	}
-}
-
-//---constructors---//
-
-impl<V: NetState> ConstructCollectionOrUtilityType for SlotMap<V> {
-	fn construct(
-		path: &Rc<Vec<usize32>>,
-		field_id: usize32,
-
-		#[cfg(feature = "server")] visibility: NetVisibility,
-	) -> Self {
+impl<V> RawSlotMap<V> {
+	pub fn new() -> Self {
 		Self {
-			_diff_path: path.clone(),
-			field_id,
-
-			#[cfg(feature = "server")]
-			visibility,
-
 			slots: Vec::new(),
 			random_access: HashMap::new(),
 			reclaimed_ids: Vec::new(),
 		}
 	}
-}
 
-//---diff_ser---//
-
-impl<V: NetState> SlotMap<V> {
-	pub fn add(&mut self, diff: &mut DiffSerializer<impl AnyTradeoff>) -> (usize32, &mut V) {
-		self.add_with_client_owned(ClientStateKind::NA, diff)
+	pub fn add(&mut self, value: V) -> (usize32, &mut V) {
+		self.add_with_id(|_| value)
 	}
 
-	pub(crate) fn add_with_client_owned(
-		&mut self,
-		client_kind: ClientStateKind,
-		diff: &mut DiffSerializer<impl AnyTradeoff>,
-	) -> (usize32, &mut V) {
+	pub fn add_with_id(&mut self, value: impl FnOnce(usize32) -> V) -> (usize32, &mut V) {
 		let id = self
 			.reclaimed_ids
 			.pop()
@@ -101,37 +56,17 @@ impl<V: NetState> SlotMap<V> {
 
 		let physical_index = self.len();
 
-		self.slots
-			.push((id, V::construct(&self.build_slot_path(id), client_kind)));
+		self.slots.push((id, value(id)));
 		self.random_access.insert(id, physical_index);
-
-		let op = DiffOperation::TrackSlotMapAdd;
-		let diff = diff.to_impl();
-
-		if let Some(buffer) = diff.ser_rollback_begin(&self._diff_path) {
-			self.field_id.ser_rollback(buffer);
-			op.ser_rollback(buffer);
-		}
-
-		#[cfg(feature = "server")]
-		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
-			op.ser_tx(buffer);
-			self.field_id.ser_tx(buffer);
-		}
 
 		let slot = self.slots.last_mut().unwrap();
 		(slot.0, &mut slot.1)
 	}
 
-	//can't return the removed value! it would provide
-	//a loophole for constructing new state objects.
-	//the simulation state must own all instances.
-	//unwrap to assert success
-	#[must_use]
-	pub fn remove(&mut self, id: usize32, diff: &mut DiffSerializer<impl AnyTradeoff>) -> Option<()> {
+	pub fn remove(&mut self, id: usize32) -> Option<V> {
 		let physical_index_u32 = self.random_access.remove(&id)?;
 		let physical_index_usize = physical_index_u32 as usize;
-		let removed_slot = self.slots.swap_remove(physical_index_usize);
+		let (_, removed_slot) = self.slots.swap_remove(physical_index_usize);
 
 		if physical_index_u32 < self.len() {
 			//swap_remove moved the last slot to the emptied slot.
@@ -144,48 +79,13 @@ impl<V: NetState> SlotMap<V> {
 
 		self.reclaim_id(id);
 
-		let op = DiffOperation::TrackSlotMapRemove;
-		let diff = diff.to_impl();
-
-		if let Some(buffer) = diff.ser_rollback_begin(&self._diff_path) {
-			removed_slot.1.ser_rollback_predict_remove(buffer);
-			physical_index_u32.ser_rollback(buffer);
-			id.ser_rollback(buffer);
-			self.field_id.ser_rollback(buffer);
-			op.ser_rollback(buffer);
-		}
-
-		#[cfg(feature = "server")]
-		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
-			op.ser_tx(buffer);
-			self.field_id.ser_tx(buffer);
-			id.ser_tx(buffer);
-		}
-
-		Some(())
+		Some(removed_slot)
 	}
 
-	//significantly more efficient in terms of bandwidth usage
-	//compared to iter+remove
-	pub fn clear(&mut self, diff: &mut DiffSerializer<impl AnyTradeoff>) -> usize32 {
+	pub fn clear(&mut self) -> usize32 {
 		let len = self.len();
 		if len == 0 {
 			return 0;
-		}
-
-		let op = DiffOperation::TrackSlotMapClear;
-		let diff = diff.to_impl();
-
-		if let Some(buffer) = diff.ser_rollback_begin(&self._diff_path) {
-			self.ser_rollback_predict_remove(buffer);
-			self.field_id.ser_rollback(buffer);
-			op.ser_rollback(buffer);
-		}
-
-		#[cfg(feature = "server")]
-		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
-			op.ser_tx(buffer);
-			self.field_id.ser_tx(buffer);
 		}
 
 		self.slots.clear();
@@ -235,11 +135,170 @@ impl<V: NetState> SlotMap<V> {
 		self.slots.iter_mut().map(|slot| &mut slot.1)
 	}
 
+	fn next_id(&self) -> usize {
+		self.slots.len() + self.reclaimed_ids.len()
+	}
+
+	fn reclaim_id(&mut self, id: usize32) {
+		if !self.reclaimed_ids.is_empty() || id as usize != self.next_id() {
+			self.reclaimed_ids.push(id);
+		}
+	}
+}
+
+//---simulation_state---//
+
+#[derive(Debug)]
+pub struct SlotMap<V: NetState> {
+	_diff_path: Rc<Vec<usize32>>,
+	field_id: usize32,
+
+	#[cfg(feature = "server")]
+	visibility: NetVisibility,
+
+	data: RawSlotMap<V>,
+}
+
+//---presentation_state---//
+
+impl<V: NetState> CloneToPresentationState for SlotMap<V> {
 	#[cfg(feature = "client")]
-	pub(crate) fn random_access(&self, id: usize32) -> Option<usize> {
-		self.random_access
-			.get(&id)
-			.map(|physical_index| *physical_index as usize)
+	type PresentationState = RawSlotMap<V::PresentationState>;
+
+	#[cfg(feature = "client")]
+	fn clone_to_presentation(&self) -> Self::PresentationState {
+		let mut slots = Vec::with_capacity(self.slots.len());
+		for slot in self.slots.iter() {
+			slots.push((slot.0, slot.1.clone_to_presentation()));
+		}
+
+		RawSlotMap {
+			slots,
+			random_access: self.random_access.clone(),
+			reclaimed_ids: self.reclaimed_ids.clone(),
+		}
+	}
+}
+
+//---constructors---//
+
+impl<V: NetState> ConstructCollectionOrUtilityType for SlotMap<V> {
+	fn construct(
+		path: &Rc<Vec<usize32>>,
+		field_id: usize32,
+
+		#[cfg(feature = "server")] visibility: NetVisibility,
+	) -> Self {
+		Self {
+			_diff_path: path.clone(),
+			field_id,
+
+			#[cfg(feature = "server")]
+			visibility,
+
+			data: RawSlotMap::new(),
+		}
+	}
+}
+
+//---diff_ser---//
+
+impl<V: NetState> SlotMap<V> {
+	pub fn add(&mut self, diff: &mut DiffSerializer<impl AnyTradeoff>) -> (usize32, &mut V) {
+		self.add_with_client_owned(ClientStateKind::NA, diff)
+	}
+
+	pub(crate) fn add_with_client_owned(
+		&mut self,
+		client_kind: ClientStateKind,
+		diff: &mut DiffSerializer<impl AnyTradeoff>,
+	) -> (usize32, &mut V) {
+		let op = DiffOperation::TrackSlotMapAdd;
+		let diff = diff.to_impl();
+
+		if let Some(buffer) = diff.ser_rollback_begin(&self._diff_path) {
+			self.field_id.ser_rollback(buffer);
+			op.ser_rollback(buffer);
+		}
+
+		#[cfg(feature = "server")]
+		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
+			op.ser_tx(buffer);
+			self.field_id.ser_tx(buffer);
+		}
+
+		self.data.add_with_id(|id| {
+			V::construct(&build_slot_path(id, &self._diff_path, self.field_id), client_kind)
+		})
+	}
+
+	//can't return the removed value! it would provide
+	//a loophole for constructing new state objects.
+	//the simulation state must own all instances.
+	//unwrap to assert success
+	#[must_use]
+	pub fn remove(&mut self, id: usize32, diff: &mut DiffSerializer<impl AnyTradeoff>) -> Option<()> {
+		let physical_index = *self.data.random_access.get(&id)?;
+		let removed_slot = self.data.remove(id).unwrap();
+
+		let op = DiffOperation::TrackSlotMapRemove;
+		let diff = diff.to_impl();
+
+		if let Some(buffer) = diff.ser_rollback_begin(&self._diff_path) {
+			removed_slot.ser_rollback_predict_remove(buffer);
+			physical_index.ser_rollback(buffer);
+			id.ser_rollback(buffer);
+			self.field_id.ser_rollback(buffer);
+			op.ser_rollback(buffer);
+		}
+
+		#[cfg(feature = "server")]
+		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
+			op.ser_tx(buffer);
+			self.field_id.ser_tx(buffer);
+			id.ser_tx(buffer);
+		}
+
+		Some(())
+	}
+
+	//significantly more efficient in terms of bandwidth usage
+	//compared to iter+remove
+	pub fn clear(&mut self, diff: &mut DiffSerializer<impl AnyTradeoff>) -> usize32 {
+		let len = self.len();
+		if len == 0 {
+			return 0;
+		}
+
+		let op = DiffOperation::TrackSlotMapClear;
+		let diff = diff.to_impl();
+
+		if let Some(buffer) = diff.ser_rollback_begin(&self._diff_path) {
+			self.ser_rollback_predict_remove(buffer);
+			self.field_id.ser_rollback(buffer);
+			op.ser_rollback(buffer);
+		}
+
+		#[cfg(feature = "server")]
+		for buffer in diff.ser_tx_begin(&self._diff_path, self.visibility, NO_EXTRA_FILTER) {
+			op.ser_tx(buffer);
+			self.field_id.ser_tx(buffer);
+		}
+
+		self.data.clear();
+		len
+	}
+
+	pub fn get_mut(&mut self, id: usize32) -> Option<&mut V> {
+		self.data.get_mut(id)
+	}
+
+	pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (usize32, &mut V)> {
+		self.data.iter_mut()
+	}
+
+	pub fn values_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
+		self.data.values_mut()
 	}
 }
 
@@ -272,15 +331,15 @@ impl<V: NetState> SlotMapDynCompat for SlotMap<V> {
 	}
 
 	fn rollback_add(&mut self) {
-		let id = self.slots.pop().unwrap().0;
-		self.random_access.remove(&id).unwrap();
-		self.reclaim_id(id);
+		let id = self.data.slots.pop().unwrap().0;
+		self.data.random_access.remove(&id).unwrap();
+		self.data.reclaim_id(id);
 	}
 
 	fn rollback_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
 		let id = usize32::des_rollback(buffer)?;
 		if id as usize != self.next_id() {
-			let unreclaimed_id = self.reclaimed_ids.pop();
+			let unreclaimed_id = self.data.reclaimed_ids.pop();
 			debug_assert!(unreclaimed_id.unwrap() == id);
 		}
 
@@ -289,22 +348,25 @@ impl<V: NetState> SlotMapDynCompat for SlotMap<V> {
 		//since client deletion is unpredictable and will
 		//never roll back, client_kind can be anything
 		//here. all other constructors ignore the arg
-		let mut value = V::construct(&self.build_slot_path(id), ClientStateKind::NA);
+		let mut value = V::construct(
+			&build_slot_path(id, &self._diff_path, self.field_id),
+			ClientStateKind::NA,
+		);
 		value.des_rollback_predict_remove(buffer)?;
 
 		let reincarnated_slot = (id, value);
 		if physical_index == self.len() {
 			//insert as last slot
-			self.slots.push(reincarnated_slot);
+			self.data.slots.push(reincarnated_slot);
 		} else {
 			//insert in the middle + move the current resident
 			//of this slot back to the end
-			let end_slot = mem::replace(&mut self.slots[physical_index as usize], reincarnated_slot);
-			*self.random_access.get_mut(&end_slot.0).unwrap() = self.len();
-			self.slots.push(end_slot);
+			let end_slot = mem::replace(&mut self.data.slots[physical_index as usize], reincarnated_slot);
+			*self.data.random_access.get_mut(&end_slot.0).unwrap() = self.len();
+			self.data.slots.push(end_slot);
 		}
 
-		self.random_access.insert(id, physical_index);
+		self.data.random_access.insert(id, physical_index);
 
 		Ok(())
 	}
@@ -339,11 +401,11 @@ impl<V: NetState> SlotMapDynCompat for SlotMap<V> {
 impl<V: NetState> SnapshotState for SlotMap<V> {
 	#[cfg(feature = "server")]
 	fn ser_tx_new_client(&self, client_id: usize32, buffer: &mut Vec<u8>) {
-		(self.reclaimed_ids.len() as usize32).ser_tx(buffer);
-		self.reclaimed_ids.ser_tx(buffer);
+		(self.data.reclaimed_ids.len() as usize32).ser_tx(buffer);
+		self.data.reclaimed_ids.ser_tx(buffer);
 		self.len().ser_tx(buffer);
 
-		for slot in self.slots.iter() {
+		for slot in self.data.slots.iter() {
 			slot.0.ser_tx(buffer);
 			slot.1.ser_tx_new_client(client_id, buffer);
 		}
@@ -356,7 +418,7 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 		buffer: &mut impl Iterator<Item = u8>,
 	) -> Result<(), DeserializeOopsy> {
 		let reclaimed_ids_len = usize32::des_rx(buffer)?;
-		self.reclaimed_ids = <[usize32]>::des_rx(reclaimed_ids_len, buffer)?;
+		self.data.reclaimed_ids = <[usize32]>::des_rx(reclaimed_ids_len, buffer)?;
 		let slots_len = usize32::des_rx(buffer)?;
 
 		for physical_index in 0..slots_len {
@@ -371,11 +433,11 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 				ClientStateKind::Remote
 			};
 
-			let mut slot = V::construct(&self.build_slot_path(id), client_kind);
+			let mut slot = V::construct(&build_slot_path(id, &self._diff_path, self.field_id), client_kind);
 			slot.des_rx_new_client(client_id, buffer)?;
 
-			self.slots.push((id, slot));
-			self.random_access.insert(id, physical_index);
+			self.data.slots.push((id, slot));
+			self.data.random_access.insert(id, physical_index);
 		}
 
 		Ok(())
@@ -388,28 +450,31 @@ impl<V: NetState> SnapshotState for SlotMap<V> {
 	//potentially a large amount of data being rapidly rolled
 	//back
 	fn ser_rollback_predict_remove(&self, buffer: &mut Vec<u8>) {
-		for slot in self.slots.iter().rev() {
+		for slot in self.data.slots.iter().rev() {
 			slot.1.ser_rollback_predict_remove(buffer);
 			slot.0.ser_rollback(buffer);
 		}
 
 		self.len().ser_rollback(buffer);
-		self.reclaimed_ids.ser_rollback(buffer);
-		(self.reclaimed_ids.len() as usize32).ser_rollback(buffer);
+		self.data.reclaimed_ids.ser_rollback(buffer);
+		(self.data.reclaimed_ids.len() as usize32).ser_rollback(buffer);
 	}
 
 	fn des_rollback_predict_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
 		let reclaimed_ids_len = usize32::des_rollback(buffer)?;
-		self.reclaimed_ids = <[usize32]>::des_rollback(reclaimed_ids_len, buffer)?;
+		self.data.reclaimed_ids = <[usize32]>::des_rollback(reclaimed_ids_len, buffer)?;
 		let slots_len = usize32::des_rollback(buffer)?;
 
 		for physical_index in 0..slots_len {
 			let id = usize32::des_rollback(buffer)?;
-			let mut slot = V::construct(&self.build_slot_path(id), ClientStateKind::NA);
+			let mut slot = V::construct(
+				&build_slot_path(id, &self._diff_path, self.field_id),
+				ClientStateKind::NA,
+			);
 			slot.des_rollback_predict_remove(buffer)?;
 
-			self.slots.push((id, slot));
-			self.random_access.insert(id, physical_index);
+			self.data.slots.push((id, slot));
+			self.data.random_access.insert(id, physical_index);
 		}
 
 		Ok(())
@@ -427,22 +492,18 @@ impl<V: NetState> UntrackedState for SlotMap<V> {
 
 //---misc---//
 
-impl<V: NetState> SlotMap<V> {
-	fn next_id(&self) -> usize {
-		self.slots.len() + self.reclaimed_ids.len()
-	}
+impl<V: NetState> Deref for SlotMap<V> {
+	type Target = RawSlotMap<V>;
 
-	fn reclaim_id(&mut self, id: usize32) {
-		if !self.reclaimed_ids.is_empty() || id as usize != self.next_id() {
-			self.reclaimed_ids.push(id);
-		}
+	fn deref(&self) -> &Self::Target {
+		&self.data
 	}
+}
 
-	fn build_slot_path(&self, id: usize32) -> Rc<Vec<usize32>> {
-		let mut element_path = Vec::with_capacity(self._diff_path.len() + 2);
-		element_path.extend(self._diff_path.iter());
-		element_path.push(self.field_id);
-		element_path.push(id);
-		Rc::new(element_path)
-	}
+fn build_slot_path(id: usize32, diff_path: &Rc<Vec<usize32>>, field_id: usize32) -> Rc<Vec<usize32>> {
+	let mut element_path = Vec::with_capacity(diff_path.len() + 2);
+	element_path.extend(diff_path.iter());
+	element_path.push(field_id);
+	element_path.push(id);
+	Rc::new(element_path)
 }

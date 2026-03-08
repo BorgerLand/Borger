@@ -3,12 +3,12 @@ use {
 	crate::{
 		interpolation::EntityKind,
 		js_bindings::{JSValueCache, bind_matrix},
+		networked_types::collections::slotmap::RawSlotMap,
 		networked_types::primitive::usize32,
 	},
 	glam::Mat4,
 	js_sys::{Function, Reflect},
-	std::collections::HashMap,
-	std::mem::MaybeUninit,
+	std::{collections::HashMap, mem::MaybeUninit},
 	wasm_bindgen::{JsValue, throw_val},
 };
 
@@ -63,13 +63,15 @@ impl<T: Entity> EntityInstanceRSBindings<T> {
 #[cfg(feature = "client")]
 pub fn interpolate_type<T: Entity>(
 	received_new_tick: bool,
-	prv_entities: &[(usize32, T)],
-	cur_entities: &[(usize32, T)],
+	prv_entities: Option<&RawSlotMap<T>>,
+	cur_entities: &RawSlotMap<T>,
 	out_entities: &mut Vec<EntityInstanceBindings<T>>,
 	amount: f32,
 	cache: &JSValueCache,
 ) {
-	let allocated_len = prv_entities.len().max(cur_entities.len());
+	let prv_entities_len = prv_entities.map(|prv| prv.len()).unwrap_or(0) as usize;
+	let cur_entities_len = cur_entities.len() as usize;
+	let allocated_len = prv_entities_len.max(cur_entities_len);
 	let prv_data_ptr = out_entities.as_ptr();
 
 	out_entities.resize_with(allocated_len, || EntityInstanceBindings {
@@ -92,6 +94,8 @@ pub fn interpolate_type<T: Entity>(
 	});
 
 	let rebind_all = prv_data_ptr != out_entities.as_ptr(); //can only be true if received_new_tick is true
+	let mut prv_entities = prv_entities.map(|prv| prv.iter());
+	let mut cur_entities = cur_entities.iter();
 
 	//when entity id's don't match for a given physical
 	//index, store them here to sort out later. using
@@ -106,8 +110,8 @@ pub fn interpolate_type<T: Entity>(
 	//of entities that existed in both the previous and
 	//current frames
 	for slot_index in 0..allocated_len {
-		let prv_entity = prv_entities.get(slot_index);
-		let cur_entity = cur_entities.get(slot_index);
+		let prv_entity = prv_entities.as_mut().map(|prv| prv.next()).flatten();
+		let cur_entity = cur_entities.next();
 		if let (Some(prv_entity), Some(cur_entity)) = (prv_entity, cur_entity)
 			&& prv_entity.0 == cur_entity.0
 		{
@@ -116,7 +120,7 @@ pub fn interpolate_type<T: Entity>(
 			//as the previous tick so just reinterpolate and let
 			//three.js do the rest
 
-			let interpolated = Interpolate::interpolate(&prv_entity.1, &cur_entity.1, amount);
+			let interpolated = Interpolate::interpolate(prv_entity.1, cur_entity.1, amount);
 			let bindings = &mut out_entities[slot_index];
 
 			//safety: interpolated was initialized in a previous tick
@@ -153,7 +157,7 @@ pub fn interpolate_type<T: Entity>(
 
 	if received_new_tick {
 		//allow removed entities to have their js data be gc'ed
-		for mut prv_entity in out_entities.drain(cur_entities.len()..) {
+		for mut prv_entity in out_entities.drain(cur_entities_len..) {
 			unsafe {
 				prv_entity.rs.interpolated.assume_init_drop();
 			}
@@ -163,7 +167,7 @@ pub fn interpolate_type<T: Entity>(
 		if let Some(mismatch_cur_entities) = mismatch_cur_entities {
 			for (slot_id, (cur_entity, slot_index)) in mismatch_cur_entities {
 				let bindings = &mut out_entities[slot_index];
-				let is_newly_allocated = (slot_index + 1) > prv_entities.len();
+				let is_newly_allocated = (slot_index + 1) > prv_entities_len;
 				if !is_newly_allocated {
 					//need to manually drop the old element
 					unsafe { bindings.rs.interpolated.assume_init_drop() }

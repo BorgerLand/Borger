@@ -12,7 +12,7 @@ import {
 
 //key is an outerType, value is CloneToPresentationState::PresentationType
 const PRESENTATION_TYPE = new Map<string, (innerType: string) => string>([
-	["SlotMap", (innerType) => `Vec<(usize32, ${innerType})>`],
+	["SlotMap", (innerType) => `RawSlotMap<${innerType}>`],
 	["HapticPredictionEmitter", (innerType) => `SyncReceiver<simulation_state::${innerType}>`],
 ]);
 
@@ -30,6 +30,7 @@ use
 {
 	crate::presentation_state::ClientState,
 	crossbeam_channel::Receiver as SyncReceiver,
+	crate::networked_types::collections::slotmap::RawSlotMap,
 };
 
 #[cfg(feature = "client")]

@@ -17,11 +17,15 @@ pub fn get_local_entity<'a>(
 	//standard SlotMap collection decoupled from networking. that
 	//would allow a quick hashmap lookup. however the slotmap
 	//file needs a refactor first
-	let slot = tick.state.clients[tick.local_client_idx]
-		.1
+	let slot = tick
+		.state
+		.clients
+		.get(tick.local_client_id)
+		.unwrap()
 		.as_owned()
 		.unwrap()
 		.character_id;
+
 	bindings
 		.entities
 		.characters

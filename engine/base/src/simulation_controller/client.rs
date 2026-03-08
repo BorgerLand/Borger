@@ -97,12 +97,7 @@ impl SimControllerInternals {
 		self.output_sender.store(
 			Some(Box::new(SimulationOutput {
 				time: self.ctx.tick.get_now(),
-				local_client_idx: self
-					.ctx
-					.state
-					.clients
-					.random_access(self.local_client_id)
-					.unwrap(),
+				local_client_id: self.local_client_id,
 				state: self.ctx.state.clone_to_presentation(),
 			})),
 			Ordering::AcqRel,

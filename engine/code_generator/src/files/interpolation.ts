@@ -95,7 +95,7 @@ ${entities
 	interpolate_type
 	(
 		received_new_tick,
-		prv_tick.map(|tick| tick.state.${entity.field.name}.as_slice()).unwrap_or(&[]),
+		prv_tick.map(|prv| &prv.state.${entity.field.name}),
 		&cur_tick.state.${entity.field.name},
 		&mut bindings.entities.${entity.field.name},
 		amount,
