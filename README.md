@@ -133,8 +133,9 @@ character.set_pos(new_pos, diff);
     - VS Code extensions:
         - [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) (this uses a ton of RAM - recommend having at least 12 GB)
         - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+        - [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)
         - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
-        - To automatically format code each time you save, after running `setup.sh` add to `.vscode/settings.json`:
+        - To automatically format code each time you save, after running `setup.sh`, add this to `.vscode/settings.json`:
             ```JSON
             "editor.formatOnSave": true,
             "editor.defaultFormatter": "esbenp.prettier-vscode",
