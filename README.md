@@ -155,9 +155,8 @@ Fork this repo first, in order to use it as a blank template. Then:
 ```Bash
 git clone https://github.com/Username/MyGame.git
 cd MyGame
-./borger setup #takes a good while
-./borget dev
-#wait a few seconds for it to stop spamming the console
+./borger setup #takes ~15 min from scratch
+./borget dev #wait a few seconds for it to stop spamming the console
 ```
 
 Now visit https://localhost:5173 for a good meal (you'll see a security warning but you can safely dismiss it)

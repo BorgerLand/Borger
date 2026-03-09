@@ -16,6 +16,8 @@ assert_dev_not_running() {
 }
 
 cmd_setup() {
+	set -x
+
 	if ! command -v rustup &>/dev/null; then
 		read -rp "Rustup is not installed. Would you like to install it? (y/n) " response
 		if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -33,8 +35,6 @@ cmd_setup() {
 			exit 1
 		fi
 	fi
-
-	set -x
 
 	#wasm-pack has some unreleased features regarding custom profiles
 	#https://github.com/drager/wasm-pack/pull/1489
