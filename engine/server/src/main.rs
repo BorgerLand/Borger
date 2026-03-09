@@ -22,7 +22,7 @@ pub async fn main() {
 		SimpleLogger::new().with_level(LOG_LEVEL).init().unwrap();
 
 		let flags = flags::Flags::parse();
-		let sim = game_rs::simulation::init(Vec::default());
+		let sim = game_rs::init(Vec::default());
 		let sim_loop = tokio::task::spawn_blocking(move || sim.thread.join().unwrap());
 		let net_loop = tokio::spawn(net::init(sim.new_connection_sender, flags));
 

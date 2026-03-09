@@ -3,8 +3,8 @@ use borger::presentation_state::SimulationOutput;
 use borger::simulation_controller::SimControllerExternals;
 use borger::simulation_state::InputState;
 use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
-use game_rs::presentation::on_client_start;
-use game_rs::presentation::pipeline::presentation_tick as game_presentation_tick;
+use game_rs::old::on_client_start;
+use game_rs::old::pipeline::presentation_tick as game_presentation_tick;
 use js_sys::{Function, Uint8Array};
 use log::Level;
 use std::panic;
@@ -58,7 +58,7 @@ impl PresentationController {
 		console_log::init_with_level(LOG_LEVEL).unwrap();
 
 		Self {
-			sim: game_rs::simulation::init(new_client_snapshot.to_vec()),
+			sim: game_rs::init(new_client_snapshot.to_vec()),
 			now: Instant::now(),
 			bindings: JSBindings::new(write_input, scene, spawn_entity_cb, dispose_entity_cb),
 

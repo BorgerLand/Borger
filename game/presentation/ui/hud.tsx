@@ -1,4 +1,4 @@
-import { useTouchscreenStore } from "@game/simulation/input.ts";
+import { useTouchscreenStore } from "@game/presentation/input.ts";
 import { Nipples } from "@game/presentation/ui/nipples.tsx";
 import { Buttons } from "@game/presentation/ui/buttons.tsx";
 

@@ -1,5 +1,5 @@
-import * as Input from "@game/simulation/input.ts";
-import * as Renderer from "@engine/client_ts/renderer.ts";
+import * as Input from "@game/presentation/input.ts";
+import * as Renderer from "@engine/client_ts/old/renderer.ts";
 import type { EngineState } from "@engine/client_ts/presentation_controller.ts";
 
 //purely client sided rendering pipeline. it should

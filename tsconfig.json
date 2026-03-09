@@ -11,7 +11,7 @@
 			//should match vite.config.ts
 			"@engine/client_rs": ["engine/client/rs/pkg"],
 			"@engine/client_ts/*": ["engine/client/ts/src/*"],
-			"@game/*": ["game/ts/src/*"]
+			"@game/*": ["game/*"]
 		},
 		"moduleResolution": "bundler",
 		"resolveJsonModule": true,
@@ -21,5 +21,5 @@
 		"allowImportingTsExtensions": true,
 		"jsx": "react-jsx"
 	},
-	"include": ["engine/code_generator/src/main.ts", "game/ts/src/index.ts", "*.config.ts"]
+	"include": ["engine/code_generator/src/main.ts", "game/presentation/index.ts", "*.config.ts"]
 }

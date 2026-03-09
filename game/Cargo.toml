@@ -3,12 +3,15 @@ name = "game_rs"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+path = "simulation/lib.rs"
+
 [features]
 server = ["borger/server"]
 client = ["borger/client", "js-sys", "web-sys"]
 
 [dependencies]
-borger = { path = "../../engine/borger" }
+borger = { path = "../engine/borger" }
 log.workspace = true
 glam.workspace = true
 wasm-bindgen.workspace = true

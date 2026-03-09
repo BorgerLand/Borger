@@ -1,9 +1,9 @@
-use crate::simulation::server_events::*;
+use crate::server_events::*;
 use borger::prelude::*;
 
-pub mod character;
-pub mod input;
-pub mod server_events;
+mod character;
+mod input;
+mod server_events;
 
 pub fn init(new_client_snapshot: Vec<u8>) -> SimControllerExternals {
 	init_simulation(SimulationCallbacks {
@@ -27,3 +27,6 @@ pub fn init(new_client_snapshot: Vec<u8>) -> SimControllerExternals {
 fn simulation_tick(ctx: &mut GameContext<Immediate>) {
 	character::update(ctx);
 }
+
+#[cfg(feature = "client")]
+pub mod old;

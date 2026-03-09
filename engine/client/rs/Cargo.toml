@@ -9,7 +9,7 @@ client = ["borger/client", "game_rs/client"]
 
 [dependencies]
 borger = { path = "../../borger" }
-game_rs = { path = "../../../game/rs" }
+game_rs = { path = "../../../game" }
 log.workspace = true
 glam.workspace = true
 wasm-bindgen.workspace = true

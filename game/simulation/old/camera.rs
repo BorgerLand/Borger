@@ -1,9 +1,8 @@
-use crate::presentation::get_local_entity;
-use crate::simulation::character;
+use crate::old::get_local_entity;
 use borger::js_bindings::JSBindings;
 use borger::prelude::*;
 use borger::presentation_state::SimulationOutput;
-use glam::Mat4;
+use glam::{EulerRot, Mat4, Quat};
 
 pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBindings) {
 	//treasure hunt for the position of this client's character
@@ -18,7 +17,7 @@ pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBind
 	//entity in 1st person anyway so it doesn't matter. (it is also possible to
 	//just recalculate the entity's matrix here as a hack workaround)
 
-	let cam_rot = character::get_camera_rot(input);
+	let cam_rot = Quat::from_euler(EulerRot::ZYX, 0., input.cam_yaw, input.cam_pitch);
 	bindings.camera.mat = Mat4::from_rotation_translation(cam_rot, cam_target);
 	bindings.camera.mat_inv = bindings.camera.mat.inverse();
 }

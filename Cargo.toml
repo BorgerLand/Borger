@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
 	"engine/borger",
-	"game/rs",
+	"game",
 	"engine/server",
 	"engine/client/rs",
 	"engine/borger_procmac"

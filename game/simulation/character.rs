@@ -1,6 +1,6 @@
 use borger::networked_types::primitive::usize32;
 use borger::prelude::*;
-use glam::{EulerRot, Quat, Vec3};
+use glam::{Quat, Vec3};
 
 const SPEED: f32 = 6.0; //units/sec
 
@@ -66,8 +66,4 @@ fn apply_input(
 	pos += Vec3::Y * input.omnidir.y * SPEED * TickInfo::SIM_DT; //up/down
 	pos += forward * input.omnidir.z * SPEED * TickInfo::SIM_DT; //forward/backward
 	character.set_pos(pos, diff);
-}
-
-pub fn get_camera_rot(input: &InputState) -> Quat {
-	Quat::from_euler(EulerRot::ZYX, 0., input.cam_yaw, input.cam_pitch)
 }

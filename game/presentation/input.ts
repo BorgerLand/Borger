@@ -1,4 +1,4 @@
-import { InputPoll } from "@engine/client_ts/input_poll.ts";
+import { InputPoll } from "@engine/client_ts/old/input_poll.ts";
 import * as ClientRS from "@engine/client_rs";
 import { Vector2 } from "three";
 import { create } from "zustand";

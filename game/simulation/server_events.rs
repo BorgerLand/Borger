@@ -1,4 +1,4 @@
-use crate::simulation::character;
+use crate::character;
 use borger::networked_types::primitive::usize32;
 use borger::prelude::*;
 

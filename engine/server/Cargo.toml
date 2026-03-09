@@ -9,7 +9,7 @@ client = []
 
 [dependencies]
 borger = { path = "../borger" }
-game_rs = { path = "../../game/rs" }
+game_rs = { path = "../../game" }
 log.workspace = true
 tokio.workspace = true
 crossbeam-channel.workspace = true

@@ -1,4 +1,4 @@
-import { useTouchscreenStore } from "@game/simulation/input.ts";
+import { useTouchscreenStore } from "@game/presentation/input.ts";
 import type { Vector2 } from "three";
 
 export function Nipples({ areolaSize }: { areolaSize: number }) {

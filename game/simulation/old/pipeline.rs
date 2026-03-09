@@ -1,4 +1,4 @@
-use crate::presentation::{camera, get_local_entity};
+use crate::old::{camera, get_local_entity};
 use borger::interpolation::interpolate_entities;
 use borger::js_bindings::JSBindings;
 use borger::prelude::*;
