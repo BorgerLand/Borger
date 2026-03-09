@@ -7,6 +7,7 @@
 		"zustand": "*"
 	},
 	"devDependencies": {
+		"@eslint/js": "*",
 		"@tailwindcss/vite": "*",
 		"@types/bun": "*",
 		"@types/react": "*",
@@ -24,15 +25,15 @@
 		"eslint-plugin-react": "*",
 		"eslint-plugin-react-hooks": "*",
 		"eslint-plugin-react-refresh": "*",
-		"postcss": "*",
+		"globals": "*",
 		"prettier": "*",
 		"prettier-plugin-tailwindcss": "*",
 		"tailwindcss": "*",
 		"typescript": "*",
-		"vite": "npm:rolldown-vite@*",
+		"vite": "^8.0.0-beta.18",
 		"zod": "*"
 	},
 	"patchedDependencies": {
-		"rolldown-vite@7.3.1": "patches/rolldown-vite@7.3.1.patch"
+		"vite@8.0.0-beta.18": "patches/vite@8.0.0-beta.18.patch"
 	}
 }

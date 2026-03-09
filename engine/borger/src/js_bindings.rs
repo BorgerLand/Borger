@@ -42,7 +42,7 @@ impl JSBindings {
 		spawn_entity_cb: Function,   //(type: EntityType, id: number) => THREE.Object3D
 		dispose_entity_cb: Function, //(type: EntityType, entity: THREE.Object3D, id: number) => void
 	) -> Self {
-		let scene_add = Function::from(Reflect::get(scene, &JsString::from("add")).unwrap()).bind(scene);
+		let scene_add = Function::from(Reflect::get(scene, &JsString::from("add")).unwrap()).bind0(scene);
 
 		Self {
 			camera: CameraBindings::default(),

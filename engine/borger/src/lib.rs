@@ -1,5 +1,3 @@
-#![feature(vec_deque_truncate_front)] //https://github.com/rust-lang/rust/issues/140667
-
 use crate::diff_ser::DiffSerializer;
 use crate::multiplayer_tradeoff::Immediate;
 use crate::multiplayer_tradeoff::WaitForConsensus;
