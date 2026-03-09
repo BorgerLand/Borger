@@ -1,13 +1,10 @@
-use base::math::wrap_angle;
-use base::networked_types::primitive::usize32;
-use base::simulation_state::InputState;
-use base::simulation_state::SimulationState;
+use borger::math::wrap_angle;
+use borger::networked_types::primitive::usize32;
+use borger::simulation_state::InputState;
+use borger::simulation_state::SimulationState;
 use glam::Vec3;
-
-#[cfg(feature = "client")]
 use wasm_bindgen::prelude::*;
 
-#[cfg(feature = "client")]
 #[wasm_bindgen]
 pub fn populate_input(
 	input: &mut InputState,
@@ -20,8 +17,6 @@ pub fn populate_input(
 	*input = InputState {
 		cam_yaw: input.cam_yaw - pointer_dx,
 		cam_pitch: input.cam_pitch + pointer_dy,
-		cam_radius: 0.0,
-
 		omnidir: Vec3::new(omnidir_x, omnidir_y, omnidir_z),
 	};
 
@@ -31,13 +26,11 @@ pub fn populate_input(
 //a single client has multiple input states per simulation
 //tick due to vsync outpacing the simulation tick rate.
 //this function merges them down into one
-#[cfg(feature = "client")]
-pub fn merge(combined: &mut InputState, new: &InputState) {
-	*combined = InputState {
+pub fn merge(combined: &InputState, new: &InputState) -> InputState {
+	InputState {
 		//camera persists between frames, so always take the newest
 		cam_yaw: new.cam_yaw,
 		cam_pitch: new.cam_pitch,
-		cam_radius: new.cam_radius,
 
 		//take newest nipple/omnidir if it exists. if not, don't overwrite the old one.
 		//allows very short sub-1-tick nipple movements to go through
@@ -46,12 +39,12 @@ pub fn merge(combined: &mut InputState, new: &InputState) {
 		} else {
 			combined.omnidir
 		},
-	};
+	}
 }
 
 //given a suspicious, untrustworthy input state,
 //return a new sanitized version
-pub fn validate(sus: &mut InputState) {
+pub fn validate(sus: &InputState) -> InputState {
 	//be sure to pass all floating point (decimal) numbers
 	//through valid_fXX(). otherwise you have a security
 	//problem where an evil client can blow up the game.
@@ -65,11 +58,9 @@ pub fn validate(sus: &mut InputState) {
 	//eg. debounce or other timings between multiple
 	//input state objects is out of scope
 
-	*sus = InputState {
+	InputState {
 		cam_yaw: wrap_angle(valid_f32(sus.cam_yaw)),
 		cam_pitch: valid_f32(sus.cam_pitch).clamp(-89.9_f32.to_radians(), 89.9_f32.to_radians()),
-		cam_radius: valid_f32(sus.cam_radius).clamp(0., f32::INFINITY),
-
 		omnidir: {
 			let omnidir = Vec3::new(
 				valid_f32(sus.omnidir.x).clamp(-1., 1.),
@@ -83,7 +74,7 @@ pub fn validate(sus: &mut InputState) {
 				omnidir
 			}
 		},
-	};
+	}
 }
 
 //the server needs to continue simulating even if it hasn't
@@ -94,26 +85,26 @@ pub fn validate(sus: &mut InputState) {
 //you choose how the engine fabricates an input, given the
 //previous tick's input. if accessing state.clients[client_id]:
 //the clientstate will always be owned. do not access
-//client.input; it will be wrong; use prv instead
-pub fn predict_late(prv: &InputState, _state: &SimulationState, _client_id: usize32) -> InputState {
+//state.client.input; it will be wrong; use prv instead.
+//is_timed_out indicates that the client took too long to send
+//an input for this tick, so the server is forcing consensus
+//without it. is_timed_out is always false on the client side
+pub fn predict_late(
+	prv: &InputState,
+	is_timed_out: bool,
+	_state: &SimulationState,
+	_client_id: usize32,
+) -> InputState {
 	InputState {
 		//predict that camera hasn't moved
 		cam_yaw: prv.cam_yaw,
 		cam_pitch: prv.cam_pitch,
-		cam_radius: prv.cam_radius,
 
-		//the server predicts that the client stopped attempting to move
-		//if it hasn't received any input yet. depending on your gameplay
-		//type (racing/vehicle?) it may make more sense to predict that
-		//they continue holding the throttle. you may also read from
-		//SimulationState to help inform the server's decision
-		#[cfg(feature = "server")]
-		omnidir: Vec3::default(),
-		//client has different behavior because there is no network
-		//latency involved here. when the presentation thread hiccups,
-		//just assume they keep holding the throttle, to avoid stutters
-		#[cfg(feature = "client")]
-		omnidir: prv.omnidir,
+		omnidir: if is_timed_out {
+			Vec3::default()
+		} else {
+			prv.omnidir
+		},
 		//push-and-hold buttons (eg. left click, controller triggers)
 		//are also usually safe to predict they are still in the same
 		//position. discrete taps (eg. reload, talk to npc) are normally

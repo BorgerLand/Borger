@@ -12,6 +12,11 @@ rustflags = [
 	#enabled features should match wasm-opt section of engine/client/rs/Cargo.toml
 	#(excluding the ones already enabled in llvm by default)
 	"-C", "target-feature=+simd128,+atomics",
+	
+	#the client build is just a subset of the server build, so any warnings
+	#actually worth complaining about will be emitted by the server build
+	"-A", "dead_code",
+	"-A", "unused",
 ]
 
 #build rust std from source for access to sweet juicy experimental features

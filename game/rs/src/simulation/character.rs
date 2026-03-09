@@ -1,13 +1,10 @@
-use base::networked_types::collections::slotmap::SlotMap;
-use base::prelude::*;
+use borger::networked_types::primitive::usize32;
+use borger::prelude::*;
 use glam::{EulerRot, Quat, Vec3};
-
-#[cfg(feature = "server")]
-use base::networked_types::primitive::usize32;
 
 const SPEED: f32 = 6.0; //units/sec
 
-#[cfg(feature = "server")]
+#[server]
 pub fn on_client_connect(
 	state: &mut SimulationState,
 	client_id: usize32,
@@ -18,7 +15,7 @@ pub fn on_client_connect(
 	client.set_character_id(character, diff);
 }
 
-#[cfg(feature = "server")]
+#[server]
 pub fn on_client_disconnect(
 	state: &mut SimulationState,
 	client_id: usize32,
@@ -40,7 +37,13 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	for client in ctx.state.clients.values_mut() {
 		if let ClientState::Owned(client) = client {
 			let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
-			apply_input(character, &client.input.get().state, &mut ctx.diff);
+			let input = client.input.get();
+
+			//if the input was predicted then don't bother moving until
+			//it arrives. otherwise there's a risk of running off a cliff
+			if !input.is_predicted() {
+				apply_input(character, &input.state, &mut ctx.diff);
+			}
 		}
 	}
 }
@@ -67,15 +70,4 @@ fn apply_input(
 
 pub fn get_camera_rot(input: &InputState) -> Quat {
 	Quat::from_euler(EulerRot::ZYX, 0., input.cam_yaw, input.cam_pitch)
-}
-
-pub fn get_character<'a>(client: &ClientState_owned, characters: &'a SlotMap<Character>) -> &'a Character {
-	characters.get(client.get_character_id()).unwrap()
-}
-
-pub fn get_character_mut<'a>(
-	client: &ClientState_owned,
-	characters: &'a mut SlotMap<Character>,
-) -> &'a mut Character {
-	characters.get_mut(client.get_character_id()).unwrap()
 }

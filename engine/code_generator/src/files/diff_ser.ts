@@ -1,5 +1,5 @@
 import {
-	BASE_GENERATED_DIR,
+	BORGER_GENERATED_DIR,
 	STATE_WARNING,
 	VALID_TYPES,
 	isPrimitive,
@@ -9,7 +9,7 @@ import {
 
 export function generateDiffSerRS(structs: AllFlattenedStructs) {
 	Bun.write(
-		`${BASE_GENERATED_DIR}/diff_ser.rs`,
+		`${BORGER_GENERATED_DIR}/diff_ser.rs`,
 		`${STATE_WARNING}
 
 use crate::simulation_state::*;

@@ -14,11 +14,11 @@ pub type TickID = u64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
-pub enum TickType {
-	///If net events are triggered, a "net events" tick is actually
-	///only the first half of a complete tick. Non-deterministic in
-	///nature
-	NetEvents,
+pub(crate) enum TickType {
+	///If server events are triggered, a "server events" tick is
+	///actually only the first half of a complete tick.
+	///Non-deterministic in nature
+	ServerEvents,
 
 	///Consensus tick is final. All inputs have been received
 	///from all clients (or timeout occurred while waiting).
@@ -132,7 +132,8 @@ impl TickInfo {
 		self.id_cur == self.id_target - 1
 	}
 
-	pub const fn get_ticks(dur: Duration) -> TickID {
+	#[cfg(feature = "server")]
+	pub(crate) const fn get_ticks(dur: Duration) -> TickID {
 		f32::round(dur.as_secs_f32() / Self::SIM_DT) as TickID
 	}
 

@@ -1,6 +1,6 @@
-use base::interpolation::EntityInstanceBindings;
-use base::js_bindings::JSBindings;
-use base::presentation_state::{Character, SimulationOutput};
+use borger::interpolation::EntityInstanceBindings;
+use borger::js_bindings::JSBindings;
+use borger::presentation_state::{Character, SimulationOutput};
 
 pub mod camera;
 pub mod pipeline;

@@ -2,9 +2,9 @@
 node_modules
 target
 release
-engine/base/src/generated
+engine/borger/src/generated
 game/assets/devcert.json
 
 #ide config
-rust-analyzer.toml
+.vscode/launch.json
 .vscode/settings.json

@@ -1,8 +1,8 @@
 use crate::presentation::get_local_entity;
 use crate::simulation::character;
-use base::js_bindings::JSBindings;
-use base::prelude::*;
-use base::presentation_state::SimulationOutput;
+use borger::js_bindings::JSBindings;
+use borger::prelude::*;
+use borger::presentation_state::SimulationOutput;
 use glam::Mat4;
 
 pub fn update(tick: &SimulationOutput, input: &InputState, bindings: &mut JSBindings) {

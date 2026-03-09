@@ -26,7 +26,7 @@ use {
 #[cfg(feature = "client")]
 use {
 	crate::presentation_state::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox,
-	std::sync::Arc,
+	std::mem, std::sync::Arc,
 };
 
 #[cfg(feature = "client")]
@@ -61,9 +61,6 @@ pub struct SimControllerExternals {
 struct SimMoveAcrossThreads {
 	cb: SimulationCallbacks,
 
-	#[cfg(feature = "client")]
-	new_client_snapshot: Vec<u8>,
-
 	#[cfg(feature = "server")]
 	new_connection_receiver: SyncReceiver<AsyncSender<SimToClientCommand>>,
 	#[cfg(feature = "client")]
@@ -96,7 +93,7 @@ pub(crate) struct SimControllerInternals {
 	output_sender: Arc<AtomicOptionBox<SimulationOutput>>,
 
 	#[cfg(feature = "server")]
-	net_events: VecDeque<UnrollbackableNetEvent>,
+	server_events: VecDeque<UnrollbackableNetEvent>,
 
 	#[cfg(feature = "client")]
 	local_client_id: usize32,
@@ -175,11 +172,7 @@ struct InternalInputEntry {
 	ping: bool, //whether waiting to be acked for the first time
 }
 
-pub(crate) fn init(
-	cb: SimulationCallbacks,
-
-	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
-) -> SimControllerExternals {
+pub fn init(cb: SimulationCallbacks) -> SimControllerExternals {
 	#[cfg(feature = "server")]
 	let (new_connection_sender, new_connection_receiver) = sync_unbounded_channel();
 
@@ -204,9 +197,6 @@ pub(crate) fn init(
 		run_simulation(SimMoveAcrossThreads {
 			cb,
 
-			#[cfg(feature = "client")]
-			new_client_snapshot,
-
 			#[cfg(feature = "server")]
 			new_connection_receiver,
 			#[cfg(feature = "client")]
@@ -229,12 +219,13 @@ pub(crate) fn init(
 	}
 }
 
-fn run_simulation(moved_data: SimMoveAcrossThreads) {
+fn run_simulation(#[allow(unused_mut)] mut moved_data: SimMoveAcrossThreads) {
 	#[allow(unused_mut)]
 	let mut state = SimulationState::construct(&Rc::default(), ClientStateKind::NA);
 
 	#[cfg(feature = "client")]
-	let header = snapshot_serdes::des_new_client(&mut state, moved_data.new_client_snapshot).unwrap();
+	let header = snapshot_serdes::des_new_client(&mut state, mem::take(&mut moved_data.cb.new_client_snapshot))
+		.unwrap();
 
 	#[cfg(feature = "server")]
 	let tick_info = TickInfo::new(0, 0);
@@ -265,7 +256,7 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 		output_sender: moved_data.presentation_sender,
 
 		#[cfg(feature = "server")]
-		net_events: VecDeque::from([UnrollbackableNetEvent::ServerStart]),
+		server_events: VecDeque::from([UnrollbackableNetEvent::ServerStart]),
 
 		#[cfg(feature = "client")]
 		local_client_id: header.client_id,
@@ -298,22 +289,22 @@ impl SimControllerInternals {
 		/*
 		server to client tick signaling scheme:
 		- when server receives a client's input, as long as it hasn't timed out yet (INPUT_TOO_LATE) it rolls back to the tick associated with it and resimulates
-		- send separate state diff packets for simulation-driven vs. net events
-		- when server executes net events, the associated diffs are considered to happen between id_consensus and the predicted tick after it
+		- send separate state diff packets for simulation-driven vs. server events
+		- when server executes server events, the associated diffs are considered to happen between id_consensus and the predicted tick after it
 		- first value written to every state diff packet is the type of tick that this buffer contains state diffs for:
-		  TickType::NetEvents -> client does not increment either of the tick id's. this diff is applied to the end of the most recent consensus tick to avoid rollback
+		  TickType::ServerEvents -> client does not increment either of the tick id's. this diff is applied to the end of the most recent consensus tick to avoid rollback
 		  TickType::Consensus -> client increments both tick id's. pop the oldest element from input_history
 		  TickType::Predicted -> client increments id_cur only
 		- second value written depends on tick type:
-		  TickType::NetEvents -> nothing. no client inputs are associated with net events
+		  TickType::ServerEvents -> nothing. no client inputs are associated with server events
 		  TickType::Consensus -> whether the receiving client's inputs are acked (true) or a timeout occurred (false)
 		  TickType::Predicted -> the associated tick id. clients who receive predicted ticks are guaranteed to be acked in this packet
 		- the first time a client's inputs are acked, a third value is written:
 		  it is the number of ticks between server's tick.id_cur at reception time and the acked input's associated tick id
-		  TickType::NetEvents -> n/a, net events don't have associated inputs
+		  TickType::ServerEvents -> n/a, server events don't have associated inputs
 		  TickType::Consensus -> only write if acked for the first time (implies previous value was true)
 		  TickType::Predicted -> only write if acked for the first time
-		- client will roll back to the correct id upon arrival. for NetEvents and Consensus, this means rolling back as far as possible (until the rollback buffer is empty)
+		- client will roll back to the correct id upon arrival. for ServerEvents and Consensus, this means rolling back as far as possible (until the rollback buffer is empty)
 		- after all state diff packets are processed, client then locally simulates/predicts up to id_target
 		*/
 

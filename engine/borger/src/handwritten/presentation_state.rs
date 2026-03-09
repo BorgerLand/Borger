@@ -1,4 +1,4 @@
-use crate::ClientStateGeneric;
+use crate::Scope;
 use crate::presentation_state::*;
 use crate::simulation_state;
 
@@ -12,7 +12,7 @@ use {
 	web_time::Instant,
 };
 
-pub type ClientState = ClientStateGeneric<ClientState_owned, ClientState_remote>;
+pub type ClientState = Scope<ClientStateOwned, ClientStateRemote>;
 
 pub(crate) trait CloneToPresentationState {
 	#[cfg(feature = "client")]

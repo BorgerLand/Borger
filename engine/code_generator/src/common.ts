@@ -10,7 +10,7 @@ import {
 	type UtilityType,
 } from "@engine/code_generator/state_schema.ts";
 
-export const BASE_GENERATED_DIR = "../base/src/generated";
+export const BORGER_GENERATED_DIR = "../borger/src/generated";
 
 export const STATE_WARNING = `/*
 This file was flatulated out by the code generator.

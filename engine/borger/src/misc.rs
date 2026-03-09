@@ -54,10 +54,8 @@ pub enum ClientStateKind {
 	Remote,
 }
 
-//generic client state reused by both
-//simulation+presentation
 #[derive(Debug, Clone)]
-pub enum ClientStateGeneric<O, R> {
+pub enum Scope<O, R> {
 	//owned:
 	//- server can access everything. it owns all client objects
 	//- client can access public and server-client fields. it only owns 1 client object
@@ -69,7 +67,7 @@ pub enum ClientStateGeneric<O, R> {
 	Remote(R),
 }
 
-impl<O, R> ClientStateGeneric<O, R> {
+impl<O, R> Scope<O, R> {
 	pub fn as_owned(&self) -> Option<&O> {
 		match self {
 			Self::Owned(client) => Some(client),

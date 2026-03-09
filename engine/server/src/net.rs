@@ -1,8 +1,8 @@
 use crate::SERVER_TITLE;
 use crate::flags::Flags;
-use base::networked_types::primitive::usize_to_32;
-use base::networked_types::primitive::usize32;
-use base::thread_comms::{ClientToSimCommand, SimToClientCommand};
+use borger::networked_types::primitive::usize_to_32;
+use borger::networked_types::primitive::usize32;
+use borger::thread_comms::{ClientToSimCommand, SimToClientCommand};
 use crossbeam_channel::Sender as SyncSender;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
@@ -33,7 +33,7 @@ use wtransport::{Endpoint, Identity, RecvStream, SendStream, ServerConfig as WTS
 pub const NET_TIMEOUT: u64 = 10; //kill a connection after this many seconds of lag. should match net.ts
 pub const NET_INPUT_SIZE_LIMIT: usize32 = 512; //in bytes
 
-pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>, flags: &Flags) {
+pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>, flags: Flags) {
 	let external_certs = match (&flags.fullchain, &flags.privkey) {
 		(Some(fullchain), Some(privkey)) => Some((fullchain, privkey)),
 		(None, None) => None,

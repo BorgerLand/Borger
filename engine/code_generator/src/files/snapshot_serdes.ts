@@ -1,5 +1,5 @@
 import {
-	BASE_GENERATED_DIR,
+	BORGER_GENERATED_DIR,
 	STATE_WARNING,
 	isPrimitive,
 	type FlattenedStruct,
@@ -11,7 +11,7 @@ import {
 //predict remove: all locally accessible data should be serialized. "all" has different meanings depending on server/client
 export function generateSnapshotSerDesRS(simStructs: FlattenedStruct[][]) {
 	Bun.write(
-		`${BASE_GENERATED_DIR}/snapshot_serdes.rs`,
+		`${BORGER_GENERATED_DIR}/snapshot_serdes.rs`,
 		`${STATE_WARNING}
 
 use crate::simulation_state::*;

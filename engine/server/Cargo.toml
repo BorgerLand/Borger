@@ -4,11 +4,11 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-server = ["base/server", "game_rs/server"]
+server = ["borger/server", "game_rs/server"]
 client = []
 
 [dependencies]
-base = { path = "../base" }
+borger = { path = "../borger" }
 game_rs = { path = "../../game/rs" }
 log.workspace = true
 tokio.workspace = true

@@ -15,7 +15,7 @@ impl SimControllerInternals {
 	//receive and process data from server's main thread
 	pub(super) fn scheduled_tick_impl(&mut self) {
 		//in order to minimize the amount of rolling back
-		//for processing non-deterministic net_events,
+		//for processing non-deterministic server_events,
 		//inputs need to be deserialized first. remember
 		//that tick.id_consensus can only increment when
 		//inputs have been received for all clients for
@@ -29,7 +29,7 @@ impl SimControllerInternals {
 				from_client,
 			};
 			comms.to_client.send(SimToClientCommand::Connect(to_sim)).unwrap();
-			self.net_events
+			self.server_events
 				.push_back(UnrollbackableNetEvent::ClientConnect(comms));
 		}
 
@@ -73,7 +73,7 @@ impl SimControllerInternals {
 						match diff_des::des_rx_input(&mut new_input, ser_rx_buffer.into_iter()) {
 							Ok(_) => {
 								tick_id_associated += 1;
-								(self.cb.input_validate)(&mut new_input);
+								new_input = (self.cb.input_validate)(&new_input);
 
 								if history.is_timed_out && tick_id_associated >= tick_id_caught_up {
 									history.is_timed_out = false;
@@ -123,7 +123,7 @@ impl SimControllerInternals {
 					}
 
 					ClientToSimCommand::Disconnect => {
-						self.net_events
+						self.server_events
 							.push_back(UnrollbackableNetEvent::ClientDisconnect(*id));
 					}
 				};
@@ -171,7 +171,7 @@ impl SimControllerInternals {
 		debug_assert_eq!(rollback_to, self.ctx.tick.id_cur);
 
 		//this may trigger rollback to consensus
-		self.trigger_net_events(rollback_amount);
+		self.trigger_server_events(rollback_amount);
 
 		//tick.id_consensus is calculated based on
 		//what is the oldest tick id for which an input
@@ -199,28 +199,28 @@ impl SimControllerInternals {
 		self.simulate();
 	}
 
-	fn trigger_net_events(&mut self, mut rollback_amount: TickID) {
-		if self.net_events.is_empty() {
+	fn trigger_server_events(&mut self, mut rollback_amount: TickID) {
+		if self.server_events.is_empty() {
 			return;
 		}
 
 		if TRACE_TICK_ADVANCEMENT {
-			debug!("net events triggered");
+			debug!("server events triggered");
 		}
 
 		//full rollback required
 		rollback_amount += self.rollback(self.ctx.tick.id_consensus);
 
 		//split this tick into 2 halves:
-		//state changes caused by net events, and
+		//state changes caused by server events, and
 		//state changes caused by the simulation
-		self.ctx.diff.rollback_begin_tick(TickType::NetEvents);
+		self.ctx.diff.rollback_begin_tick(TickType::ServerEvents);
 		for &client in self.comms.keys() {
 			let buffer = self.ctx.diff.tx_begin_tick(client, true).unwrap();
-			TickType::NetEvents.ser_tx(buffer);
+			TickType::ServerEvents.ser_tx(buffer);
 		}
 
-		while let Some(event) = self.net_events.pop_front() {
+		while let Some(event) = self.server_events.pop_front() {
 			match event {
 				UnrollbackableNetEvent::ServerStart => {
 					(self.cb.on_server_start)(&mut self.ctx.state, self.ctx.diff.to_consensus());
@@ -261,7 +261,7 @@ impl SimControllerInternals {
 						.or_default()
 						.generate_bogus_inputs(rollback_amount); //client is still responsible for sending an input for this tick
 					let buffer = self.ctx.diff.on_connect(new_client_id);
-					TickType::NetEvents.ser_tx(buffer);
+					TickType::ServerEvents.ser_tx(buffer);
 				}
 
 				UnrollbackableNetEvent::ClientDisconnect(old_client_id) => {

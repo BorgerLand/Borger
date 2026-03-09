@@ -22,9 +22,9 @@ pub async fn main() {
 		SimpleLogger::new().with_level(LOG_LEVEL).init().unwrap();
 
 		let flags = flags::Flags::parse();
-		let sim = game_rs::simulation::init();
+		let sim = game_rs::simulation::init(Vec::default());
 		let sim_loop = tokio::task::spawn_blocking(move || sim.thread.join().unwrap());
-		let net_loop = net::init(sim.new_connection_sender, &flags);
+		let net_loop = tokio::spawn(net::init(sim.new_connection_sender, flags));
 
 		//both of these are infinite loops and should never fail.
 		//they are wrapped in tokio select in order to crash the
@@ -33,5 +33,7 @@ pub async fn main() {
 			_ = sim_loop => {}
 			_ = net_loop => {}
 		}
+
+		std::process::exit(1);
 	}
 }

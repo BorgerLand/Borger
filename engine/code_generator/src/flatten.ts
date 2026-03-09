@@ -109,7 +109,7 @@ export function flatten(
 			let skipRemoteVariant = false;
 
 			if (isOwnableStruct) {
-				//disable _owner/_remote suffix. the struct is agnostic to scope
+				//disable owner/remote suffix. the struct is agnostic to scope
 				if (childClientKind === "Remote") skipRemoteVariant = true;
 				childClientKind = "NA";
 			}
@@ -214,9 +214,9 @@ export function flatten(
 function generateStructName(baseTypeName: string, clientKind: ClientStateKind) {
 	switch (clientKind) {
 		case "Owned":
-			return `${baseTypeName}_owned`;
+			return `${baseTypeName}Owned`;
 		case "Remote":
-			return `${baseTypeName}_remote`;
+			return `${baseTypeName}Remote`;
 		default:
 			return baseTypeName;
 	}

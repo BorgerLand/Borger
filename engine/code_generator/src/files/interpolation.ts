@@ -1,5 +1,5 @@
 import {
-	BASE_GENERATED_DIR,
+	BORGER_GENERATED_DIR,
 	isCollection,
 	isPrimitive,
 	isUtility,
@@ -22,7 +22,7 @@ export function generateInterpolationRS(simStructs: FlattenedStruct[][]) {
 		});
 
 	Bun.write(
-		`${BASE_GENERATED_DIR}/interpolation.rs`,
+		`${BORGER_GENERATED_DIR}/interpolation.rs`,
 		`${STATE_WARNING}
 
 use crate::interpolation::Interpolate;

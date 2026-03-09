@@ -1,8 +1,8 @@
-use base::js_bindings::{JSBindings, bind_camera};
-use base::presentation_state::SimulationOutput;
-use base::simulation_controller::SimControllerExternals;
-use base::simulation_state::InputState;
-use base::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
+use borger::js_bindings::{JSBindings, bind_camera};
+use borger::presentation_state::SimulationOutput;
+use borger::simulation_controller::SimControllerExternals;
+use borger::simulation_state::InputState;
+use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
 use game_rs::presentation::on_client_start;
 use game_rs::presentation::pipeline::presentation_tick as game_presentation_tick;
 use js_sys::{Function, Uint8Array};

@@ -16,7 +16,17 @@ import { generateInterpolationRS } from "@engine/code_generator/files/interpolat
 
 console.time("Great success");
 
-const structs = flatten(validate(state));
+let validState;
+try {
+	validState = validate(state);
+} catch (oops) {
+	//the complex schema emits laughably illegible type errors,
+	//so just let tsc's error printing system do the job
+	if (String(oops).length > 5000) throw Error("Type error in state.ts");
+	else throw oops;
+}
+
+const structs = flatten(validState);
 generateSimulationStateRS(structs);
 generatePresentationStateRS(structs);
 generateConstructorsRS(structs.sim);

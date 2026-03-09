@@ -1,12 +1,12 @@
 #![feature(vec_deque_truncate_front)] //https://github.com/rust-lang/rust/issues/140667
 
+use crate::diff_ser::DiffSerializer;
 use crate::multiplayer_tradeoff::Immediate;
+use crate::multiplayer_tradeoff::WaitForConsensus;
 use crate::networked_types::primitive::usize32;
-use crate::simulation_controller::{GameContext, SimControllerExternals};
+use crate::simulation_controller::GameContext;
 use crate::simulation_state::{InputState, SimulationState};
-
-#[cfg(feature = "server")]
-use {crate::diff_ser::DiffSerializer, crate::multiplayer_tradeoff::WaitForConsensus, crate::tick::TickID};
+use crate::tick::TickID;
 
 pub mod math;
 pub mod multiplayer_tradeoff;
@@ -135,60 +135,48 @@ pub mod interpolation {
 	pub use super::handwritten::interpolation::*;
 }
 
-///Helpful types and macros when writing simulation+presentation logic
+///Helpful types and macros when writing simulation logic
 pub mod prelude {
+	pub use crate::SimulationCallbacks;
 	pub use crate::diff_ser::DiffSerializer;
 	pub use crate::multiplayer_tradeoff; //macro
 	pub use crate::multiplayer_tradeoff::*;
 	pub use crate::simulation_controller::GameContext;
+	pub use crate::simulation_controller::{SimControllerExternals, init as init_simulation};
 	pub use crate::simulation_state::*;
-	pub use crate::tick::TickInfo;
+	pub use crate::tick::{TickID, TickInfo};
+	pub use borger_procmac::server;
 	pub use log::*;
 }
 
 pub struct SimulationCallbacks {
 	//pipeline
 	pub simulation_tick: fn(/*ctx*/ &mut GameContext<Immediate>),
+	pub new_client_snapshot: Vec<u8>,
 
 	//input operations
-	pub input_validate: fn(/*sus*/ &mut InputState),
+	pub input_merge: fn(/*combined*/ &InputState, /*new*/ &InputState) -> InputState,
+	pub input_validate: fn(/*sus*/ &InputState) -> InputState,
 	pub input_predict_late: fn(
 		/*prv*/ &InputState,
+		/*is_timed_out*/ bool,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
 	) -> InputState,
 
-	#[cfg(feature = "client")]
-	pub input_merge: fn(/*combined*/ &mut InputState, /*new*/ &InputState),
-
-	//net_events
-	#[cfg(feature = "server")]
+	//server_events
 	pub on_server_start:
 		fn(/*state*/ &mut SimulationState, /*diff*/ &mut DiffSerializer<WaitForConsensus>), //goes without saying tick id is 0
-	#[cfg(feature = "server")]
 	pub on_client_connect: fn(
 		/*state*/ &mut SimulationState,
 		/*client id*/ usize32,
 		/*tick id*/ TickID,
 		/*diff*/ &mut DiffSerializer<WaitForConsensus>,
 	),
-	#[cfg(feature = "server")]
 	pub on_client_disconnect: fn(
 		/*state*/ &mut SimulationState,
 		/*id*/ usize32,
 		/*tick id*/ TickID,
 		/*diff*/ &mut DiffSerializer<WaitForConsensus>,
 	),
-}
-
-pub fn init(
-	cb: SimulationCallbacks,
-
-	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
-) -> SimControllerExternals {
-	simulation_controller::init(
-		cb,
-		#[cfg(feature = "client")]
-		new_client_snapshot,
-	)
 }

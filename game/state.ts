@@ -25,7 +25,6 @@ export default {
 					//the camera's target spherical coordinate
 					cam_yaw: { netVisibility: "Owner", type: "f32" }, //horizontal,
 					cam_pitch: { netVisibility: "Owner", type: "f32" }, //vertical
-					cam_radius: { netVisibility: "Owner", type: "f32" }, //orbit distance from eyeballs
 
 					//omnidirectional movement - 3D analog stick
 					//x = left/right, y = down/up, z = forward/back

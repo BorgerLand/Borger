@@ -122,6 +122,7 @@ impl SimControllerInternals {
 								let finalized_prediction = InternalInputEntry {
 									input: (self.cb.input_predict_late)(
 										&prv.input,
+										has_consensus,
 										&self.ctx.state,
 										client_id,
 									),
@@ -155,6 +156,8 @@ impl SimControllerInternals {
 						#[cfg(feature = "server")]
 						self.cb.input_predict_late,
 						#[cfg(feature = "server")]
+						has_consensus,
+						#[cfg(feature = "server")]
 						client_id,
 					);
 
@@ -164,6 +167,8 @@ impl SimControllerInternals {
 						&mut input_history.entries,
 						#[cfg(feature = "server")]
 						self.cb.input_predict_late,
+						#[cfg(feature = "server")]
+						has_consensus,
 						#[cfg(feature = "server")]
 						client_id,
 					);
@@ -246,10 +251,12 @@ fn get_input(
 
 	#[cfg(feature = "server")] predict_late: fn(
 		/*prv*/ &InputState,
+		/*is_timed_out*/ bool,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
 	) -> InputState,
 
+	#[cfg(feature = "server")] has_consensus: bool,
 	#[cfg(feature = "server")] client_id: usize32,
 ) -> InternalInputEntry {
 	let input_idx = 1 + tick - ctx.tick.id_consensus;
@@ -273,7 +280,7 @@ fn get_input(
 			let age = 1 + input_idx - (history.len() as TickID);
 			let mut input = history.back().unwrap().input.clone();
 			for _ in 0..age {
-				input = predict_late(&input, &ctx.state, client_id);
+				input = predict_late(&input, has_consensus, &ctx.state, client_id);
 			}
 
 			InternalInputEntry {

@@ -1,38 +1,29 @@
-use crate::simulation::pipeline::simulation_tick;
-use base::SimulationCallbacks;
-use base::simulation_controller::SimControllerExternals;
+use crate::simulation::server_events::*;
+use borger::prelude::*;
 
-#[cfg(feature = "server")]
-use crate::simulation::net_events::*;
-
-pub mod input;
-pub mod pipeline;
-
-#[cfg(feature = "server")]
-pub mod net_events;
-
-//custom game logic modules
 pub mod character;
+pub mod input;
+pub mod server_events;
 
-pub fn init(#[cfg(feature = "client")] new_client_snapshot: Vec<u8>) -> SimControllerExternals {
-	base::init(
-		SimulationCallbacks {
-			simulation_tick,
-
-			input_validate: input::validate,
-			input_predict_late: input::predict_late,
-
-			#[cfg(feature = "client")]
-			input_merge: input::merge,
-
-			#[cfg(feature = "server")]
-			on_server_start,
-			#[cfg(feature = "server")]
-			on_client_connect,
-			#[cfg(feature = "server")]
-			on_client_disconnect,
-		},
-		#[cfg(feature = "client")]
+pub fn init(new_client_snapshot: Vec<u8>) -> SimControllerExternals {
+	init_simulation(SimulationCallbacks {
+		simulation_tick,
 		new_client_snapshot,
-	)
+		input_merge: input::merge,
+		input_validate: input::validate,
+		input_predict_late: input::predict_late,
+		on_server_start,
+		on_client_connect,
+		on_client_disconnect,
+	})
+}
+
+//the deterministic-ish simulation update tick pipeline.
+//this is going to run on both the server and the client.
+//in a perfect world, server+client's SimulationState
+//should be identical by the end of any given tick id.
+//in practice this is not possible, but the closer you
+//get them, the better your netcode feels
+fn simulation_tick(ctx: &mut GameContext<Immediate>) {
+	character::update(ctx);
 }

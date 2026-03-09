@@ -1,5 +1,5 @@
 import {
-	BASE_GENERATED_DIR,
+	BORGER_GENERATED_DIR,
 	STATE_WARNING,
 	isPrimitive,
 	getFullFieldPath,
@@ -15,7 +15,7 @@ import {
 //value where it needs to go
 export function generateDiffDesRS(structs: AllFlattenedStructs) {
 	Bun.write(
-		`${BASE_GENERATED_DIR}/diff_des.rs`,
+		`${BORGER_GENERATED_DIR}/diff_des.rs`,
 		`${STATE_WARNING}
 
 use crate::simulation_state::*;

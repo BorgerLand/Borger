@@ -1,16 +1,17 @@
 use crate::simulation::character;
-use base::networked_types::primitive::usize32;
-use base::prelude::*;
-use base::tick::TickID;
+use borger::networked_types::primitive::usize32;
+use borger::prelude::*;
 
 //all callbacks are guaranteed to be triggered
 //in order of declaration, on the server only,
 //and during a consensus tick.
 
 //called on tick id 0
+#[server]
 pub fn on_server_start(_state: &mut SimulationState, _diff: &mut DiffSerializer<WaitForConsensus>) {}
 
 //called after the client is added to SimulationState
+#[server]
 pub fn on_client_connect(
 	state: &mut SimulationState,
 	client_id: usize32,
@@ -21,6 +22,7 @@ pub fn on_client_connect(
 }
 
 //called before the client is removed from SimulationState
+#[server]
 pub fn on_client_disconnect(
 	state: &mut SimulationState,
 	id: usize32,

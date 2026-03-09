@@ -1,5 +1,5 @@
 [package]
-name = "base"
+name = "borger"
 version.workspace = true
 edition.workspace = true
 
@@ -8,6 +8,7 @@ server = ["tokio"]
 client = ["atomicbox", "js-sys", "web-sys"]
 
 [dependencies]
+borger_procmac = { path = "../borger_procmac" }
 log.workspace = true
 glam.workspace = true
 wasm-bindgen.workspace = true

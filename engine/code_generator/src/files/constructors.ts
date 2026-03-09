@@ -1,5 +1,5 @@
 import {
-	BASE_GENERATED_DIR,
+	BORGER_GENERATED_DIR,
 	STATE_WARNING,
 	VALID_TYPES,
 	isPrimitive,
@@ -10,7 +10,7 @@ import {
 
 export function generateConstructorsRS(simStructs: FlattenedStruct[][]) {
 	Bun.write(
-		`${BASE_GENERATED_DIR}/constructors.rs`,
+		`${BORGER_GENERATED_DIR}/constructors.rs`,
 		`${STATE_WARNING}
 
 use crate::simulation_state::*;

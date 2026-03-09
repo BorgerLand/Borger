@@ -5,10 +5,10 @@ edition.workspace = true
 
 [features]
 server = []
-client = ["base/client", "game_rs/client"]
+client = ["borger/client", "game_rs/client"]
 
 [dependencies]
-base = { path = "../../base" }
+borger = { path = "../../borger" }
 game_rs = { path = "../../../game/rs" }
 log.workspace = true
 glam.workspace = true

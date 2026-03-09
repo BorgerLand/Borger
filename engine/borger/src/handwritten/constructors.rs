@@ -2,7 +2,7 @@ use crate::ClientStateKind;
 #[cfg(feature = "server")]
 use crate::NetVisibility;
 use crate::networked_types::primitive::usize32;
-use crate::simulation_state::{ClientState, ClientState_owned, ClientState_remote, InputState};
+use crate::simulation_state::{ClientState, ClientStateOwned, ClientStateRemote, InputState};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
@@ -41,9 +41,9 @@ impl ConstructCustomStruct for ClientState {
 	//note this the only time that the client_kind argument is used
 	fn construct(path: &Rc<Vec<usize32>>, client_kind: ClientStateKind) -> Self {
 		if client_kind == ClientStateKind::Owned {
-			ClientState::Owned(ClientState_owned::construct(path, ClientStateKind::Owned))
+			ClientState::Owned(ClientStateOwned::construct(path, ClientStateKind::Owned))
 		} else {
-			ClientState::Remote(ClientState_remote::construct(path, ClientStateKind::Remote))
+			ClientState::Remote(ClientStateRemote::construct(path, ClientStateKind::Remote))
 		}
 	}
 }

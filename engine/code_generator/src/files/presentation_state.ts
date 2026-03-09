@@ -1,5 +1,5 @@
 import {
-	BASE_GENERATED_DIR,
+	BORGER_GENERATED_DIR,
 	STATE_WARNING,
 	VALID_TYPES,
 	isPrimitive,
@@ -18,7 +18,7 @@ const PRESENTATION_TYPE = new Map<string, (innerType: string) => string>([
 
 export function generatePresentationStateRS(structs: AllFlattenedStructs) {
 	Bun.write(
-		`${BASE_GENERATED_DIR}/presentation_state.rs`,
+		`${BORGER_GENERATED_DIR}/presentation_state.rs`,
 		`${STATE_WARNING}
 
 use crate::simulation_state;

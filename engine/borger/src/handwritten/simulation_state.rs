@@ -1,8 +1,8 @@
-use crate::ClientStateGeneric;
+use crate::Scope;
 use crate::simulation_state::InputState;
-use crate::simulation_state::{ClientState_owned, ClientState_remote};
+use crate::simulation_state::{ClientStateOwned, ClientStateRemote};
 
-pub type ClientState = ClientStateGeneric<ClientState_owned, ClientState_remote>;
+pub type ClientState = Scope<ClientStateOwned, ClientStateRemote>;
 
 //wraps input state in a separate struct to allow disjoint
 //borrows from the client state
@@ -32,11 +32,17 @@ impl InputStateHistory {
 #[derive(Default, Debug)]
 pub struct InputStateHistoryEntry {
 	pub state: InputState,
-	pub age: InputStateAge,
+	pub(crate) age: InputStateAge,
+}
+
+impl InputStateHistoryEntry {
+	pub fn is_predicted(&self) -> bool {
+		self.age == InputStateAge::Predicted
+	}
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
-pub enum InputStateAge {
+pub(crate) enum InputStateAge {
 	///This is the first time that this client's input has
 	///run through the current simulation tick ID. For each
 	///simulated tick, each client guarantees that its

@@ -116,7 +116,7 @@ impl SimControllerInternals {
 						//there can only be one input state per simulation tick,
 						//so merge together however many the presentation thread
 						//has produced
-						(self.cb.input_merge)(&mut new_input, &raw_input);
+						new_input = (self.cb.input_merge)(&new_input, &raw_input);
 						input_is_late = false;
 					}
 					PresentationToSimCommand::ReceiveState(buffer) => {
@@ -132,12 +132,13 @@ impl SimControllerInternals {
 		if input_is_late && read_comms {
 			new_input = (self.cb.input_predict_late)(
 				&self.input_history.entries.back().unwrap().input,
+				false,
 				&self.ctx.state,
 				self.local_client_id,
 			);
 		}
 
-		(self.cb.input_validate)(&mut new_input);
+		new_input = (self.cb.input_validate)(&new_input);
 
 		let diff = &mut self.ctx.diff;
 		let prv_input = &self.input_history.entries.back().unwrap().input;
@@ -179,7 +180,7 @@ impl SimControllerInternals {
 			//the "do it for real now" section, storing the reuslts in
 			//tick.id_cur/consensus_received
 			let tick_id_received = match tick_type {
-				TickType::NetEvents => self.ctx.tick.id_consensus_received,
+				TickType::ServerEvents => self.ctx.tick.id_consensus_received,
 				TickType::Consensus => {
 					self.ctx.tick.id_consensus_received += 1;
 					self.ctx.tick.id_consensus_received - 1
@@ -211,14 +212,14 @@ impl SimControllerInternals {
 
 			let tick_type = TickType::des_rx(buffer).unwrap();
 			match tick_type {
-				TickType::NetEvents => {
+				TickType::ServerEvents => {
 					tick_id_received = self.ctx.tick.id_consensus;
 					self.rollback(tick_id_received);
 
 					predicted_reconcile_amount = 0;
 
 					if TRACE_TICK_ADVANCEMENT {
-						debug!("net events triggered");
+						debug!("server events triggered");
 					}
 				}
 				TickType::Consensus => {

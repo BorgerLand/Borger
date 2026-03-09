@@ -1,5 +1,5 @@
 import {
-	BASE_GENERATED_DIR,
+	BORGER_GENERATED_DIR,
 	STATE_WARNING,
 	VALID_TYPES,
 	type FlattenedStruct,
@@ -8,7 +8,7 @@ import {
 
 export function generateUntracked(simStructs: FlattenedStruct[][]) {
 	Bun.write(
-		`${BASE_GENERATED_DIR}/untracked.rs`,
+		`${BORGER_GENERATED_DIR}/untracked.rs`,
 		`${STATE_WARNING}
 
 use crate::simulation_state::*;

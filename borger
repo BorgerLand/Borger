@@ -1,0 +1,336 @@
+#!/bin/bash
+set -e
+
+declare -A IDE_CONFIG=(
+	[".vscode/launch.json.example"]=".vscode/launch.json"
+	[".vscode/settings.json.example"]=".vscode/settings.json"
+)
+
+assert_dev_not_running() {
+	#pgrep -f works on both linux and macos
+	#match our own concurrently invocation from cmd_dev
+	if pgrep -f "bun concurrently.*CODE--GENER" >/dev/null 2>&1; then
+		echo "ERROR: Please close borger dev to avoid accidentally triggering concurrent builds."
+		exit 1
+	fi
+}
+
+cmd_setup() {
+	if ! command -v rustup &>/dev/null; then
+		read -rp "Rustup is not installed. Would you like to install it? (y/n) " response
+		if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
+		else
+			exit 1
+		fi
+	fi
+
+	if ! command -v bun &>/dev/null; then
+		read -rp "Bun is not installed. Would you like to install it? (y/n) " response
+		if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+			curl -fsSL https://bun.sh/install | bash
+		else
+			exit 1
+		fi
+	fi
+
+	set -x
+
+	#wasm-pack has some unreleased features regarding custom profiles
+	#https://github.com/drager/wasm-pack/pull/1489
+	cargo install --git https://github.com/Argeo-Robotics/wasm-pack.git --rev 956f6e4 --locked
+	cargo install cargo-watch --locked --version 8.5.3
+	bun install --frozen-lockfile
+
+	for example in "${!IDE_CONFIG[@]}"; do
+		local target="${IDE_CONFIG[$example]}"
+		[ -f "$target" ] || cp "$example" "$target"
+	done
+
+	#build it for the first time so that dev doesn't kick off even more setting up
+	cd engine/code_generator
+	bun src/main.ts
+	cd ../server
+	cargo build --profile server-dev --features server
+	cd ../client/rs
+	wasm-pack build --no-opt --target=web --profile client-dev --features client
+
+	set +x
+	echo "
+Now run ./borger dev when you're ready to rumble"
+}
+
+cmd_dev() {
+	assert_dev_not_running
+	
+	#make sure code generator runs before anything else
+	cd engine/code_generator
+	bun src/main.ts
+	cd ../..
+
+	bun concurrently \
+		--names "CODE--GENER,SERVER-RUST,CLIENT-RUST,CLIENT-VITE,TSC---CHECK" \
+		-c	  "bgGreen.bold,bgBlue.bold,bgWhite.bold,bgRed.bold,bgYellow.bold" \
+		"cd engine/code_generator && bun --watch --no-clear-screen src/main.ts" \
+		"cd engine/server && cargo watch --why --no-vcs-ignores -s 'cargo build --profile server-dev --features server && cd ../../target/server-dev && while true; do RUST_BACKTRACE=full ./server --devcert ../../game/assets/devcert.json; sleep 1; done'" \
+		"cd engine/client/rs && cargo watch --why --no-vcs-ignores -i 'pkg/*' -s 'wasm-pack build --no-opt --target=web --profile client-dev --features client'" \
+		"bun vite" \
+		"bun tsc --watch --preserveWatchOutput"
+}
+
+cmd_release() {
+	local BUILD=""
+	local RUN=""
+	local PASSWORD=""
+	local FULLCHAIN=""
+	local PRIVKEY=""
+	local PORT="5173"
+
+	if [ $# -eq 0 ]; then
+		release_help
+		exit 0
+	fi
+
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+			--build)
+				BUILD=1
+				shift
+				;;
+			--run)
+				RUN=1
+				shift
+				;;
+			--password)
+				PASSWORD="$2"
+				shift 2
+				;;
+			--fullchain)
+				FULLCHAIN="$2"
+				shift 2
+				;;
+			--privkey)
+				PRIVKEY="$2"
+				shift 2
+				;;
+			--port)
+				PORT="$2"
+				shift 2
+				;;
+			*)
+				release_help
+				exit 0
+				;;
+		esac
+	done
+
+	if [ -n "$BUILD" ]; then
+		assert_dev_not_running
+
+		if [ -d "release" ]; then
+			echo "WARNING: The existing release folder needs to be removed to proceed."
+			echo "Are you sure you want to obliterate? (y/n)"
+
+			read -r response
+			if ! [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				exit 1
+			fi
+
+			rm -rf release
+		fi
+
+		set -x
+
+		mkdir -p release/client/assets
+		cd engine/code_generator
+		bun src/main.ts
+		cd ../server
+		cargo build --profile server-release --features server
+		cd ../client/rs
+		wasm-pack build --profile client-release --target=web --features client
+		cd pkg
+		bun rolldown --minify client_rs.js -o client_rs.js
+		mv client_rs.js client_rs_bg.wasm ../../../../release/client/assets
+		cd  ../../../..
+		bun vite build
+		rm -f release/client/devcert.json
+		mv target/server-release/server release
+		cd release/client/assets
+		find . -name "*.js" -type f -exec sh -c '
+			for f; do
+				sed "s/from[[:space:]]*[\"'"'"']@engine\/client_rs[\"'"'"']/from\".\/client_rs.js\"/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+			done
+		' _ {} +
+		cd ../../..
+
+		set +x
+	fi
+
+	if [ -n "$RUN" ]; then
+		if [ -z "$FULLCHAIN" ] || [ -z "$PRIVKEY" ]; then
+		echo "ERROR: --fullchain and --privkey are both required for --run"
+		exit 1
+	fi
+
+		# Convert to absolute paths before cd
+		FULLCHAIN="$(cd "$(dirname "$FULLCHAIN")" && pwd)/$(basename "$FULLCHAIN")"
+		PRIVKEY="$(cd "$(dirname "$PRIVKEY")" && pwd)/$(basename "$PRIVKEY")"
+
+		cd release
+
+		bun concurrently \
+			"./server --fullchain \"$FULLCHAIN\" --privkey \"$PRIVKEY\"" \
+			"cd client && cat <<'SCRIPT' | PASSWORD=\"$PASSWORD\" FULLCHAIN=\"$FULLCHAIN\" PRIVKEY=\"$PRIVKEY\" PORT=\"$PORT\" bun -
+import { serve } from \"bun\";
+import { file } from \"bun\";
+
+const password = process.env.PASSWORD;
+const fullchain = process.env.FULLCHAIN;
+const privkey = process.env.PRIVKEY;
+const port = parseInt(process.env.PORT) || 5173;
+const headers = {
+	//should match vite.config.ts
+	\"Cross-Origin-Opener-Policy\": \"same-origin\",
+	\"Cross-Origin-Embedder-Policy\": \"require-corp\",
+	\"Cache-Control\": \"no-store, no-cache, must-revalidate\",
+	\"Pragma\": \"no-cache\",
+	\"Expires\": \"0\",
+	\"Strict-Transport-Security\": \"max-age=31536000; includeSubDomains\",
+};
+
+function checkAuth(req) {
+	if (!password) return true;
+	const auth = req.headers.get(\"Authorization\");
+	if (!auth || !auth.startsWith(\"Basic \")) return false;
+	const decoded = atob(auth.slice(6));
+	const [, pwd] = decoded.split(\":\");
+	return pwd === password;
+}
+
+const serverOptions = {
+	port,
+	tls: {
+		cert: Bun.file(fullchain),
+		key: Bun.file(privkey),
+	},
+	async fetch(req) {
+		if (!checkAuth(req)) {
+			return new Response(\"Unauthorized\", {
+				status: 401,
+				headers: { ...headers, \"WWW-Authenticate\": \"Basic realm=\\\"Protected\\\"\" },
+			});
+		}
+
+		const url = new URL(req.url);
+		let pathname = url.pathname;
+
+		if (pathname === \"/\") pathname = \"/index.html\";
+
+		//remove leading slash for file path
+		const filePath = pathname.slice(1) || \"index.html\";
+
+		const fileHandle = file(filePath);
+
+		if (await fileHandle.exists()) return new Response(fileHandle, { headers });
+		return new Response(\"404 Not Found\", { status: 404, headers });
+	},
+};
+
+console.log(\`HTTPS server running on port \${port}\`);
+
+serve(serverOptions);
+SCRIPT"
+		exit 0
+	fi
+}
+
+release_help() {
+	echo "Usage: ./borger release <options>"
+	echo ""
+	echo "Options:"
+	echo "  --build"
+	echo "  --run"
+	echo "  --password \"the password\""
+	echo "  --fullchain \"/path/to/fullchain.pem\"  (required for --run)"
+	echo "  --privkey \"/path/to/privkey.pem\"      (required for --run)"
+	echo "  --port <port> (default: 5173)"
+	echo "  --help"
+}
+
+cmd_clean() {
+	#for whatever reason, git clean -X (delete gitignored files) and -e (exclude) can't
+	#be used together, so excluded files must be manually filtered from the dry run
+	local GITIGNORED
+	GITIGNORED=$(git clean -dffXn | grep "^Would remove " | sed 's/^Would remove //')
+
+	local FILES_TO_CLEAN=()
+	while IFS= read -r file; do
+		[[ -n "$file" ]] || continue
+
+		local is_protected=false
+		for pattern in "${IDE_CONFIG[@]}"; do
+			if [[ "$file" == "$pattern" ]]; then
+				is_protected=true
+				break
+			fi
+		done
+
+		if [[ "$is_protected" == false ]]; then
+			FILES_TO_CLEAN+=("$file")
+		fi
+	done <<< "$GITIGNORED"
+
+	if [[ ${#FILES_TO_CLEAN[@]} -eq 0 ]]; then
+		echo "Workspace is already clean. Nothing to delete."
+		exit 0
+	fi
+
+	for file in "${FILES_TO_CLEAN[@]}"; do
+		echo "Would remove $file"
+	done
+
+	echo "WARNING: The files listed above (everything in .gitignore excluding IDE config) will be deleted."
+	echo "Are you sure you want to obliterate? (y/n)"
+
+	read -r response
+	if ! [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+		exit 1
+	fi
+
+	for file in "${FILES_TO_CLEAN[@]}"; do
+		rm -rf "$file"
+	done
+}
+
+main_help() {
+	echo "Usage: ./borger <command>"
+	echo ""
+	echo "Commands:"
+	echo "  setup    Install dependencies and build for the first time"
+	echo "  dev      Developer mode, automatically rebuilds when code changes"
+	echo "  release  Release mode, creates server executable and static client webpage"
+	echo "  clean    Remove all gitignored files except IDE config"
+}
+
+case "${1:-}" in
+	setup)
+		shift
+		cmd_setup "$@"
+		;;
+	dev)
+		shift
+		cmd_dev "$@"
+		;;
+	release)
+		shift
+		cmd_release "$@"
+		;;
+	clean)
+		shift
+		cmd_clean "$@"
+		;;
+	*)
+		main_help
+		exit 1
+		;;
+esac
