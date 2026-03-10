@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+echo 🍔
 
 declare -A IDE_CONFIG=(
 	[".vscode/launch.json.example"]=".vscode/launch.json"
