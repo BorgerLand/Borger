@@ -20,6 +20,5 @@
 		"strict": true,
 		"allowImportingTsExtensions": true,
 		"jsx": "react-jsx"
-	},
-	"include": ["engine/code_generator/src/main.ts", "game/presentation/index.ts", "**/*.config.ts"]
+	}
 }
