@@ -2,20 +2,19 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import * as path from "path";
-import packageJson from "./package.json";
+import packageJson from "../package.json";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 
 //https://vite.dev/config/
 export default defineConfig({
-	root: "game",
 	publicDir: "assets",
 	plugins: [react(), tailwindcss(), basicSsl()],
 	resolve: {
 		alias: {
 			//should match tsconfig.json
-			"@engine/client_rs": path.resolve("engine/client/rs/pkg"),
-			"@engine/client_ts": path.resolve("engine/client/ts/src"),
-			"@game": path.resolve("game"),
+			"@engine/client_rs": path.resolve("../engine/client/rs/pkg"),
+			"@engine/client_ts": path.resolve("../engine/client/ts/src"),
+			"@game": path.resolve("."),
 		},
 	},
 	server: {

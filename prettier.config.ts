@@ -5,5 +5,5 @@ export default {
 	useTabs: true,
 	tabWidth: 4,
 	plugins: ["prettier-plugin-tailwindcss"],
-	tailwindConfig: "tailwind.config.ts",
+	tailwindConfig: "game/tailwind.config.ts",
 } satisfies Config;
