@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { HUD } from "@game/presentation/ui/hud.tsx";
-import "@game/presentation/ui/index.css"; //what does it mean to import a css file. that makes no sense
+import "@game/index.css"; //what does it mean to import a css file. that makes no sense
 
 //warning this root component doesn't hot reload. changing it
 //requires a full page refresh. try modifying hud instead
