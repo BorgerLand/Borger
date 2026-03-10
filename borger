@@ -150,6 +150,7 @@ cmd_release() {
 
 		set -x
 
+		bun tsc
 		mkdir -p release/client/assets
 		cd engine/code_generator
 		bun src/main.ts
@@ -250,7 +251,6 @@ console.log(\`HTTPS server running on port \${port}\`);
 
 serve(serverOptions);
 SCRIPT"
-		exit 0
 	fi
 }
 
