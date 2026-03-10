@@ -2,18 +2,14 @@ import { init } from "@engine/client_ts/presentation_controller.ts";
 import * as Pipeline from "@game/presentation/old/pipeline.ts";
 import * as Entities from "@game/presentation/old/entities.ts";
 import * as UI from "@game/presentation/ui/index.tsx";
-import * as Crosshair from "@game/presentation/old/crosshair.ts";
 import * as Input from "@game/presentation/input.ts";
 import { AmbientLight, BoxGeometry, Color, DirectionalLight, Mesh } from "three";
-
-Crosshair.init();
 
 const engine = await init({
 	canvasPromise: UI.init(),
 	onPresentationTick: Pipeline.presentationTick,
 	onSpawnEntity: Entities.spawnEntity,
 	onDisposeEntity: Entities.disposeEntity,
-	onResolutionChange: Crosshair.onResolutionChange,
 	onDisconnect: Input.dispose,
 });
 
