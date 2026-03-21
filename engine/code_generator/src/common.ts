@@ -6,11 +6,14 @@ import {
 	type CollectionType,
 	type GenericType,
 	type NetVisibility,
+	type Presentation,
 	type PrimitiveType,
 	type UtilityType,
-} from "@engine/code_generator/state_schema.ts";
+} from "@borger/code_generator/state_schema.ts";
 
 export const BORGER_GENERATED_DIR = "../borger/src/generated";
+export const CLIENT_RS_GENERATED_DIR = "../client/rs/src/generated";
+export const CLIENT_TS_GENERATED_DIR = "../client/ts/src/generated";
 
 export const STATE_WARNING = `/*
 This file was flatulated out by the code generator.
@@ -24,18 +27,18 @@ use
 	glam::{Vec2, DVec2, Vec3, DVec3, Quat, DQuat},
 	crate::networked_types::primitive::{usize32, isize32},
 	crate::networked_types::collections::slotmap::SlotMap,
-	crate::networked_types::haptic_prediction::HapticPredictionEmitter,
+	crate::networked_types::event_dispatcher::EventDispatcher,
 };`;
 
-export type ClientStateKind = "NA" | "Owned" | "Remote";
+export type ClientKind = "NA" | "Owned" | "Remote";
 
 export type FlattenedStruct = {
 	name: string;
 	path: string[];
-	clientKind: ClientStateKind;
+	clientKind: ClientKind;
+	netVisibility: NetVisibility;
 	fields: FlattenedField[];
 	collectionNestDepth: number;
-	isEntity: boolean;
 };
 
 export type FlattenedField = {
@@ -63,8 +66,7 @@ export type FlattenedField = {
 	netVisibility: NetVisibility;
 	netVisibilityAttribute: string;
 	isCustomStruct: boolean;
-	isPresentation: boolean;
-	isEntity: boolean;
+	presentation?: Presentation;
 	fieldID: number | "N/A";
 };
 
@@ -73,7 +75,6 @@ export type DiffPath = (string | number)[];
 export type AllFlattenedStructs = {
 	sim: FlattenedStruct[][]; //inner layer = structs that are grouped in the same diff path, outer layer = all
 	input: FlattenedStruct[];
-	hapticPrediction: FlattenedStruct[];
 };
 
 //should be able to pass in fullType/innerType too.
@@ -103,9 +104,11 @@ baseGroupPath: ["simulation_state"]
 fullPath: ["simulation_state", "x", "y"]
 returns: x.y.fieldName
 */
-export function getFullFieldPath(baseGroupPath: string[], fullPath: string[], fieldName: string) {
-	return `${fullPath
-		.slice(baseGroupPath.length)
-		.map((segment) => segment + ".")
-		.join("")}${fieldName}`;
+export function getNestedPath(baseGroupPath: string[], fullPath: string[], fieldName?: string) {
+	const segments = fullPath.slice(baseGroupPath.length);
+	return [...segments, ...(fieldName ? [fieldName] : [])].join(".");
+}
+
+export function nvEnum(variant: NetVisibility) {
+	return `NetVisibility::${variant[0].toUpperCase() + variant.slice(1)}`;
 }

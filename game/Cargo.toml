@@ -8,15 +8,10 @@ path = "simulation/lib.rs"
 
 [features]
 server = ["borger/server"]
-client = ["borger/client", "js-sys", "web-sys"]
+client = ["borger/client"]
 
 [dependencies]
 borger = { path = "../engine/borger" }
 log.workspace = true
 glam.workspace = true
-wasm-bindgen.workspace = true
 rapier3d.workspace = true
-
-#client only
-js-sys = { workspace = true, optional = true }
-web-sys = { workspace = true, optional = true }

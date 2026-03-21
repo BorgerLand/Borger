@@ -4,7 +4,7 @@ import {
 	VALID_TYPES,
 	type FlattenedStruct,
 	isCollection,
-} from "@engine/code_generator/common.ts";
+} from "@borger/code_generator/common.ts";
 
 export function generateUntracked(simStructs: FlattenedStruct[][]) {
 	Bun.write(
@@ -27,11 +27,12 @@ ${simStructs
 		${struct.fields
 			.filter(
 				({ outerType, isCustomStruct, netVisibility }) =>
-					outerType !== "InputState" &&
-					(isCustomStruct || isCollection(outerType) || netVisibility === "Untracked"),
+					outerType !== "Input" &&
+					(isCustomStruct || isCollection(outerType) || netVisibility === "untracked"),
 			)
-			.map(function generateSimConstruct({ name }) {
-				return `self.${name}.reset_untracked();`;
+			.map(function generateSimConstruct({ name, netVisibilityAttribute }) {
+				return `${netVisibilityAttribute}
+		self.${name}.reset_untracked();`;
 			})
 			.join("\n\t\t\n\t\t")}
 	}

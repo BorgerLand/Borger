@@ -1,10 +1,10 @@
-use crossbeam_channel::{Receiver as SyncReceiver, Sender as SyncSender};
+use std::sync::mpsc::{Receiver as SyncReceiver, Sender as SyncSender};
 
 #[cfg(feature = "server")]
 use tokio::sync::mpsc::UnboundedSender as AsyncSender;
 
 #[cfg(feature = "client")]
-use crate::simulation_state::InputState;
+use crate::simulation_state::Input;
 
 //server-sided code for communicating between
 //a client event loop on the wtransport thread
@@ -33,7 +33,7 @@ pub struct SimToClientChannel {
 //main/presentation thread and simulation thread
 #[cfg(feature = "client")]
 pub enum PresentationToSimCommand {
-	RawInput(InputState),  //presentation thread sends hot fresh inputs here
+	RawInput(Input),       //presentation thread sends hot fresh inputs here
 	ReceiveState(Vec<u8>), //received state from the server
 	Abort,
 }

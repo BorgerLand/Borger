@@ -1,15 +1,13 @@
-use borger::js_bindings::{JSBindings, bind_camera};
-use borger::presentation_state::SimulationOutput;
+use borger::interpolation::{InterpolateTicks, InterpolationOutput};
+use borger::presentation::{PresentationState, SimulationOutput};
 use borger::simulation_controller::SimControllerExternals;
-use borger::simulation_state::InputState;
+use borger::simulation_state::Input;
 use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
-use game_rs::old::on_client_start;
-use game_rs::old::pipeline::presentation_tick as game_presentation_tick;
 use js_sys::{Function, Uint8Array};
 use log::Level;
-use std::panic;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use std::{mem, panic};
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 use web_time::Instant;
@@ -23,14 +21,16 @@ const LOG_LEVEL: Level = Level::Debug;
 pub struct PresentationController {
 	sim: SimControllerExternals,
 	now: Instant,
-	bindings: JSBindings,
+	write_input: Function, //(tx: Uint8Array) => void
 
 	//a bit clunky, but these are the fields who
 	//must wait on the simulation thread to init
 	//before they can be used (hence option type)
-	pub is_ready: bool,
-	tick_buffers: [Option<SimulationOutput>; 2],
 	next_tick_i: bool,
+	tick_buffers: [Option<SimulationOutput>; 2],
+
+	input: Input,
+	output: Option<InterpolationOutput>,
 }
 
 #[wasm_bindgen]
@@ -39,14 +39,6 @@ impl PresentationController {
 	pub fn new(
 		new_client_snapshot: Uint8Array,
 		#[wasm_bindgen(unchecked_param_type = "(tx: Uint8Array) => void")] write_input: Function,
-
-		#[wasm_bindgen(unchecked_param_type = "import('three').Scene")] scene: &JsValue,
-		#[wasm_bindgen(unchecked_param_type = "(type: EntityType, id: number) => import('three').Object3D")]
-		spawn_entity_cb: Function,
-		#[wasm_bindgen(
-			unchecked_param_type = "(type: EntityType, entity: import('three').Object3D, id: number) => void"
-		)]
-		dispose_entity_cb: Function,
 	) -> Self {
 		panic::set_hook(Box::new(|info| {
 			console::log_2(
@@ -60,30 +52,28 @@ impl PresentationController {
 		Self {
 			sim: game_rs::init(new_client_snapshot.to_vec()),
 			now: Instant::now(),
-			bindings: JSBindings::new(write_input, scene, spawn_entity_cb, dispose_entity_cb),
+			write_input,
 
-			is_ready: false,
-			tick_buffers: [None, None],
 			next_tick_i: false,
+			tick_buffers: [None, None],
+
+			input: Input::default(),
+			output: None,
 		}
 	}
 
-	//must be called from js, not in constructor, due to safety requirements
-	pub fn init_pinned(
-		&mut self,
-
-		#[wasm_bindgen(unchecked_param_type = "import('three').Camera")] camera: &JsValue,
-	) {
-		unsafe {
-			bind_camera(&self.bindings.camera, camera, &self.bindings.cache);
-		}
-
-		on_client_start(&mut self.bindings);
+	//safety: this should be called by a wasm-bindgen-wrapped
+	//PresentationController owned by js memory in order to get
+	//a stable pointer
+	pub unsafe fn get_input_ptr(&mut self) -> *mut Input {
+		&mut self.input as *mut Input
 	}
 
-	//presentation loop is slightly behind simulation loop, so tick buffers are older snapshots of the simulation
-	//the unfortunate downside is that there will always be at least 1 frame delay before seeing the consequences
-	pub fn presentation_tick(&mut self, dt: f32, input: &mut InputState) {
+	//presentation loop is slightly behind simulation loop, so
+	//tick buffers are older snapshots of the simulation. the
+	//unfortunate downside is that there will always be at least
+	//1 frame delay before seeing the consequences
+	pub fn presentation_tick(&mut self, dt: f32) -> Option<*const InterpolationOutput> {
 		//received input state: send to server
 		//(these are old input states that have
 		//been merged+validated+diff compressed,
@@ -91,9 +81,7 @@ impl PresentationController {
 		while let Ok(sim_msg) = self.sim.comms.from_sim.try_recv() {
 			match sim_msg {
 				SimToPresentationCommand::InputDiff(input_diff) => {
-					self.bindings
-						.cache
-						.write_input
+					self.write_input
 						.call1(&JsValue::NULL, &Uint8Array::from(input_diff.as_slice()).into())
 						.unwrap();
 				}
@@ -101,57 +89,49 @@ impl PresentationController {
 		}
 
 		//receive tick buffer from simulation thread
-		let nxt_tick = self.sim.presentation_receiver.take(Ordering::AcqRel);
-		let received_tick = nxt_tick.is_some();
+		let next_tick = self.sim.presentation_receiver.take(Ordering::AcqRel);
+		let received_new_tick = next_tick.is_some();
 
-		if received_tick {
+		if received_new_tick {
 			//received presentation output: swap buffers
-			self.tick_buffers[self.next_tick_i as usize] = Some(*nxt_tick.unwrap());
+			self.tick_buffers[self.next_tick_i as usize] = Some(*next_tick.unwrap());
 			self.next_tick_i = !self.next_tick_i;
 		}
 
+		let Some(cur_tick) = self.tick_buffers[(!self.next_tick_i) as usize].as_ref() else {
+			return None;
+		};
+
 		let prv_tick = self.tick_buffers[(self.next_tick_i) as usize].as_ref();
-		let cur_tick = self.tick_buffers[(!self.next_tick_i) as usize].as_ref();
 
-		if !self.is_ready {
-			//if not previously ready, check if ready now
-			self.is_ready = prv_tick.is_some() && cur_tick.is_some();
+		let interp_amount = if let Some(prv_tick) = prv_tick {
+			let desired_time = self.now + Duration::from_secs_f32(dt);
+			self.now = desired_time.clamp(prv_tick.time, cur_tick.time);
+			(self.now - prv_tick.time).as_secs_f32() / (cur_tick.time - prv_tick.time).as_secs_f32()
+		} else {
+			0.0
+		};
 
-			//no need to do full interpolation if not rendering yet,
-			//but still need to call the game's presentation tick in
-			//order to fire binding/spawning events
-			if received_tick {
-				game_presentation_tick(prv_tick, cur_tick.unwrap(), true, 0., input, &mut self.bindings);
-			}
-
-			//if is_ready == true at this point, the next
-			//tick will be the first rendered frame
-			return;
-		}
+		//need to store the result in some rust-owned memory to avoid
+		//dropping before js is able to borrow it
+		self.output = Some(InterpolationOutput {
+			local_client_id: cur_tick.local_client_id,
+			state: PresentationState::interpolate_and_diff(
+				prv_tick.map(|prv| &prv.state),
+				&cur_tick.state,
+				interp_amount,
+				received_new_tick,
+			),
+		});
 
 		//input state is only meaningful once rendering begins
 		self.sim
 			.comms
 			.to_sim
-			.send(PresentationToSimCommand::RawInput(input.clone()))
+			.send(PresentationToSimCommand::RawInput(mem::take(&mut self.input)))
 			.unwrap();
 
-		let prv_tick_uw = prv_tick.unwrap();
-		let cur_tick = cur_tick.unwrap();
-
-		let desired_time = self.now + Duration::from_secs_f32(dt);
-		self.now = desired_time.clamp(prv_tick_uw.time, cur_tick.time);
-		let interp_amount =
-			(self.now - prv_tick_uw.time).as_secs_f32() / (cur_tick.time - prv_tick_uw.time).as_secs_f32();
-
-		game_presentation_tick(
-			prv_tick,
-			cur_tick,
-			received_tick,
-			interp_amount,
-			input,
-			&mut self.bindings,
-		);
+		Some(self.output.as_ref().unwrap() as *const InterpolationOutput)
 	}
 
 	pub fn listen_for_state(&self, state: &Uint8Array) {

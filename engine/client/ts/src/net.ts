@@ -1,10 +1,7 @@
-//these should not be hardcoded obviously. temporary
-const PORT_WEBTRANSPORT = 6969;
-const PORT_WEBSOCKET = 6996;
+import { SIZEOF_32BIT } from "@borger/ts/networked_types/primitive.ts";
 
 const NET_SIMULATION_PING = 0; //rtt/2 ms
 const NET_TIMEOUT = 10; //kill a connection after this many seconds of lag. should match net.rs
-const SIZEOF_USIZE32 = 4; //32 bits = 4 bytes
 
 type InitializingNetState = WTInitializingNetState | WSInitializingNetState;
 
@@ -17,15 +14,18 @@ type WSInitializingNetState = {
 } & InitializingNetStateRest;
 
 type InitializingNetStateRest = {
+	hostname: string;
+	wtPort: number;
+	wsPort: number;
 	established: boolean;
 	open: boolean;
 	onDisconnect: [() => void];
 };
 
-export type NetState = Awaited<ReturnType<typeof init>>;
+export type State = Awaited<ReturnType<typeof init>>;
 
-export async function init(useWebTransport: boolean) {
-	let net: InitializingNetState;
+export async function init(hostname: string, wtPort: number, wsPort: number, useWebTransport: boolean) {
+	let initState: InitializingNetState;
 	let stateStream: AsyncGenerator<Uint8Array, void, unknown>;
 	let writeInput: (stateBytes: Uint8Array) => void;
 
@@ -37,42 +37,48 @@ export async function init(useWebTransport: boolean) {
 			config.serverCertificateHashes = [{ algorithm: "sha-256", value: new Uint8Array(devcert) }];
 		}
 
-		const transport = new WebTransport(`https://${location.hostname}:${PORT_WEBTRANSPORT}`, config);
+		const transport = new WebTransport(`https://${hostname}:${wtPort}`, config);
 
-		net = {
+		initState = {
+			hostname,
+			wtPort,
+			wsPort,
 			transport,
 			established: false,
 			open: true,
 			onDisconnect: [() => {}],
 		};
 
-		wtListenOnDisconnect(net);
+		wtListenOnDisconnect(initState);
 
 		try {
-			await net.transport.ready;
+			await initState.transport.ready;
 		} catch (oops) {
-			triggerDisconnect(net, { reason: String(oops) });
+			triggerDisconnect(initState, { reason: String(oops) });
 			throw oops;
 		}
 
-		net.established = true;
+		initState.established = true;
 
 		const simulationStream = await transport.createBidirectionalStream();
 		stateStream = wtListenForState(simulationStream.readable.getReader());
 		const inputStream = simulationStream.writable.getWriter();
 		writeInput = function (stateBytes) {
 			//write the number of bytes being sent
-			const stateSizeBytes = new ArrayBuffer(SIZEOF_USIZE32);
+			const stateSizeBytes = new ArrayBuffer(SIZEOF_32BIT);
 			new DataView(stateSizeBytes).setUint32(0, stateBytes.byteLength, true);
 
 			inputStream.write(stateSizeBytes);
 			inputStream.write(stateBytes);
 		};
 	} else {
-		const ws = new WebSocket(`wss://${location.hostname}:${PORT_WEBSOCKET}`);
+		const ws = new WebSocket(`wss://${hostname}:${wsPort}`);
 		ws.binaryType = "arraybuffer";
 
-		net = {
+		initState = {
+			hostname,
+			wtPort,
+			wsPort,
 			transport: ws,
 			established: false,
 			open: true,
@@ -80,13 +86,13 @@ export async function init(useWebTransport: boolean) {
 		};
 
 		ws.onclose = function (e) {
-			triggerDisconnect(net, { reason: e.reason, closeCode: e.code });
+			triggerDisconnect(initState, { reason: e.reason, closeCode: e.code });
 		};
 
 		await new Promise<void>((resolve) => (ws.onopen = () => resolve()));
-		net.established = true;
+		initState.established = true;
 
-		stateStream = wsListenForState(net);
+		stateStream = wsListenForState(initState);
 		writeInput = ws.send.bind(ws);
 	}
 
@@ -103,39 +109,39 @@ export async function init(useWebTransport: boolean) {
 	const newClientSnapshot = (await stateStream.next()).value!;
 
 	return {
-		transport: net.transport,
+		transport: initState.transport,
 		newClientSnapshot,
 		writeInput,
 		stateStream,
-		onDisconnect: net.onDisconnect,
+		onDisconnect: initState.onDisconnect,
 	};
 }
 
 //do not await this. it is an infinite loop
-export async function onStateReceived(net: NetState, cb: (stateBuffer: Uint8Array) => void) {
-	while (true) cb((await net.stateStream.next()).value!);
+export async function onStateReceived(state: State, cb: (stateBuffer: Uint8Array) => void) {
+	while (true) cb((await state.stateStream.next()).value!);
 }
 
-export function onDisconnect(net: NetState, cb: () => void) {
+export function onDisconnect(state: State, cb: () => void) {
 	//note this is a tuple so that the change propagates to both
 	//the current NetState and the original InitializingNetState
-	net.onDisconnect[0] = cb;
+	state.onDisconnect[0] = cb;
 }
 
-function triggerDisconnect(net: InitializingNetState, oops: WebTransportCloseInfo) {
-	if (!net.open) return;
-	net.open = false;
-	net.transport.close();
+function triggerDisconnect(state: InitializingNetState, oops: WebTransportCloseInfo) {
+	if (!state.open) return;
+	state.open = false;
+	state.transport.close();
 
 	try {
-		net.onDisconnect[0]();
+		state.onDisconnect[0]();
 	} catch (oops) {
 		//eslint-disable-next-line no-console
 		console.error(oops);
 	}
 
-	const isWebSocket = net.transport instanceof WebSocket;
-	if (isWebSocket && !net.established && import.meta.env.DEV) {
+	const isWebSocket = state.transport instanceof WebSocket;
+	if (isWebSocket && !state.established && import.meta.env.DEV) {
 		if (
 			confirm(
 				"Lost connection to game server. Your browser may be blocking the WSS connection due to the server using self-signed certificates. Click OK to check.",
@@ -147,7 +153,7 @@ function triggerDisconnect(net: InitializingNetState, oops: WebTransportCloseInf
 			//redirect, it doesn't get added. the websocket page
 			//attempts to go back 1 page in history after dismissing
 			//the cert warning so it needs to be in there
-			setInterval(() => (location.href = `https://${location.hostname}:${PORT_WEBSOCKET}`), 500);
+			setInterval(() => (location.href = `https://${state.hostname}:${state.wsPort}`), 500);
 		}
 	} else {
 		oops.reason = oops.reason?.trim(); //sometimes it's nothing but whitespace?
@@ -169,7 +175,7 @@ async function* wtListenForState(stateStream: ReadableStreamDefaultReader) {
 
 	while (true) {
 		//receive number of bytes in server's simulation state diff
-		const stateSizeBytes = await wtReceivePacket(stateStream, SIZEOF_USIZE32, excess);
+		const stateSizeBytes = await wtReceivePacket(stateStream, SIZEOF_32BIT, excess);
 		const stateSize = new DataView(stateSizeBytes.packet.buffer).getUint32(0, true);
 		excess = stateSizeBytes.excess;
 
@@ -179,15 +185,15 @@ async function* wtListenForState(stateStream: ReadableStreamDefaultReader) {
 	}
 }
 
-async function wtListenOnDisconnect(net: WTInitializingNetState) {
+async function wtListenOnDisconnect(state: WTInitializingNetState) {
 	let closeInfo;
 	try {
-		closeInfo = await net.transport.closed;
+		closeInfo = await state.transport.closed;
 	} catch (oops) {
 		closeInfo = { reason: String(oops) };
 	}
 
-	triggerDisconnect(net, closeInfo);
+	triggerDisconnect(state, closeInfo);
 }
 
 //stoopid api doesn't let you request to read
@@ -227,19 +233,19 @@ async function wtReceivePacket(
 
 //---WEBSOCKET---//
 
-async function* wsListenForState(net: WSInitializingNetState) {
+async function* wsListenForState(state: WSInitializingNetState) {
 	//buffer incoming messages so the async generator can yield them on demand
 	const queue: Uint8Array[] = [];
 	let resolve: (() => void) | null = null;
-	let timeout = wsListenOnDisconnect(net);
+	let timeout = wsListenOnDisconnect(state);
 
-	net.transport.onmessage = (e: MessageEvent) => {
+	state.transport.onmessage = (e: MessageEvent) => {
 		queue.push(new Uint8Array(e.data as ArrayBuffer));
 		resolve?.();
 		resolve = null;
 
 		clearTimeout(timeout);
-		timeout = wsListenOnDisconnect(net);
+		timeout = wsListenOnDisconnect(state);
 	};
 
 	while (true) {
@@ -250,6 +256,6 @@ async function* wsListenForState(net: WSInitializingNetState) {
 	}
 }
 
-function wsListenOnDisconnect(net: WSInitializingNetState) {
-	return setTimeout(() => triggerDisconnect(net, { reason: "Timed out" }), NET_TIMEOUT * 1000);
+function wsListenOnDisconnect(state: WSInitializingNetState) {
+	return setTimeout(() => triggerDisconnect(state, { reason: "Timed out" }), NET_TIMEOUT * 1000);
 }

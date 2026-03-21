@@ -1,26 +1,23 @@
 import {
 	BORGER_GENERATED_DIR,
-	isCollection,
-	isPrimitive,
-	isUtility,
 	STATE_WARNING,
 	VALID_TYPES,
+	isGeneric,
+	isPrimitive,
+	isUtility,
 	type FlattenedStruct,
-} from "@engine/code_generator/common.ts";
-import type { PrimitiveType } from "@engine/code_generator/state_schema.ts";
+} from "@borger/code_generator/common.ts";
+import {
+	interpolablePrimitiveTypeSchema,
+	type InterpolablePrimitiveType,
+	type PrimitiveType,
+} from "@borger/code_generator/state_schema.ts";
+import {
+	getPresentationStructName,
+	presentationStructFilter,
+} from "@borger/code_generator/files/presentation.ts";
 
-export function generateInterpolationRS(simStructs: FlattenedStruct[][]) {
-	const entities = simStructs[0][0].fields
-		.filter((field) => field.isEntity)
-		.map(function (entityField) {
-			const group = simStructs.find((group) => group[0].name === entityField.innerType)!;
-			return {
-				field: entityField,
-				group,
-				mainStruct: group[0],
-			};
-		});
-
+export function generateInterpolation(simStructs: FlattenedStruct[][]) {
 	Bun.write(
 		`${BORGER_GENERATED_DIR}/interpolation.rs`,
 		`${STATE_WARNING}
@@ -30,99 +27,82 @@ use crate::interpolation::Interpolate;
 #[cfg(feature = "client")]
 use
 {
-	crate::presentation_state::*,
-	wasm_bindgen::prelude::*,
-	crate::js_bindings::JSBindings,
-	glam::Mat4,
-	crate::interpolation::
-	{
-		interpolate_type,
-		Entity,
-		EntityInstanceBindings
-	},
+	crate::simulation_state,
+	crate::presentation::{self, PresentTick},
+	crate::interpolation::InterpolateTicks,
 };
+
+#[cfg(feature = "client")]
+#[allow(unused_imports)]
+use crate::presentation::Client;
 
 ${VALID_TYPES}
 
-#[cfg(feature = "client")]
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[wasm_bindgen]
-pub enum EntityKind
-{
-${entities.map((entity) => `	${entity.mainStruct.name},`).join("\n")}
-}
+${simStructs
+	.map((group) =>
+		group
+			.filter(presentationStructFilter)
+			.map(function generateInterpolationStruct(struct) {
+				const interpolationStructName = getInterpolationStructName(struct.name);
 
-#[cfg(feature = "client")]
-#[derive(Default)]
-pub struct EntityBindings
-{
-${entities.map((entity) => `	pub ${entity.field.name}: Vec<EntityInstanceBindings<${entity.mainStruct.name}>>,`).join("\n")}
-}
-
-${entities
-	.map(
-		(entity) => `#[cfg(feature = "client")]
-impl Entity for ${entity.mainStruct.name}
-{
-	const KIND: EntityKind = EntityKind::${entity.mainStruct.name};
-	
-	fn get_matrix_world(&self) -> Mat4
-	{
-		Mat4::from_scale_rotation_translation
-		(
-			${entity.mainStruct.fields.some((field) => field.name === "scl") ? "self.scl" : "Vec3::ONE"},
-			${entity.mainStruct.fields.some((field) => field.name === "rot") ? "self.rot" : "Quat::IDENTITY"},
-			${entity.mainStruct.fields.some((field) => field.name === "pos") ? "self.pos" : "Vec3::ZERO"},
-		)
-	}
-}`,
-	)
-	.join("\n\n")}
-
-#[cfg(feature = "client")]
-pub fn interpolate_entities
-(
-	prv_tick: Option<&SimulationOutput>,
-	cur_tick: &SimulationOutput,
-	received_new_tick: bool,
-	amount: f32,
-	bindings: &mut JSBindings,
-)
-{
-${entities
-	.map(
-		(entity) => `	//${entity.field.name}
-	interpolate_type
-	(
-		received_new_tick,
-		prv_tick.map(|prv| &prv.state.${entity.field.name}),
-		&cur_tick.state.${entity.field.name},
-		&mut bindings.entities.${entity.field.name},
-		amount,
-		&bindings.cache
-	);`,
-	)
-	.join("\n\t\n")}
-}
-
-${entities
-	.map((entity) =>
-		entity.group
-			.map(function generateInterpolator(struct) {
 				return `#[cfg(feature = "client")]
-impl Interpolate for ${struct.name}
+#[allow(non_camel_case_types, private_interfaces)]
+pub struct ${interpolationStructName}
 {
-	fn interpolate(prv: &Self, cur: &Self, amount: f32) -> Self
+${struct.fields
+	.filter((field) => field.presentation)
+	.map(function generateInterpolationStructFields({ name, outerType, fullType, innerType }) {
+		let interpolationType;
+		if (isGeneric(outerType))
+			//yes i know this is vile
+			interpolationType = `<<${outerType}<simulation_state::${innerType}> as PresentTick>::PresentationState as InterpolateTicks>::InterpolationState`;
+		else if (isUtility(outerType))
+			interpolationType = `<<${outerType} as PresentTick>::PresentationState as InterpolateTicks>::InterpolationState`;
+		else interpolationType = fullType;
+
+		return `	pub ${name}: ${interpolationType},`;
+	})
+	.join("\n")}
+}
+
+#[cfg(feature = "client")]
+impl InterpolateTicks for presentation::${getPresentationStructName(struct.name)}
+{
+	type InterpolationState = ${interpolationStructName};
+	fn interpolate_and_diff(_prv: Option<&Self>, _cur: &Self, _amount: f32, _received_new_tick: bool) -> Self::InterpolationState
 	{
-		Self
+		Self::InterpolationState
 		{
 ${struct.fields
-	.filter(({ isPresentation, netVisibility }) => isPresentation && netVisibility !== "Private")
-	.map(
-		({ name, outerType }) =>
-			`			${name}: ${isInterpolable(outerType) ? `Interpolate::interpolate(&prv.${name}, &cur.${name}, amount)` : `cur.${name}.clone()`},`,
-	)
-	.join("\n")}
+	.filter((field) => field.presentation)
+	.map(function generateInterpolationImpl({ name, outerType, presentation }) {
+		let interpolationGetter;
+		if (!isPrimitive(outerType))
+			interpolationGetter = `InterpolateTicks::interpolate_and_diff
+			(
+				_prv.map(|prv| &prv.${name}),
+				&_cur.${name},
+				_amount,
+				_received_new_tick
+			)`;
+		else if (
+			presentation === "clone" ||
+			!(interpolablePrimitiveTypeSchema.options as PrimitiveType[]).includes(outerType)
+		)
+			interpolationGetter = `_cur.${name}`;
+		else
+			interpolationGetter = `if let Some(prv) = _prv
+			{
+				${outerType}::interpolate(prv.${name}, _cur.${name}, _amount)
+			}
+			else
+			{
+				_cur.${name}
+			}`;
+
+		return `			${name}: ${interpolationGetter},`;
+	})
+	.join("\n\n")}
 		}
 	}
 }`;
@@ -131,14 +111,14 @@ ${struct.fields
 	)
 	.join("\n\n")}
 
-${interpolators
+${interpolablePrimitiveTypeSchema.options
 	.map(
-		([name, func]) =>
+		(name) =>
 			`impl Interpolate for ${name}
 {
-	fn interpolate(prv: &Self, cur: &Self, amount: f32) -> Self
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self
 	{
-		${func}
+		${interpolatePrimitive(name)}
 	}
 }`,
 	)
@@ -147,26 +127,31 @@ ${interpolators
 	);
 }
 
-const f64 = "let amount = amount as f64;\n		";
+const f64 = "let amount = amount as f64;\n\t\t";
 const scalar = "prv * (1.0 - amount) + cur * amount";
-const vec = "prv.lerp(*cur, amount)";
-const quat = "prv.slerp(*cur, amount)";
-const interpolators: [PrimitiveType, string][] = [
-	["f32", scalar],
-	["f64", f64 + scalar],
-	["Vec2", vec],
-	["DVec2", f64 + vec],
-	["Vec3", vec],
-	["DVec3", f64 + vec],
-	["Quat", quat],
-	["DQuat", f64 + quat],
-];
+const vec = "prv.lerp(cur, amount)";
+const quat = "prv.slerp(cur, amount)";
+function interpolatePrimitive(type: InterpolablePrimitiveType): string {
+	switch (type) {
+		case "f32":
+			return scalar;
+		case "f64":
+			return f64 + scalar;
+		case "Vec2":
+			return vec;
+		case "DVec2":
+			return f64 + vec;
+		case "Vec3":
+			return vec;
+		case "DVec3":
+			return f64 + vec;
+		case "Quat":
+			return quat;
+		case "DQuat":
+			return f64 + quat;
+	}
+}
 
-//should return true for primitives listed in interpolators + custom structs
-function isInterpolable(outerType: string) {
-	return (
-		!isUtility(outerType) &&
-		!isCollection(outerType) &&
-		(!isPrimitive(outerType) || interpolators.some((e) => e[0] === outerType))
-	);
+function getInterpolationStructName(simStructName: string) {
+	return simStructName === "SimulationState" ? "InterpolationState" : simStructName;
 }

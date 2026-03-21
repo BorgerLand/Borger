@@ -169,7 +169,7 @@ cmd_release() {
 		cd release/client/assets
 		find . -name "*.js" -type f -exec sh -c '
 			for f; do
-				sed "s/from[[:space:]]*[\"'"'"']@engine\/client_rs[\"'"'"']/from\".\/client_rs.js\"/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+				sed "s/from[[:space:]]*[\"'"'"']@borger\/rs[\"'"'"']/from\".\/client_rs.js\"/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 			done
 		' _ {} +
 		cd ../../..

@@ -3,7 +3,6 @@
 ### _⚠️ This is an ongoing R&D project. Many essential features don't exist yet: ⚠️_
 
 - _Documentation_
-- _Access game state from Three/React (in progress, partial support)_
 - _Static level geometry import_
 - _Send UI RPC's from client to server_
 - _"Favor the shooter" (client view query)_

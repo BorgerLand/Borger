@@ -1,4 +1,4 @@
-use crate::simulation_state::ClientState;
+use crate::simulation_state::Client;
 
 pub trait UntrackedState {
 	fn reset_untracked(&mut self);
@@ -10,7 +10,7 @@ impl<T: Default> UntrackedState for T {
 	}
 }
 
-impl UntrackedState for ClientState {
+impl UntrackedState for Client {
 	fn reset_untracked(&mut self) {
 		match self {
 			Self::Owned(client) => client.reset_untracked(),

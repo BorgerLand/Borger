@@ -3,13 +3,13 @@ import {
 	STATE_WARNING,
 	isPrimitive,
 	type FlattenedStruct,
-	getFullFieldPath,
+	getNestedPath,
 	type FlattenedField,
-} from "@engine/code_generator/common.ts";
+} from "@borger/code_generator/common.ts";
 
 //new client: all public data should be serialized
 //predict remove: all locally accessible data should be serialized. "all" has different meanings depending on server/client
-export function generateSnapshotSerDesRS(simStructs: FlattenedStruct[][]) {
+export function generateSnapshotSerDes(simStructs: FlattenedStruct[][]) {
 	Bun.write(
 		`${BORGER_GENERATED_DIR}/snapshot_serdes.rs`,
 		`${STATE_WARNING}
@@ -39,13 +39,13 @@ ${group
 				outerType,
 			}) {
 				const isClientData = struct.path[1] === "clients";
-				const field = getFullFieldPath(rootStruct.path, struct.path, name);
+				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
 				if (isPrimitive(outerType)) serializer = `self.${field}.ser_tx(_buffer)`;
 				else serializer = `self.${field}.ser_tx_new_client(_client_id, _buffer)`; //collections+utilities
 
-				if (isClientData && netVisibility === "Owner") {
+				if (isClientData && netVisibility === "owner") {
 					//scope filtering: skip sending this state to any
 					//client who doesn't need to know about this change
 					return `		if self._diff_path[1] == _client_id
@@ -71,7 +71,7 @@ ${group
 		struct.fields
 			.filter(canSnapshotNewClient)
 			.map(function generateSerializeRemoveField({ name, netVisibilityAttribute, outerType }) {
-				const field = getFullFieldPath(rootStruct.path, struct.path, name);
+				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
 				if (isPrimitive(outerType)) serializer = `self.${field} = PrimitiveSerDes::des_rx(_buffer)?`;
@@ -98,7 +98,7 @@ ${group
 			.slice()
 			.reverse()
 			.map(function generateSerializeRemoveField({ name, netVisibilityAttribute, outerType }) {
-				const field = getFullFieldPath(rootStruct.path, struct.path, name);
+				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
 				if (isPrimitive(outerType)) serializer = `self.${field}.ser_rollback(_buffer)`;
@@ -124,7 +124,7 @@ ${group
 				netVisibilityAttribute,
 				outerType,
 			}) {
-				const field = getFullFieldPath(rootStruct.path, struct.path, name);
+				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
 				if (isPrimitive(outerType))
@@ -132,7 +132,7 @@ ${group
 				else serializer = `self.${field}.des_rollback_predict_remove(_buffer)?`; //collection
 
 				//brackets are a workaround for https://github.com/rust-lang/rust/issues/127436
-				if (netVisibility === "Private") serializer = `{ ${serializer} }`;
+				if (netVisibility === "private") serializer = `{ ${serializer} }`;
 
 				return `		${netVisibilityAttribute}
 		${serializer};`;
@@ -148,8 +148,8 @@ ${group
 		function canSnapshotNewClient(field: FlattenedField) {
 			return (
 				!field.isCustomStruct &&
-				field.netVisibility !== "Private" &&
-				field.netVisibility !== "Untracked"
+				field.netVisibility !== "private" &&
+				field.netVisibility !== "untracked"
 			);
 		}
 
@@ -160,7 +160,7 @@ ${group
 					(rootStruct.collectionNestDepth === 1 && rootStruct.path[1] === "clients") //removal of a client is unrollbackable
 				) &&
 				!field.isCustomStruct &&
-				field.netVisibility !== "Untracked"
+				field.netVisibility !== "untracked"
 			);
 		}
 	})

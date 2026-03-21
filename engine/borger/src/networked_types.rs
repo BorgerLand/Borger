@@ -8,4 +8,4 @@ pub mod collections;
 #[cfg(target_endian = "little")]
 pub mod primitive;
 
-pub mod haptic_prediction;
+pub mod event_dispatcher;

@@ -1,12 +1,10 @@
 use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::Immediate;
-use crate::multiplayer_tradeoff::WaitForConsensus;
+use crate::multiplayer_tradeoff::{Immediate, WaitForConsensus};
 use crate::networked_types::primitive::usize32;
 use crate::simulation_controller::GameContext;
-use crate::simulation_state::{InputState, SimulationState};
+use crate::simulation_state::{Input, SimulationState};
 use crate::tick::TickID;
 
-pub mod math;
 pub mod multiplayer_tradeoff;
 pub mod physics;
 
@@ -25,12 +23,6 @@ pub mod tick;
 ///Serdes strategies for all networked state types
 pub mod networked_types;
 
-#[cfg(feature = "client")]
-///Allows TS code to efficiently read RS-owned
-///memory by exposing sections of raw WASM memory
-///as typed array buffers
-pub mod js_bindings;
-
 ///Random small snippets of code that didn't seem
 ///to belong anywhere else
 mod misc;
@@ -41,10 +33,12 @@ mod handwritten {
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
 	pub(crate) mod interpolation;
-	pub(crate) mod presentation_state;
 	pub(crate) mod simulation_state;
 	pub(crate) mod snapshot_serdes;
 	pub(crate) mod untracked;
+
+	#[cfg(feature = "client")]
+	pub(crate) mod presentation;
 }
 
 mod generated {
@@ -52,15 +46,34 @@ mod generated {
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
 	pub(crate) mod interpolation;
-	pub(crate) mod presentation_state;
 	pub(crate) mod simulation_state;
 	pub(crate) mod snapshot_serdes;
 	pub(crate) mod untracked;
+
+	#[cfg(feature = "client")]
+	pub(crate) mod presentation;
+}
+
+///Struct definitions of simulation state objects
+pub mod simulation_state {
+	pub use super::generated::simulation_state::*;
+	pub use super::handwritten::simulation_state::*;
 }
 
 ///Constructors for simulation state objects
 pub(crate) mod constructors {
 	pub use super::handwritten::constructors::*;
+}
+
+///Any changes to state during the simulation tick
+///are recorded by this system as they're
+///happening. Rollback and rx systems use this
+///data to make multiplayer happen
+pub(crate) mod diff_ser {
+	pub use super::handwritten::diff_ser::*;
+
+	#[cfg(feature = "client")]
+	pub(crate) use super::generated::diff_ser::*;
 }
 
 ///Parses and executes operations record by
@@ -75,32 +88,6 @@ pub(crate) mod diff_des {
 
 	#[cfg(feature = "server")]
 	pub use super::generated::diff_des::*;
-}
-
-///Any changes to state during the simulation tick
-///are recorded by this system as they're
-///happening. Rollback and rx systems use this
-///data to make multiplayer happen
-pub(crate) mod diff_ser {
-	pub use super::handwritten::diff_ser::*;
-
-	#[cfg(feature = "client")]
-	pub(crate) use super::generated::diff_ser::*;
-}
-
-///Stripped down version of simulation state (only
-///fields marked with presentation: true), cloned
-///and shipped to the presentation thread at the
-///end of each client sided tick
-pub mod presentation_state {
-	pub use super::generated::presentation_state::*;
-	pub use super::handwritten::presentation_state::*;
-}
-
-///Struct definitions of simulation state objects
-pub mod simulation_state {
-	pub use super::generated::simulation_state::*;
-	pub use super::handwritten::simulation_state::*;
 }
 
 ///Take a snapshot (ser/des) of all or part of the
@@ -125,6 +112,16 @@ pub(crate) mod untracked {
 	pub use super::handwritten::untracked::*;
 }
 
+///Stripped down version of simulation state (only
+///fields with presentation enabled), cloned and
+///shipped to the presentation thread at the end of
+///each client sided tick
+#[cfg(feature = "client")]
+pub mod presentation {
+	pub use super::generated::presentation::*;
+	pub use super::handwritten::presentation::*;
+}
+
 ///Interpolation and presentation of entities
 pub mod interpolation {
 	#[cfg(feature = "client")]
@@ -135,10 +132,11 @@ pub mod interpolation {
 
 ///Helpful types and macros when writing simulation logic
 pub mod prelude {
-	pub use crate::SimulationCallbacks;
+	pub use crate::SimulationInitOptions;
 	pub use crate::diff_ser::DiffSerializer;
 	pub use crate::multiplayer_tradeoff; //macro
 	pub use crate::multiplayer_tradeoff::*;
+	pub use crate::networked_types::primitive::usize32;
 	pub use crate::simulation_controller::GameContext;
 	pub use crate::simulation_controller::{SimControllerExternals, init as init_simulation};
 	pub use crate::simulation_state::*;
@@ -147,20 +145,20 @@ pub mod prelude {
 	pub use log::*;
 }
 
-pub struct SimulationCallbacks {
+pub struct SimulationInitOptions {
 	//pipeline
-	pub simulation_tick: fn(/*ctx*/ &mut GameContext<Immediate>),
+	pub simulation_loop: fn(/*ctx*/ &mut GameContext<Immediate>),
 	pub new_client_snapshot: Vec<u8>,
 
 	//input operations
-	pub input_merge: fn(/*combined*/ &InputState, /*new*/ &InputState) -> InputState,
-	pub input_validate: fn(/*sus*/ &InputState) -> InputState,
+	pub input_merge: fn(/*combined*/ &Input, /*new*/ &Input) -> Input,
+	pub input_validate: fn(/*sus*/ &Input) -> Input,
 	pub input_predict_late: fn(
-		/*prv*/ &InputState,
+		/*prv*/ &Input,
 		/*is_timed_out*/ bool,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
-	) -> InputState,
+	) -> Input,
 
 	//server_events
 	pub on_server_start:

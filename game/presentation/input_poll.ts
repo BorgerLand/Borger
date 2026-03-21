@@ -1,3 +1,5 @@
+//THIS SHOULD BE A SEPARATE NPM PACKAGE
+
 import { Vector2, Vector3 } from "three";
 
 //https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values#modifier_keys
@@ -49,21 +51,8 @@ export class InputPoll {
 	#allowPointerLock = false; //setAllowPointerLock()
 	#pointerLock = false; //isPointerLocked()
 
-	#events: {
-		keydown: (e: KeyboardEvent) => void;
-		keyup: (e: KeyboardEvent) => void;
-		wheel: (e: WheelEvent) => void;
-		contextmenu: (e: MouseEvent) => void;
-		focus: () => void;
-		blur: () => void;
-		touchstart: (e: TouchEvent) => void;
-		touchend: (e: TouchEvent) => void;
-		touchmove: (e: TouchEvent) => void;
-		mousedown: (e: MouseEvent) => void;
-		mouseup: (e: MouseEvent) => void;
-		mousemove: (e: MouseEvent) => void;
-		pointerlockchange: () => void;
-	};
+	#abortController: AbortController;
+	#pointerLockAbort: AbortController | null = null;
 
 	constructor(
 		public canvas: HTMLCanvasElement,
@@ -75,9 +64,12 @@ export class InputPoll {
 			this.pointerDelta.set(0, new Vector2());
 		}
 
-		const e = (this.#events = {
-			//document
-			keydown: (e) => {
+		this.#abortController = new AbortController();
+		const signal = this.#abortController.signal;
+
+		document.addEventListener(
+			"keydown",
+			(e) => {
 				if (!e.key || e.repeat) return;
 
 				const key = e.key.toLowerCase();
@@ -90,9 +82,12 @@ export class InputPoll {
 
 				this.#keyState.set(key, ButtonState.JUST_PRESSED);
 			},
+			{ signal },
+		);
 
-			//document
-			keyup: (e) => {
+		document.addEventListener(
+			"keyup",
+			(e) => {
 				if (!e.key) return;
 
 				const key = e.key.toLowerCase();
@@ -102,43 +97,47 @@ export class InputPoll {
 					this.#keyState.delete(key);
 				}
 			},
+			{ signal },
+		);
 
-			//canvas
-			wheel: (e) => {
+		document.addEventListener(
+			"wheel",
+			(e) => {
 				const r = this.pixelRatio;
 				this.scrollDelta.x += e.deltaX * r;
 				this.scrollDelta.y += e.deltaY * r;
 				this.scrollDelta.z += e.deltaZ * r;
 			},
+			{ signal },
+		);
 
-			//canvas
-			contextmenu: (e) => e.preventDefault(),
+		canvas.addEventListener("contextmenu", (e) => e.preventDefault(), { signal });
 
-			//window
-			focus: () => this.reset(),
+		window.addEventListener("focus", () => this.reset(), { signal });
+		window.addEventListener("blur", () => this.reset(), { signal });
 
-			//window
-			blur: () => this.reset(),
+		if (this.touchscreenMode) {
+			canvas.addEventListener(
+				"touchstart",
+				(e) => {
+					e.preventDefault();
 
-			//canvas
-			touchstart: (e) => {
-				e.preventDefault();
+					for (const touch of e.changedTouches) {
+						const id = touch.identifier;
+						const r = this.pixelRatio;
 
-				for (const touch of e.changedTouches) {
-					const id = touch.identifier;
-					const r = this.pixelRatio;
+						this.#pointerState.set(id, ButtonState.JUST_PRESSED);
+						this.pointerPos.set(
+							id,
+							new Vector2(touch.clientX * r, canvas.height - touch.clientY * r),
+						);
+						this.pointerDelta.set(id, new Vector2(0, 0));
+					}
+				},
+				{ signal },
+			);
 
-					this.#pointerState.set(id, ButtonState.JUST_PRESSED);
-					this.pointerPos.set(
-						id,
-						new Vector2(touch.clientX * r, canvas.height - touch.clientY * r),
-					);
-					this.pointerDelta.set(id, new Vector2(0, 0));
-				}
-			},
-
-			//canvas
-			touchend: (e) => {
+			const handleTouchEnd = (e: TouchEvent) => {
 				for (const touch of e.changedTouches) {
 					const id = touch.identifier;
 					if (this.#pointerState.get(id) === ButtonState.JUST_PRESSED) {
@@ -149,74 +148,66 @@ export class InputPoll {
 						this.pointerDelta.delete(id);
 					}
 				}
-			},
+			};
 
-			//canvas
-			touchmove: (e) => {
-				e.preventDefault();
+			canvas.addEventListener("touchend", handleTouchEnd, { signal });
+			canvas.addEventListener("touchcancel", handleTouchEnd, { signal });
 
-				for (const touch of e.changedTouches) {
-					const id = touch.identifier;
-					const r = this.pixelRatio;
-					const pointerDelta = this.pointerDelta.get(id)!;
-					const pointerPos = this.pointerPos.get(id)!;
+			canvas.addEventListener(
+				"touchmove",
+				(e) => {
+					e.preventDefault();
 
-					const x = touch.clientX * r;
-					const y = canvas.height - touch.clientY * r;
-					pointerDelta.x += x - pointerPos.x;
-					pointerDelta.y += y - pointerPos.y;
-					pointerPos.set(x, y);
-				}
-			},
+					for (const touch of e.changedTouches) {
+						const id = touch.identifier;
+						const r = this.pixelRatio;
+						const pointerDelta = this.pointerDelta.get(id)!;
+						const pointerPos = this.pointerPos.get(id)!;
 
-			//canvas
-			mousedown: (e) => {
-				this.#pointerState.set(e.button, ButtonState.JUST_PRESSED);
-				if (!this.#pointerLock) canvas.requestPointerLock();
-			},
-
-			//canvas
-			mouseup: (e) => {
-				const id = e.button;
-				if (this.#pointerState.get(id) === ButtonState.JUST_PRESSED) {
-					this.#pointerState.set(id, ButtonState.DOWN_QUICK);
-				} else {
-					this.#pointerState.delete(id);
-				}
-			},
-
-			//canvas
-			mousemove: (e) => {
-				const r = this.pixelRatio;
-
-				this.pointerPos.get(0)!.set(e.clientX * r, canvas.height - e.clientY * r);
-				const pointerDelta = this.pointerDelta.get(0)!;
-				pointerDelta.x += e.movementX * r;
-				pointerDelta.y -= e.movementY * r;
-			},
-
-			//document
-			pointerlockchange: () => {
-				this.reset();
-				this.#pointerLock = document.pointerLockElement === canvas;
-			},
-		});
-
-		document.addEventListener("keyup", e.keyup);
-		document.addEventListener("keydown", e.keydown);
-		document.addEventListener("wheel", e.wheel);
-		canvas.addEventListener("contextmenu", e.contextmenu);
-		window.addEventListener("focus", e.focus);
-		window.addEventListener("blur", e.blur);
-
-		if (this.touchscreenMode) {
-			canvas.addEventListener("touchstart", e.touchstart);
-			canvas.addEventListener("touchend", e.touchend);
-			canvas.addEventListener("touchmove", e.touchmove);
+						const x = touch.clientX * r;
+						const y = canvas.height - touch.clientY * r;
+						pointerDelta.x += x - pointerPos.x;
+						pointerDelta.y += y - pointerPos.y;
+						pointerPos.set(x, y);
+					}
+				},
+				{ signal },
+			);
 		} else {
-			canvas.addEventListener("mousedown", e.mousedown);
-			canvas.addEventListener("mouseup", e.mouseup);
-			canvas.addEventListener("mousemove", e.mousemove);
+			canvas.addEventListener(
+				"mousedown",
+				(e) => {
+					this.#pointerState.set(e.button, ButtonState.JUST_PRESSED);
+					if (!this.#pointerLock) canvas.requestPointerLock();
+				},
+				{ signal },
+			);
+
+			canvas.addEventListener(
+				"mouseup",
+				(e) => {
+					const id = e.button;
+					if (this.#pointerState.get(id) === ButtonState.JUST_PRESSED) {
+						this.#pointerState.set(id, ButtonState.DOWN_QUICK);
+					} else {
+						this.#pointerState.delete(id);
+					}
+				},
+				{ signal },
+			);
+
+			canvas.addEventListener(
+				"mousemove",
+				(e) => {
+					const r = this.pixelRatio;
+
+					this.pointerPos.get(0)!.set(e.clientX * r, canvas.height - e.clientY * r);
+					const pointerDelta = this.pointerDelta.get(0)!;
+					pointerDelta.x += e.movementX * r;
+					pointerDelta.y -= e.movementY * r;
+				},
+				{ signal },
+			);
 		}
 	}
 
@@ -260,45 +251,52 @@ export class InputPoll {
 	async promptNewKeyCombo(keyDOM?: HTMLElement) {
 		return await new Promise<string[]>((resolve, reject) => {
 			let combo: string[] = [];
+			const abort = new AbortController();
+			const signal = abort.signal;
 
-			const keyDown = (e: KeyboardEvent) => {
-				e.preventDefault();
+			document.addEventListener(
+				"keydown",
+				(e) => {
+					e.preventDefault();
 
-				if (this.isPointerLocked()) return;
+					if (this.isPointerLocked()) return;
 
-				const newKey = e.key.toLowerCase();
-				if (newKey === "escape") {
-					resolvePromise();
-					return;
-				}
+					const newKey = e.key.toLowerCase();
+					if (newKey === "escape") {
+						resolvePromise();
+						return;
+					}
 
-				if (!combo.includes(newKey)) {
-					combo.push(newKey);
-					if (keyDOM) keyDOM.innerText = InputPoll.getKeyComboString(combo);
-				}
-			};
+					if (!combo.includes(newKey)) {
+						combo.push(newKey);
+						if (keyDOM) keyDOM.innerText = InputPoll.getKeyComboString(combo);
+					}
+				},
+				{ signal },
+			);
 
-			const keyUp = (e: KeyboardEvent) => {
-				e.preventDefault();
+			document.addEventListener(
+				"keyup",
+				(e) => {
+					e.preventDefault();
 
-				if (this.isPointerLocked() || combo.length === 0) return;
+					if (this.isPointerLocked() || combo.length === 0) return;
 
-				resolvePromise(combo);
-			};
+					resolvePromise(combo);
+				},
+				{ signal },
+			);
 
-			function pointerLockChange() {
-				combo = [];
-			}
-
-			document.addEventListener("keydown", keyDown);
-			document.addEventListener("keyup", keyUp);
-			document.addEventListener("pointerlockchange", pointerLockChange);
+			document.addEventListener(
+				"pointerlockchange",
+				() => {
+					combo = [];
+				},
+				{ signal },
+			);
 
 			function resolvePromise(result?: string[]) {
-				document.removeEventListener("pointerlockchange", pointerLockChange);
-				document.removeEventListener("keyup", keyUp);
-				document.removeEventListener("keydown", keyDown);
-
+				abort.abort();
 				if (result) resolve(result);
 				else reject();
 			}
@@ -353,9 +351,18 @@ export class InputPoll {
 			this.#pointerLock = allow;
 		} else {
 			if (allow && !this.#allowPointerLock) {
-				document.addEventListener("pointerlockchange", this.#events.pointerlockchange);
+				this.#pointerLockAbort = new AbortController();
+				document.addEventListener(
+					"pointerlockchange",
+					() => {
+						this.reset();
+						this.#pointerLock = document.pointerLockElement === this.canvas;
+					},
+					{ signal: this.#pointerLockAbort.signal },
+				);
 			} else if (!allow && this.#allowPointerLock) {
-				document.removeEventListener("pointerlockchange", this.#events.pointerlockchange);
+				this.#pointerLockAbort!.abort();
+				this.#pointerLockAbort = null;
 
 				this.#pointerLock = false;
 				this.reset();
@@ -402,27 +409,8 @@ export class InputPoll {
 	 * Removes all event listeners
 	 */
 	dispose() {
-		const canvas = this.canvas;
-		const e = this.#events;
-
 		this.setAllowPointerLock(false);
-
-		if (this.touchscreenMode) {
-			canvas.removeEventListener("touchmove", e.touchmove);
-			canvas.removeEventListener("touchend", e.touchend);
-			canvas.removeEventListener("touchstart", e.touchstart);
-		} else {
-			canvas.removeEventListener("mousemove", e.mousemove);
-			canvas.removeEventListener("mouseup", e.mouseup);
-			canvas.removeEventListener("mousedown", e.mousedown);
-		}
-
-		window.removeEventListener("blur", e.blur);
-		window.removeEventListener("focus", e.focus);
-		canvas.removeEventListener("contextmenu", e.contextmenu);
-		document.removeEventListener("wheel", e.wheel);
-		document.removeEventListener("keydown", e.keydown);
-		document.removeEventListener("keyup", e.keyup);
+		this.#abortController.abort();
 	}
 
 	reset() {

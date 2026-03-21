@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isGeneric } from "@engine/code_generator/common.ts";
+import { isGeneric } from "@borger/code_generator/common.ts";
 
 //true single-field primitives that can be easily read
 //directly from wasm memory
@@ -20,7 +20,7 @@ export const simplePrimitiveTypeSchema = z.enum([
 	"isize32",
 ]);
 
-const multiFieldPrimitiveTypeSchema = z.enum([
+export const multiFieldPrimitiveTypeSchema = z.enum([
 	"Vec2", //xy, f32
 	"DVec2", //xy, f64
 	"Vec3", //xyz, f32
@@ -29,103 +29,142 @@ const multiFieldPrimitiveTypeSchema = z.enum([
 	"DQuat", //xyzw, f64
 ]);
 
+//the subset of primitives consisting of floats, containing
+//both simple+multi-field
+export const interpolablePrimitiveTypeSchema = z.enum([
+	"f32",
+	"f64",
+	"Vec2",
+	"DVec2",
+	"Vec3",
+	"DVec3",
+	"Quat",
+	"DQuat",
+]) satisfies z.ZodType<PrimitiveType>;
+
 export const primitiveTypeSchema = z.enum([
 	...simplePrimitiveTypeSchema.options,
 	...multiFieldPrimitiveTypeSchema.options,
 ]);
 export const collectionTypeSchema = z.enum(["SlotMap"]);
-export const utilityTypeSchema = z.enum(["HapticPredictionEmitter"]);
-const typeSchema = z.enum([
+export const utilityTypeSchema = z.enum(["EventDispatcher"]);
+
+//all types
+export const typeSchema = z.enum([
 	...primitiveTypeSchema.options,
 	...collectionTypeSchema.options,
 	...utilityTypeSchema.options,
 ]);
 
 //"generic type" for now just means a type with one generic param
-export const genericTypeSchema = z.enum([...collectionTypeSchema.options, "HapticPredictionEmitter"]);
+export const genericTypeSchema = z.enum([...collectionTypeSchema.options]);
 //unfortunately zod does not seem to have an enum subtraction method
+//equivalent to typescript Exclude<>
 export const nonGenericTypeSchema = z.enum(
 	typeSchema.options.filter((type) => !genericTypeSchema.options.includes(type as any)),
 ) as z.ZodEnum<{ [K in NonGenericType]: K }>;
 
 export const netVisibilitySchema = z.enum([
-	"Private", //only server can access
-	"Owner", //only server and the owning client can access
-	"Public", //everyone can access
-	"Untracked", //disable networking/diff tracking
+	"private", //only server can access
+	"owner", //only server and the owning client can access
+	"public", //everyone can access
+	"untracked", //disable networking/diff tracking
 ]); //in order from least to most to make comparisons easier
 
+export const presentationSchema = z.enum(["clone", "interpolate"]);
+
 export type NetVisibility = z.infer<typeof netVisibilitySchema>;
+export type Presentation = z.infer<typeof presentationSchema>;
 
 //- type
-//	- primitive
-//		- simple primitive
-//		- multi field primitive
-//	- collection
-//	- utility
+//	- generic
+//		- collection
+//	- non-generic
+//		- primitive
+//			- simple primitive (some are interpolable)
+//			- multi-field primitive (some are interpolable)
+//  - utilities may or may not have generic params
 export type Type = z.infer<typeof typeSchema>;
+export type GenericType = z.infer<typeof genericTypeSchema>;
+export type NonGenericType = Exclude<Type, GenericType>;
 export type PrimitiveType = z.infer<typeof primitiveTypeSchema>;
+export type InterpolablePrimitiveType = z.infer<typeof interpolablePrimitiveTypeSchema>;
 export type SimplePrimitiveType = z.infer<typeof simplePrimitiveTypeSchema>;
 export type MultiFieldPrimitiveType = z.infer<typeof multiFieldPrimitiveTypeSchema>;
 export type CollectionType = z.infer<typeof collectionTypeSchema>;
 export type UtilityType = z.infer<typeof utilityTypeSchema>;
 
-export type GenericType = z.infer<typeof genericTypeSchema>;
-export type NonGenericType = Exclude<Type, GenericType>;
+const rustIdentifier = z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/);
 
 const fieldSchema = z.lazy(() =>
 	z.union([
+		//NETWORKED
 		z
 			.union([
 				z.object({
 					netVisibility: z.enum(
-						netVisibilitySchema.options.filter((val) => !(val === "Untracked")),
+						netVisibilitySchema.options.filter((val) => !(val === "untracked")),
 					),
-					presentation: z.literal(false).optional(),
+					presentation: z.never().optional(),
 				}),
 				z.object({
+					//disallow presentation on private state
 					netVisibility: z.enum(
 						netVisibilitySchema.options.filter(
-							(val) => !(val === "Private" || val === "Untracked"),
+							(val) => !(val === "private" || val === "untracked"),
 						),
 					),
-					presentation: z.literal(true),
+					presentation: presentationSchema,
 				}),
 			])
 			.and(
 				z.union([
 					z.object({
+						type: interpolablePrimitiveTypeSchema,
+						typeName: z.never().optional(),
+						content: z.never().optional(),
+						presentation: presentationSchema,
+					}),
+					z.object({
 						type: nonGenericTypeSchema,
 						typeName: z.never().optional(),
 						content: z.never().optional(),
+						presentation: z.literal("clone").optional(),
 					}),
 					z.object({
 						type: z.literal("struct"),
-						typeName: z.string().optional(),
+						typeName: rustIdentifier.optional(),
 						content: structSchema,
+						presentation: z.literal("clone").optional(),
 					}),
 					z.object({
 						type: genericTypeSchema,
-						typeName: z.string().optional(),
+						typeName: rustIdentifier.optional(),
 						content: z.union([nonGenericTypeSchema, structSchema]),
+						presentation: z.literal("clone").optional(),
 					}),
 				]),
 			),
+		//UNTRACKED
 		z
 			.object({
-				netVisibility: z.literal("Untracked"),
+				netVisibility: z.literal("untracked"),
 				typeName: z.never().optional(),
 				content: z.never().optional(),
 			})
 			.and(
 				z.union([
 					z.object({
-						presentation: z.literal(false).optional(),
-						type: z.string(),
+						type: interpolablePrimitiveTypeSchema,
+						presentation: presentationSchema,
 					}),
 					z.object({
-						presentation: z.literal(true),
 						type: typeSchema,
+						presentation: z.literal("clone"),
+					}),
+					z.object({
+						type: z.string(),
+						presentation: z.never().optional(),
 					}),
 				]),
 			),
@@ -138,124 +177,90 @@ export type Field =
 	//NETWORKED
 	| ((
 			| {
-					netVisibility: Exclude<NetVisibility, "Untracked">;
-					presentation?: false;
+					netVisibility: Exclude<NetVisibility, "untracked">;
+					presentation?: never;
 			  }
 			| {
-					//disallow { netVisibility: "Private", presentation: true }
-					netVisibility: Exclude<NetVisibility, "Private" | "Untracked">;
-					presentation: true;
+					//disallow presentation on private state
+					netVisibility: Exclude<NetVisibility, "private" | "untracked">;
+					presentation: Presentation;
 			  }
 	  ) &
 			(
 				| {
+						type: InterpolablePrimitiveType;
+						typeName?: never;
+						content?: never;
+						presentation: Presentation;
+				  }
+				| {
 						type: NonGenericType;
 						typeName?: never;
 						content?: never;
+						presentation?: "clone";
 				  }
 				| {
 						type: "struct";
 						typeName?: string;
 						content: Struct;
+						presentation?: "clone";
 				  }
 				| {
 						type: GenericType;
 						typeName?: string;
 						content: NonGenericType | Struct;
+						presentation?: "clone";
 				  }
 			))
 	//UNTRACKED
 	| ({
-			netVisibility: "Untracked";
+			netVisibility: "untracked";
 			typeName?: never;
 			content?: never;
 	  } & (
 			| {
-					presentation?: false;
-
+					type: InterpolablePrimitiveType;
+					presentation: Presentation;
+			  }
+			| {
+					type: Type;
+					presentation: "clone";
+			  }
+			| {
 					//- must specify fully qualified name if not one of the
 					//code generator-recognized primitive/utility/collection
 					//types. note chosen type currently can't contain generic
 					//params <>
-					//- for use in haptic prediction: chosen type must implement
-					//Debug+Serialize+Deserialize. Clone not required
-					//- for other uses: chosen type must either be Debug+Default
-					//OR Debug+UntrackedState+contain a
-					//`pub(crate) fn default() -> Self` method not associated
-					//with the Default trait.
+					//- chosen type must either be Debug+Default OR Debug+
+					//UntrackedState+contain a `pub(crate) fn default() -> Self`
+					//method not associated with the Default trait.
 					type: string;
-			  }
-			| {
-					presentation: true;
-					type: Type;
+					presentation?: never;
 			  }
 	  ));
 
-const structSchema = z.lazy(() => z.record(z.string().regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/), fieldSchema));
+const structSchema = z.lazy(() => z.record(rustIdentifier, fieldSchema));
 export type Struct = z.infer<typeof structSchema>;
 
 const clientsSlotMapSchema = fieldSchema.and(
 	z.object({
-		netVisibility: z.literal("Public"),
+		netVisibility: z.literal("public"),
 		type: z.literal("SlotMap"),
-		typeName: z.literal("ClientState"),
+		typeName: z.literal("Client"),
 		content: structSchema.and(
 			z.object({
 				input: fieldSchema.and(
 					z.object({
-						netVisibility: z.literal("Owner"),
-						presentation: z.literal(false).optional(),
+						netVisibility: z.literal("owner"),
+						presentation: z.never().optional(),
 						type: z.literal("struct"),
-						typeName: z.literal("InputState"),
+						typeName: z.literal("Input"),
 					}),
 				),
 			}),
 		),
 	}),
 );
-
-const entitySlotMapSchema = fieldSchema.and(
-	z.object({
-		netVisibility: z.literal("Public"),
-		presentation: z.literal(true),
-		type: z.literal("SlotMap"),
-		content: structSchema.and(
-			z.object({
-				pos: fieldSchema
-					.and(
-						z.object({
-							netVisibility: z.literal("Public"),
-							presentation: z.literal(true),
-							type: z.literal("Vec3"),
-						}),
-					)
-					.optional(),
-				rot: fieldSchema
-					.and(
-						z.object({
-							netVisibility: z.literal("Public"),
-							presentation: z.literal(true),
-							type: z.literal("Quat"),
-						}),
-					)
-					.optional(),
-				scl: fieldSchema
-					.and(
-						z.object({
-							netVisibility: z.literal("Public"),
-							presentation: z.literal(true),
-							type: z.literal("Vec3"),
-						}),
-					)
-					.optional(),
-			}),
-		),
-
-		entity: z.literal(true),
-	}),
-);
-
-export type EntitySlotMap = z.infer<typeof entitySlotMapSchema>;
 
 function validateRecursively({
 	struct,
@@ -292,27 +297,19 @@ function validateRecursively({
 }
 
 const simulationStateSchema = structSchema
-	//the simulationStateSchema is the top level structSchema but with special rules:
+	//the simulationStateSchema is the top level structSchema
+	//with a mandatory "clients" field
 	.and(
 		z.object({
 			clients: clientsSlotMapSchema, //must contain client state
 		}),
 	)
-	.and(
-		z.record(
-			z.string(),
-			z.union([
-				entitySlotMapSchema, //special entity structs with pos/rot/mat/interpolation
-				fieldSchema.and(z.object({ entity: z.literal(false).optional() })), //block anything else from claiming that it's an entity
-			]),
-		),
-	)
 	//extra constraints not enforceable through zod's standard api/typescript
 	.refine((state) =>
 		validateRecursively({
 			struct: state,
-			test: (path, child) => path[0] !== "clients" && child.netVisibility === "Owner",
-			error: (path) => `"Owner" visibility used outside of clients for "${path.join(".")}"`,
+			test: (path, child) => path[0] !== "clients" && child.netVisibility === "owner",
+			error: (path) => `"owner" visibility used outside of clients for "${path.join(".")}"`,
 		}),
 	)
 	.refine((state) =>
@@ -324,7 +321,7 @@ const simulationStateSchema = structSchema
 				const hierarchy = netVisibilitySchema.options;
 				return (
 					hierarchy.indexOf(child.netVisibility) > hierarchy.indexOf(parent.netVisibility) &&
-					child.netVisibility !== "Untracked"
+					child.netVisibility !== "untracked"
 				);
 			},
 			error: (path, child, parent) =>
@@ -335,9 +332,9 @@ const simulationStateSchema = structSchema
 		validateRecursively({
 			struct: state,
 			test: (path, child) =>
-				path[0] === "clients" && path[1] === "input" && child.netVisibility !== "Owner",
+				path[0] === "clients" && path[1] === "input" && child.netVisibility !== "owner",
 			error: (path, child) =>
-				`Client input state's net visibility "${child.netVisibility}" for "${path.join(".")}" must be changed to "Owner"`,
+				`Client input state's net visibility "${child.netVisibility}" for "${path.join(".")}" must be changed to "owner"`,
 		}),
 	)
 	.refine((state) =>
@@ -365,29 +362,16 @@ const simulationStateSchema = structSchema
 			struct: state,
 			test: (path, child, parent) => Boolean(child.presentation && parent && !parent.presentation),
 			error: (path) =>
-				`In order to use presentation: true on "${path.join(".")}", its parent must also have presentation: true`,
+				`In order to enable presentation on "${path.join(".")}", its parent must also have presentation enabled`,
 		}),
 	)
 	.refine((state) =>
 		validateRecursively({
 			struct: state,
-			test: (path, child) =>
-				child.type === "HapticPredictionEmitter" &&
-				(child.netVisibility === "Untracked" || child.netVisibility === "Private"),
+			test: (path, child) => child.type === "EventDispatcher" && !child.presentation,
 			//this is not a hard technical requirement, but it makes no sense
-			//to use haptic predictions in this manner
-			error: (path) =>
-				`HapticPredictionEmitter at "${path.join(".")}" cannot have Untracked or Private netVisibility`,
-		}),
-	)
-	.refine((state) =>
-		validateRecursively({
-			struct: state,
-			test: (path, child, parent) =>
-				parent?.type === "HapticPredictionEmitter" &&
-				(child.netVisibility !== "Untracked" || !child.presentation),
-			error: (path) =>
-				`HapticPredictionEmitter field at "${path.join(".")}" must use { netVisibility: "Untracked, presentation: true }"`,
+			//to use event dispathcer in this manner
+			error: (path) => `EventDispatcher at "${path.join(".")}" must have presentation enabled`,
 		}),
 	);
 

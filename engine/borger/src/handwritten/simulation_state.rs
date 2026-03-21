@@ -1,48 +1,48 @@
 use crate::Scope;
-use crate::simulation_state::InputState;
-use crate::simulation_state::{ClientStateOwned, ClientStateRemote};
+use crate::simulation_state::Input;
+use crate::simulation_state::{ClientOwned, ClientRemote};
 
-pub type ClientState = Scope<ClientStateOwned, ClientStateRemote>;
+pub type Client = Scope<ClientOwned, ClientRemote>;
 
 //wraps input state in a separate struct to allow disjoint
 //borrows from the client state
 #[derive(Debug)]
-pub struct InputStateHistory {
-	pub(crate) cur: InputStateHistoryEntry,
-	pub(crate) prv: InputStateHistoryEntry,
+pub struct InputHistory {
+	pub(crate) cur: InputHistoryEntry,
+	pub(crate) prv: InputHistoryEntry,
 }
 
-impl InputStateHistory {
+impl InputHistory {
 	pub(crate) fn default() -> Self {
 		Self {
-			cur: InputStateHistoryEntry::default(),
-			prv: InputStateHistoryEntry::default(),
+			cur: InputHistoryEntry::default(),
+			prv: InputHistoryEntry::default(),
 		}
 	}
 
-	pub fn get(&self) -> &InputStateHistoryEntry {
+	pub fn get(&self) -> &InputHistoryEntry {
 		&self.cur
 	}
 
-	pub fn get_prv(&self) -> &InputStateHistoryEntry {
+	pub fn get_prv(&self) -> &InputHistoryEntry {
 		&self.prv
 	}
 }
 
 #[derive(Default, Debug)]
-pub struct InputStateHistoryEntry {
-	pub state: InputState,
-	pub(crate) age: InputStateAge,
+pub struct InputHistoryEntry {
+	pub state: Input,
+	pub(crate) age: InputAge,
 }
 
-impl InputStateHistoryEntry {
+impl InputHistoryEntry {
 	pub fn is_predicted(&self) -> bool {
-		self.age == InputStateAge::Predicted
+		self.age == InputAge::Predicted
 	}
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy)]
-pub(crate) enum InputStateAge {
+pub(crate) enum InputAge {
 	///This is the first time that this client's input has
 	///run through the current simulation tick ID. For each
 	///simulated tick, each client guarantees that its
@@ -62,6 +62,6 @@ pub(crate) enum InputStateAge {
 	///This client's inputs have not arrived yet for the
 	///current simulation tick ID. The state was predicted by
 	///the server using input::predict_late. A client will
-	///never see InputStateAge::PREDICTED.
+	///never see InputAge::Predicted.
 	Predicted,
 }

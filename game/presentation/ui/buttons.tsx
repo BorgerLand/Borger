@@ -30,9 +30,9 @@ function Button({ text, size, stateField }: { text: string; size: number; stateF
 					: "radial-gradient(circle, rgba(128,128,128,0.6) 0%, rgba(128,128,128,0) 100%)",
 				transition: "background 0.15s ease",
 			}}
-			onPointerDown={() => useTouchscreenStore.setState({ [stateField]: true })}
-			onPointerUp={() => useTouchscreenStore.setState({ [stateField]: false })}
-			onPointerCancel={() => useTouchscreenStore.setState({ [stateField]: false })}
+			onTouchStart={() => useTouchscreenStore.setState({ [stateField]: true })}
+			onTouchEnd={() => useTouchscreenStore.setState({ [stateField]: false })}
+			onTouchCancel={() => useTouchscreenStore.setState({ [stateField]: false })}
 		>
 			<span className="text-5xl text-white">{text}</span>
 		</button>

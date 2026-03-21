@@ -1,247 +1,58 @@
 #[cfg(feature = "client")]
 use {
-	crate::{
-		interpolation::EntityKind,
-		js_bindings::{JSValueCache, bind_matrix},
-		networked_types::collections::slotmap::RawSlotMap,
-		networked_types::primitive::usize32,
-	},
-	glam::Mat4,
-	js_sys::{Function, Reflect},
-	std::{collections::HashMap, mem::MaybeUninit},
-	wasm_bindgen::{JsValue, throw_val},
+	crate::Scope, crate::interpolation::*, crate::networked_types::primitive::usize32, crate::presentation,
 };
 
-//keeping this a separate trait for a future where other
-//parts of the simulation state can be interpolated
-pub trait Interpolate {
-	fn interpolate(prv: &Self, cur: &Self, amount: f32) -> Self;
+pub trait Interpolate: Copy {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self;
+}
+
+//trait exists to fire events when some change occurs between
+//ticks (eg. for slotmaps, adding+removing slots). prv has to
+//be an option in order to fire initial collection add/remove
+//events, otherwise no change would be detected
+#[cfg(feature = "client")]
+pub trait InterpolateTicks {
+	type InterpolationState;
+	fn interpolate_and_diff(
+		prv: Option<&Self>,
+		cur: &Self,
+		amount: f32,
+		received_new_tick: bool,
+	) -> Self::InterpolationState;
 }
 
 #[cfg(feature = "client")]
-pub trait Entity: Interpolate + Clone {
-	const KIND: EntityKind;
-
-	fn get_matrix_world(&self) -> Mat4;
-}
+pub type Client = Scope<ClientOwned, ClientRemote>;
 
 #[cfg(feature = "client")]
-pub struct EntityInstanceBindings<T: Entity> {
-	pub js: EntityInstanceJSBindings,
-	pub rs: EntityInstanceRSBindings<T>,
-}
-
-#[cfg(feature = "client")]
-#[derive(Clone)]
-pub struct EntityInstanceJSBindings {
-	pub o3d: JsValue,          //THREE.Object3D
-	pub matrix_world: JsValue, //THREE.Object3D.matrixWorld
-	pub slot_id: JsValue,      //number
-}
-
-#[cfg(feature = "client")]
-pub struct EntityInstanceRSBindings<T: Entity> {
-	pub slot_id: usize32,         //the slot id this entity lives in on the simulation side
-	pub mat: Mat4,                //THREE.Object3D.matrixWorld.elements, output of Entity.get_matrix_world
-	interpolated: MaybeUninit<T>, //the interpolated presentation state
-}
-
-#[cfg(feature = "client")]
-impl<T: Entity> EntityInstanceRSBindings<T> {
-	pub fn interpolated(&self) -> &T {
-		//safety: interpolated is only in an unsafe state during call
-		//interpolate_type. obviously don't call it in there
-		unsafe { self.interpolated.assume_init_ref() }
-	}
-}
-
-//interpolate all instances of one entity type. this
-//has been optimized to avoid js<->wasm ffi overhead
-//as much as possible. calling js should only happen
-//when prv_entities and cur_entities contain different
-//sets of entities and received_new_tick is true
-#[cfg(feature = "client")]
-pub fn interpolate_type<T: Entity>(
-	received_new_tick: bool,
-	prv_entities: Option<&RawSlotMap<T>>,
-	cur_entities: &RawSlotMap<T>,
-	out_entities: &mut Vec<EntityInstanceBindings<T>>,
-	amount: f32,
-	cache: &JSValueCache,
-) {
-	let prv_entities_len = prv_entities.map(|prv| prv.len()).unwrap_or(0) as usize;
-	let cur_entities_len = cur_entities.len() as usize;
-	let allocated_len = prv_entities_len.max(cur_entities_len);
-	let prv_data_ptr = out_entities.as_ptr();
-
-	out_entities.resize_with(allocated_len, || EntityInstanceBindings {
-		js: EntityInstanceJSBindings {
-			o3d: JsValue::default(),
-			matrix_world: JsValue::default(),
-			slot_id: JsValue::default(),
-		},
-		rs: EntityInstanceRSBindings {
-			slot_id: 0,
-			mat: Mat4::IDENTITY,
-
-			//safety: by the end of this call to interpolate_type, these new
-			//slots are guaranteed to be initialized. there is no "default
-			//value of T" that can be initialized here due to haptic
-			//prediction's mpmc channels having no default value, and whatever
-			//other custom/untracked fields may have been declared in state.ts
-			interpolated: MaybeUninit::uninit(),
-		},
-	});
-
-	let rebind_all = prv_data_ptr != out_entities.as_ptr(); //can only be true if received_new_tick is true
-	let mut prv_entities = prv_entities.map(|prv| prv.iter());
-	let mut cur_entities = cur_entities.iter();
-
-	//when entity id's don't match for a given physical
-	//index, store them here to sort out later. using
-	//option to avoid unnecessary heap allocations -
-	//usually the number of entities does not change
-	//from tick to tick
-	let mut mismatch_prv_entities: Option<HashMap<usize32, EntityInstanceJSBindings>> = None;
-	let mut mismatch_cur_entities: Option<HashMap<usize32, (&T, usize)>> = None;
-
-	//loop through all entity pairs in order to detect
-	//new/removed entities, and interpolate transforms
-	//of entities that existed in both the previous and
-	//current frames
-	for slot_index in 0..allocated_len {
-		let prv_entity = prv_entities.as_mut().map(|prv| prv.next()).flatten();
-		let cur_entity = cur_entities.next();
-		if let (Some(prv_entity), Some(cur_entity)) = (prv_entity, cur_entity)
-			&& prv_entity.0 == cur_entity.0
-		{
-			//this branch (and rebind_all == false) should be what
-			//executes most often: entity is still in the same slot
-			//as the previous tick so just reinterpolate and let
-			//three.js do the rest
-
-			let interpolated = Interpolate::interpolate(prv_entity.1, cur_entity.1, amount);
-			let bindings = &mut out_entities[slot_index];
-
-			//safety: interpolated was initialized in a previous tick
-			//because this entity was found in prv
-			unsafe {
-				bindings.rs.interpolated.assume_init_drop();
-			}
-
-			bindings.rs.mat = interpolated.get_matrix_world();
-			bindings.rs.interpolated.write(interpolated);
-
-			if rebind_all {
-				//the matrices array was reallocated in order
-				//to grow. all entities are now bound to a
-				//dangling pointer
-				unsafe {
-					bind_matrix(&bindings.js.matrix_world, &bindings.rs.mat, cache);
-				}
-			}
-		} else if received_new_tick {
-			if let Some(prv_entity) = prv_entity {
-				mismatch_prv_entities
-					.get_or_insert_default()
-					.insert(prv_entity.0, out_entities[slot_index].js.clone());
-			}
-
-			if let Some(cur_entity) = cur_entity {
-				mismatch_cur_entities
-					.get_or_insert_default()
-					.insert(cur_entity.0, (&cur_entity.1, slot_index));
-			}
+impl InterpolateTicks for presentation::Client {
+	type InterpolationState = Client;
+	fn interpolate_and_diff(
+		prv: Option<&Self>,
+		cur: &Self,
+		amount: f32,
+		receive_new_tick: bool,
+	) -> Self::InterpolationState {
+		match cur {
+			Self::Owned(cur) => Client::Owned(InterpolateTicks::interpolate_and_diff(
+				prv.map(|prv| prv.as_owned().unwrap()),
+				cur,
+				amount,
+				receive_new_tick,
+			)),
+			Self::Remote(cur) => Client::Remote(InterpolateTicks::interpolate_and_diff(
+				prv.map(|prv| prv.as_remote().unwrap()),
+				cur,
+				amount,
+				receive_new_tick,
+			)),
 		}
 	}
+}
 
-	if received_new_tick {
-		//allow removed entities to have their js data be gc'ed
-		for mut prv_entity in out_entities.drain(cur_entities_len..) {
-			unsafe {
-				prv_entity.rs.interpolated.assume_init_drop();
-			}
-		}
-
-		//fix any mismatched id's
-		if let Some(mismatch_cur_entities) = mismatch_cur_entities {
-			for (slot_id, (cur_entity, slot_index)) in mismatch_cur_entities {
-				let bindings = &mut out_entities[slot_index];
-				let is_newly_allocated = (slot_index + 1) > prv_entities_len;
-				if !is_newly_allocated {
-					//need to manually drop the old element
-					unsafe { bindings.rs.interpolated.assume_init_drop() }
-				}
-
-				*bindings = EntityInstanceBindings {
-					js: if let Some(prv_entities) = &mut mismatch_prv_entities
-						&& let Some(bindings_js) = prv_entities.remove(&slot_id)
-					{
-						//entity moved to a different physical slot index
-
-						//note if an entity with slot id x was deleted, and a new entity
-						//also with slot id x was created since the last tick, there is no
-						//way to tell this apart from moving slot. the engine always
-						//assumes move because this is more common. the effect is that
-						//dispose/spawn will not be triggered, so the same Object3D will
-						//be reused instead of recreated. because there's no way to tell
-						//the difference, interpolating here would be risky in that you may
-						//see a massive visual lerp across the screen from the old object
-						//to the new object. so just use the current transform to be safe
-						bindings_js
-					} else {
-						//new entity
-
-						//call spawn_entity_cb
-						let js_slot_id = JsValue::from(slot_id);
-						let o3d = cache
-							.spawn_entity_cb
-							.call2(&JsValue::NULL, &JsValue::from(T::KIND), &js_slot_id)
-							.unwrap_or_else(|err| throw_val(err));
-
-						//call THREE.Scene.add(new_entity);
-						cache.scene_add.call1(&JsValue::NULL, &o3d).unwrap();
-						let matrix_world = Reflect::get(&o3d, &cache.matrix_world_str).unwrap();
-
-						EntityInstanceJSBindings {
-							o3d,
-							matrix_world,
-							slot_id: js_slot_id,
-						}
-					},
-					rs: EntityInstanceRSBindings {
-						slot_id,
-						mat: cur_entity.get_matrix_world(),
-						interpolated: MaybeUninit::new(cur_entity.clone()),
-					},
-				};
-
-				unsafe {
-					bind_matrix(&bindings.js.matrix_world, &bindings.rs.mat, cache);
-				}
-			}
-		}
-
-		if let Some(mismatch_prv_entities) = mismatch_prv_entities {
-			for (_, bindings_js) in mismatch_prv_entities {
-				//deleted entity
-
-				//call THREE.Object3D.removeFromParent();
-				Function::from(Reflect::get(&bindings_js.o3d, &cache.remove_from_parent_str).unwrap())
-					.call0(&bindings_js.o3d)
-					.unwrap();
-
-				//call dispose_entity_cb
-				cache
-					.dispose_entity_cb
-					.call3(
-						&JsValue::NULL,
-						&JsValue::from(T::KIND),
-						&bindings_js.o3d,
-						&bindings_js.slot_id,
-					)
-					.unwrap_or_else(|err| throw_val(err));
-			}
-		}
-	}
+#[cfg(feature = "client")]
+pub struct InterpolationOutput {
+	pub local_client_id: usize32,
+	pub state: InterpolationState,
 }

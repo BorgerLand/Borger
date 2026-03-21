@@ -3,9 +3,9 @@ use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::snapshot_serdes;
 use crate::snapshot_serdes::NewClientHeader;
 use crate::tick::{TickID, TickInfo, TickType, UnrollbackableNetEvent};
-use crate::{ClientStateKind, diff_des};
-use crossbeam_channel::unbounded as sync_unbounded_channel;
+use crate::{ClientKind, diff_des};
 use log::debug;
+use std::sync::mpsc::channel as sync_unbounded_channel;
 
 //allow receiving client input state this early/late.
 const INPUT_TOO_EARLY: Duration = Duration::from_millis(1000); //too early = kick
@@ -88,7 +88,7 @@ impl SimControllerInternals {
 								if history.timed_out_ticks == 0 {
 									history.entries.push_back(InternalInputEntry {
 										input: new_input.clone(),
-										age: InputStateAge::Fresh,
+										age: InputAge::Fresh,
 										ping: Some(
 											tick_id_associated.wrapping_sub(self.ctx.tick.id_cur) as i16
 										),
@@ -231,7 +231,7 @@ impl SimControllerInternals {
 						.ctx
 						.state
 						.clients
-						.add_with_client_owned(ClientStateKind::Owned, &mut self.ctx.diff)
+						.add_with_client_owned(ClientKind::Owned, &mut self.ctx.diff)
 						.0;
 
 					//game logic-specific

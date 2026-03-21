@@ -1,16 +1,16 @@
-use crate::ClientStateKind;
-use crate::SimulationCallbacks;
+use crate::ClientKind;
+use crate::SimulationInitOptions;
 use crate::constructors::ConstructCustomStruct;
 use crate::diff_ser::DiffSerializer;
 use crate::multiplayer_tradeoff::{AnyTradeoff, Impl};
 use crate::networked_types::primitive::usize32;
-use crate::simulation_state::{InputState, InputStateAge, SimulationState};
+use crate::simulation_state::{Input, InputAge, SimulationState};
 use crate::thread_comms::*;
 use crate::tick::{TickID, TickInfo};
-use crossbeam_channel::unbounded as sync_unbounded_channel;
 use log::debug;
 use std::collections::VecDeque;
 use std::rc::Rc;
+use std::sync::mpsc::channel as sync_unbounded_channel;
 use std::time::Duration;
 use wasm_thread as thread;
 use web_time::Instant;
@@ -18,15 +18,15 @@ use web_time::Instant;
 #[cfg(feature = "server")]
 use {
 	crate::tick::UnrollbackableNetEvent,
-	crossbeam_channel::{Receiver as SyncReceiver, Sender as SyncSender},
 	std::collections::HashMap,
+	std::sync::mpsc::{Receiver as SyncReceiver, Sender as SyncSender},
 	tokio::sync::mpsc::UnboundedSender as AsyncSender,
 };
 
 #[cfg(feature = "client")]
 use {
-	crate::presentation_state::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox,
-	std::mem, std::sync::Arc,
+	crate::presentation::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox, std::mem,
+	std::sync::Arc,
 };
 
 #[cfg(feature = "client")]
@@ -59,7 +59,7 @@ pub struct SimControllerExternals {
 //during initialization of simulation thread.
 //all fields must be Send
 struct SimMoveAcrossThreads {
-	cb: SimulationCallbacks,
+	cb: SimulationInitOptions,
 
 	#[cfg(feature = "server")]
 	new_connection_receiver: SyncReceiver<AsyncSender<SimToClientCommand>>,
@@ -72,7 +72,7 @@ struct SimMoveAcrossThreads {
 //on client, owned by simulation thread
 pub(crate) struct SimControllerInternals {
 	ctx: GameContext<Impl>,
-	cb: SimulationCallbacks,
+	cb: SimulationInitOptions,
 
 	//inputs associated with ticks that haven't reached consensus yet
 	//are stored here. when more info is received ticks will be
@@ -132,7 +132,7 @@ struct InternalInputHistory {
 	//the diff received from the client is always applied to
 	//this, regardless of whether there are .timed_out inputs
 	#[cfg(feature = "server")]
-	latest_received: InputState,
+	latest_received: Input,
 
 	//if true, server will not wait for this client before
 	//coming to consensus
@@ -142,10 +142,10 @@ struct InternalInputHistory {
 
 #[derive(Default, Debug, Clone)]
 struct InternalInputEntry {
-	input: InputState,
+	input: Input,
 
 	#[cfg(feature = "server")]
-	age: InputStateAge,
+	age: InputAge,
 
 	//ping is measured in 2 different ways depending on
 	//whether this is the server or client:
@@ -172,7 +172,7 @@ struct InternalInputEntry {
 	ping: bool, //whether waiting to be acked for the first time
 }
 
-pub fn init(cb: SimulationCallbacks) -> SimControllerExternals {
+pub fn init(cb: SimulationInitOptions) -> SimControllerExternals {
 	#[cfg(feature = "server")]
 	let (new_connection_sender, new_connection_receiver) = sync_unbounded_channel();
 
@@ -221,7 +221,7 @@ pub fn init(cb: SimulationCallbacks) -> SimControllerExternals {
 
 fn run_simulation(#[allow(unused_mut)] mut moved_data: SimMoveAcrossThreads) {
 	#[allow(unused_mut)]
-	let mut state = SimulationState::construct(&Rc::default(), ClientStateKind::NA);
+	let mut state = SimulationState::construct(&Rc::default(), ClientKind::NA);
 
 	#[cfg(feature = "client")]
 	let header = snapshot_serdes::des_new_client(&mut state, mem::take(&mut moved_data.cb.new_client_snapshot))
@@ -287,7 +287,7 @@ impl SimControllerInternals {
 		}
 
 		/*
-		server to client tick signaling scheme:
+		server to client tick signaling protocol:
 		- when server receives a client's input, as long as it hasn't timed out yet (INPUT_TOO_LATE) it rolls back to the tick associated with it and resimulates
 		- send separate state diff packets for simulation-driven vs. server events
 		- when server executes server events, the associated diffs are considered to happen between id_consensus and the predicted tick after it

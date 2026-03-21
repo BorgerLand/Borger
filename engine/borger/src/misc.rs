@@ -1,5 +1,4 @@
 use crate::diff_des::DiffDeserializeState;
-use crate::presentation_state::CloneToPresentationState;
 use crate::snapshot_serdes::SnapshotState;
 use crate::{constructors::ConstructCustomStruct, untracked::UntrackedState};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -7,25 +6,13 @@ use std::fmt::Debug;
 
 //alias for all state tracker subsystem traits
 #[allow(private_bounds)]
-pub trait NetState:
-	CloneToPresentationState
-	+ ConstructCustomStruct
-	+ DiffDeserializeState
-	+ SnapshotState
-	+ UntrackedState
-	+ Debug
-	+ 'static
+pub trait TrackedState:
+	ConstructCustomStruct + DiffDeserializeState + SnapshotState + UntrackedState + Debug + 'static
 {
 }
 
-impl<T> NetState for T where
-	T: CloneToPresentationState
-		+ ConstructCustomStruct
-		+ DiffDeserializeState
-		+ SnapshotState
-		+ UntrackedState
-		+ Debug
-		+ 'static
+impl<T> TrackedState for T where
+	T: ConstructCustomStruct + DiffDeserializeState + SnapshotState + UntrackedState + Debug + 'static
 {
 }
 
@@ -44,7 +31,7 @@ pub enum NetVisibility {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum ClientStateKind {
+pub enum ClientKind {
 	//depending on state declaration, some of
 	//these may not even be used
 	NA, //as in n/a not applicable
@@ -55,16 +42,17 @@ pub enum ClientStateKind {
 }
 
 #[derive(Debug, Clone)]
+#[repr(C, u8)]
 pub enum Scope<O, R> {
 	//owned:
 	//- server can access everything. it owns all client objects
 	//- client can access public and server-client fields. it only owns 1 client object
-	Owned(O),
+	Owned(O) = 0,
 
 	//remote:
 	//- server will never have any remote client objects
 	//- client can only access public fields
-	Remote(R),
+	Remote(R) = 1,
 }
 
 impl<O, R> Scope<O, R> {
@@ -105,7 +93,7 @@ pub enum DiffOperation {
 	TrackSlotMapAdd,
 	TrackSlotMapRemove,
 	TrackSlotMapClear,
-	TrackHapticPrediction,
+	TrackEventDispatcher,
 
 	//path navigation
 	NavigateUp,    //unix analogy: "cd ../../.." go to parent directory
@@ -127,9 +115,7 @@ pub enum DeserializeOopsy {
 	CorruptTickType,
 	CorruptChar,
 	CorruptVarInt,
-	CorruptHapticPrediction,
 	ObeseVarInt,
 	PathNotFound,
 	FieldNotFound,
-	HapticPredictionRollback,
 }

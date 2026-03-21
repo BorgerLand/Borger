@@ -34,8 +34,8 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	//while each client only simulates their own. the
 	//server then informs all players of where all the
 	//other "remote" players are
-	for client in ctx.state.clients.values_mut() {
-		if let ClientState::Owned(client) = client {
+	for client in ctx.state.clients.values() {
+		if let Client::Owned(client) = client {
 			let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
 			let input = client.input.get();
 
@@ -52,7 +52,7 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 //WaitForConsensus would be janky/unsmooth
 fn apply_input(
 	character: &mut Character,
-	input: &InputState,
+	input: &Input,
 	diff: &mut DiffSerializer<impl ImmediateOrWaitForServer>,
 ) {
 	let rot = Quat::from_axis_angle(Vec3::Y, input.cam_yaw);

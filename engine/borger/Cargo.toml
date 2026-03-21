@@ -5,7 +5,7 @@ edition.workspace = true
 
 [features]
 server = ["tokio"]
-client = ["atomicbox", "js-sys", "web-sys"]
+client = ["atomicbox"]
 
 [dependencies]
 borger_procmac = { path = "../borger_procmac" }
@@ -16,14 +16,9 @@ wasm_thread.workspace = true
 web-time.workspace = true
 num_enum.workspace = true
 rapier3d.workspace = true
-crossbeam-channel.workspace = true
-serde.workspace = true
-postcard.workspace = true
 
 #server only
 tokio = { workspace = true, optional = true }
 
 #client only
 atomicbox = { workspace = true, optional = true }
-web-sys = { workspace = true, optional = true }
-js-sys =  { workspace = true, optional = true }

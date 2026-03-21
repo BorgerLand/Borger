@@ -12,8 +12,8 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			//should match tsconfig.json
-			"@engine/client_rs": path.resolve("../engine/client/rs/pkg"),
-			"@engine/client_ts": path.resolve("../engine/client/ts/src"),
+			"@borger/rs": path.resolve("../engine/client/rs/pkg"),
+			"@borger/ts": path.resolve("../engine/client/ts/src"),
 			"@game": path.resolve("."),
 		},
 	},
@@ -39,7 +39,7 @@ export default defineConfig({
 		rolldownOptions: {
 			//can't bundle this because the simulation thread
 			//imports it in isolation
-			external: ["@engine/client_rs"],
+			external: ["@borger/rs"],
 		},
 	},
 });

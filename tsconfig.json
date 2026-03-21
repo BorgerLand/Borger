@@ -6,11 +6,12 @@
 		"skipLibCheck": true,
 		"baseUrl": ".",
 		"paths": {
-			"@engine/code_generator/*": ["engine/code_generator/src/*"],
+			"@borger/code_generator/*": ["engine/code_generator/src/*"],
 
 			//should match vite.config.ts
-			"@engine/client_rs": ["engine/client/rs/pkg"],
-			"@engine/client_ts/*": ["engine/client/ts/src/*"],
+			"@borger/rs": ["engine/client/rs/pkg"],
+			"@borger/ts": ["engine/client/ts/src"],
+			"@borger/ts/*": ["engine/client/ts/src/*"],
 			"@game/*": ["game/*"]
 		},
 		"moduleResolution": "bundler",

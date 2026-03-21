@@ -1,12 +1,12 @@
-import { type EntitySlotMap, type Field, type Struct } from "@engine/code_generator/state_schema.ts";
+import { type Field, type Struct } from "@borger/code_generator/state_schema.ts";
 import type {
 	FlattenedStruct,
 	AllFlattenedStructs,
 	FlattenedField,
 	DiffPath,
-	ClientStateKind,
-} from "@engine/code_generator/common.ts";
-import { isGeneric } from "@engine/code_generator/common.ts";
+	ClientKind,
+} from "@borger/code_generator/common.ts";
+import { isGeneric, nvEnum } from "@borger/code_generator/common.ts";
 
 //recursively traverse the state object and "flatten" it
 //into a big list of structs
@@ -14,11 +14,10 @@ export function flatten(
 	parentStruct: Struct,
 	parentPath: string[] = ["simulation_state"], //pathToStructName will change this to SimulationState
 	parentField?: Field,
-	parentClientKind: ClientStateKind = "NA",
+	parentClientKind: ClientKind = "NA",
 	structsFlattened: AllFlattenedStructs = {
 		sim: [[]],
 		input: [],
-		hapticPrediction: [],
 	},
 	diffPathInfo: { path: DiffPath; depth: number; structGroupID: number; fieldID: number } = {
 		path: [],
@@ -30,15 +29,13 @@ export function flatten(
 	const parentStructFlattened: FlattenedStruct = {
 		name: generateStructName(parentField?.typeName ?? pathToStructName(parentPath), parentClientKind),
 		path: parentPath,
+		netVisibility: parentField?.netVisibility ?? "public",
 		clientKind: parentClientKind,
 		fields: [],
 		collectionNestDepth: diffPathInfo.depth,
-		isEntity: (parentField as EntitySlotMap | undefined)?.entity ?? false,
 	};
 
-	if (parentField?.type === "HapticPredictionEmitter")
-		structsFlattened.hapticPrediction.push(parentStructFlattened); //HapticPredictionEmitter can not have nested structs (yet?)
-	else if (parentPath[0] === "simulation_state")
+	if (parentPath[0] === "simulation_state")
 		structsFlattened.sim[diffPathInfo.structGroupID].push(parentStructFlattened);
 	else structsFlattened.input.push(parentStructFlattened);
 
@@ -53,28 +50,28 @@ export function flatten(
 		//order to populate fieldID accurately
 		let skipGeneratingField = false;
 		const fieldID =
-			childField.type === "struct" || childField.netVisibility === "Untracked"
+			childField.type === "struct" || childField.netVisibility === "untracked"
 				? "N/A"
 				: diffPathInfo.fieldID++;
 		const diffPath = [...diffPathInfo.path, fieldID];
 		const formattedDiffPath = fieldID === "N/A" ? "" : `, diff path [${diffPath.join(", ")}]`;
 
-		if (childField.netVisibility === "Untracked") {
+		if (childField.netVisibility === "untracked") {
 			netVisibilityAttribute = "//Untracked";
 		} else if (childClientKind === "NA" || childClientKind === "Owned") {
-			const comment = `//ClientStateKind::${childClientKind}, NetVisibility::${netVisibility}${formattedDiffPath}`;
+			const comment = `//ClientKind::${childClientKind}, ${nvEnum(netVisibility)}${formattedDiffPath}`;
 
 			//global or local client owned
-			if (netVisibility === "Public") netVisibilityAttribute = comment;
-			else if (netVisibility === "Owner") netVisibilityAttribute = comment;
-			else if (netVisibility === "Private")
+			if (netVisibility === "public") netVisibilityAttribute = comment;
+			else if (netVisibility === "owner") netVisibilityAttribute = comment;
+			else if (netVisibility === "private")
 				netVisibilityAttribute = `#[cfg(feature = "server")] ${comment}`;
 		} else {
 			//local client remote
-			if (netVisibility === "Public")
-				netVisibilityAttribute = `//ClientStateKind::Remote, NetVisibility::Public${formattedDiffPath}`;
-			else if (netVisibility === "Owner") skipGeneratingField = true;
-			else if (netVisibility === "Private") skipGeneratingField = true;
+			if (netVisibility === "public")
+				netVisibilityAttribute = `//ClientKind::Remote, NetVisibility::Public${formattedDiffPath}`;
+			else if (netVisibility === "owner") skipGeneratingField = true;
+			else if (netVisibility === "private") skipGeneratingField = true;
 		}
 
 		let childFieldFlattened: FlattenedField | undefined;
@@ -87,8 +84,7 @@ export function flatten(
 				fullType: childField.type,
 				innerType: childField.type,
 				isCustomStruct: childField.type === "struct",
-				isPresentation: childField.presentation ?? false,
-				isEntity: (childField as EntitySlotMap).entity ?? false,
+				presentation: childField.presentation,
 				netVisibility: childField.netVisibility,
 				netVisibilityAttribute: netVisibilityAttribute!,
 				fieldID,
@@ -99,13 +95,12 @@ export function flatten(
 
 		if (
 			(isGeneric(childField.type) || childField.type === "struct") &&
-			childField.netVisibility !== "Untracked"
+			childField.netVisibility !== "untracked"
 		) {
 			//field has nested data (child struct or collection)
 			let childPath = [...parentPath, childFieldName];
 			const childBaseTypeName = childField.typeName ?? pathToStructName(childPath);
-			const isOwnableStruct =
-				childBaseTypeName === "InputState" || childField.type === "HapticPredictionEmitter";
+			const isOwnableStruct = childBaseTypeName === "Input";
 			let skipRemoteVariant = false;
 
 			if (isOwnableStruct) {
@@ -134,15 +129,15 @@ export function flatten(
 			}
 
 			if (skipRemoteVariant) continue; //avoid generating remote variant. only need 1 struct
-			if (childBaseTypeName === "InputState") childPath = ["input_state"]; //swap from generating simulation state to generating input state
+			if (childBaseTypeName === "Input") childPath = ["input_state"]; //swap from generating simulation state to generating input state
 
 			let childStruct: Struct;
 			if (typeof childField.content === "object") {
 				childStruct = childField.content;
 			} else {
 				//wrap primitive/utility field in a single-field struct.
-				//collection's value must implement NetState trait, which
-				//can only be implemented by a struct
+				//collection's value must implement TrackedState trait,
+				//which can only be implemented by a struct
 				childStruct = {
 					value: {
 						netVisibility: childField.netVisibility,
@@ -153,7 +148,7 @@ export function flatten(
 			}
 
 			function getChildDiffPathInfo() {
-				if (childBaseTypeName === "InputState" || childField.type === "HapticPredictionEmitter") {
+				if (childBaseTypeName === "Input") {
 					return { path: [], depth: 0, structGroupID: 0, fieldID: 0 }; //start over from scratch
 				} else if (childField.type === "struct") {
 					return diffPathInfo; //different struct but still within the same block of contiguous memory
@@ -176,7 +171,7 @@ export function flatten(
 				}
 			}
 
-			if (childBaseTypeName === "ClientState") {
+			if (childBaseTypeName === "Client") {
 				//branch off twice to generate separate
 				//owned+remote client structs
 				flatten(
@@ -211,7 +206,7 @@ export function flatten(
 	return structsFlattened;
 }
 
-function generateStructName(baseTypeName: string, clientKind: ClientStateKind) {
+function generateStructName(baseTypeName: string, clientKind: ClientKind) {
 	switch (clientKind) {
 		case "Owned":
 			return `${baseTypeName}Owned`;

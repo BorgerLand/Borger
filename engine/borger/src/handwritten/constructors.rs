@@ -1,18 +1,10 @@
-use crate::ClientStateKind;
+use crate::ClientKind;
+use crate::networked_types::primitive::usize32;
+use crate::simulation_state::{Client, ClientOwned, ClientRemote};
+use std::rc::Rc;
+
 #[cfg(feature = "server")]
 use crate::NetVisibility;
-use crate::networked_types::primitive::usize32;
-use crate::simulation_state::{ClientState, ClientStateOwned, ClientStateRemote, InputState};
-use std::rc::Rc;
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-impl InputState {
-	#[wasm_bindgen(constructor)]
-	pub fn new() -> InputState {
-		InputState::default()
-	}
-}
 
 //networked type constructors are not publicly exposed. the
 //simulation controller owns all state and refuses to give up
@@ -24,7 +16,7 @@ impl InputState {
 //custom user-defined structs - required by collections in
 //order to construct whatever values they hold
 pub trait ConstructCustomStruct {
-	fn construct(path: &Rc<Vec<usize32>>, client_kind: ClientStateKind) -> Self;
+	fn construct(path: &Rc<Vec<usize32>>, client_kind: ClientKind) -> Self;
 }
 
 //built in collection and utility types
@@ -37,13 +29,13 @@ pub trait ConstructCollectionOrUtilityType {
 	) -> Self;
 }
 
-impl ConstructCustomStruct for ClientState {
+impl ConstructCustomStruct for Client {
 	//note this the only time that the client_kind argument is used
-	fn construct(path: &Rc<Vec<usize32>>, client_kind: ClientStateKind) -> Self {
-		if client_kind == ClientStateKind::Owned {
-			ClientState::Owned(ClientStateOwned::construct(path, ClientStateKind::Owned))
+	fn construct(path: &Rc<Vec<usize32>>, client_kind: ClientKind) -> Self {
+		if client_kind == ClientKind::Owned {
+			Client::Owned(ClientOwned::construct(path, ClientKind::Owned))
 		} else {
-			ClientState::Remote(ClientStateRemote::construct(path, ClientStateKind::Remote))
+			Client::Remote(ClientRemote::construct(path, ClientKind::Remote))
 		}
 	}
 }

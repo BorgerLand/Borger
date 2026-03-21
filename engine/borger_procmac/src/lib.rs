@@ -18,11 +18,14 @@ pub fn server(_: TokenStream, item: TokenStream) -> TokenStream {
 	let block = &func.block;
 
 	quote::quote! {
+		//server impl: this is a no-op
 		#[cfg(feature = "server")]
 		#(#attrs)*
 		#vis #sig #block
 
-		#[cfg(not(feature = "server"))]
+		//client impl: guts the function body but keeps the
+		//declaration so that it can still be referenced
+		#[cfg(feature = "client")]
 		#[allow(dead_code, unused)]
 		#(#attrs)*
 		#vis #sig {

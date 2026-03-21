@@ -4,41 +4,27 @@ import {
 	VALID_TYPES,
 	isPrimitive,
 	type AllFlattenedStructs,
-} from "@engine/code_generator/common.ts";
+} from "@borger/code_generator/common.ts";
 
-export function generateSimulationStateRS(structs: AllFlattenedStructs) {
+export function generateSimulationState(structs: AllFlattenedStructs) {
 	Bun.write(
 		`${BORGER_GENERATED_DIR}/simulation_state.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state::{ClientState, InputStateHistory};
+use crate::simulation_state::{Client, InputHistory};
 use std::rc::Rc;
-use wasm_bindgen::prelude::*;
-
-#[allow(unused_imports)]
-use serde::{Serialize, Deserialize};
 
 ${VALID_TYPES}
 
 ${structs.input
 	.map(function generateInputStruct(struct) {
 		return `#[derive(Debug, Default, Clone)]
-#[allow(non_camel_case_types)]${
-			struct.name === "InputState"
-				? `
-#[wasm_bindgen]`
-				: ""
-		}
+#[allow(non_camel_case_types)]
 pub struct ${struct.name}
 {
 ${struct.fields
 	.map(function generateInputStructField({ name, fullType, fieldID }) {
-		return `${
-			struct.name === "InputState"
-				? `	#[wasm_bindgen(skip)]
-`
-				: ""
-		}	pub ${name}: ${fullType}, //diff path [${fieldID}]`;
+		return `	pub ${name}: ${fullType}, //diff path [${fieldID}]`;
 	})
 	.join("\n\t\n")}
 }`;
@@ -63,12 +49,12 @@ pub struct ${struct.name}
 			netVisibility,
 		}) {
 			let fieldVisibilityQualifier; //completely unrelated to netVisibility
-			if (isPrimitive(outerType) && netVisibility !== "Untracked")
+			if (isPrimitive(outerType) && netVisibility !== "untracked")
 				fieldVisibilityQualifier = "pub(crate) ";
 			else fieldVisibilityQualifier = "pub "; //structs+collections+utilities
 
 			let actualType;
-			if (fullType === "InputState") actualType = "InputStateHistory";
+			if (fullType === "Input") actualType = "InputHistory";
 			else actualType = fullType;
 
 			const field = `${fieldVisibilityQualifier}${name}: ${actualType},`;
@@ -82,22 +68,6 @@ pub struct ${struct.name}
 			})
 			.join("\n\n"),
 	)
-	.join("\n\n")}
-
-${structs.hapticPrediction
-	.map(function generatePresentationStruct(struct) {
-		return `#[derive(Serialize, Deserialize, Debug)]
-#[allow(non_camel_case_types)]
-pub struct ${struct.name}
-{
-${struct.fields
-	.filter((field) => field.isPresentation)
-	.map(function ({ name, fullType }) {
-		return `	pub ${name}: ${fullType},`;
-	})
-	.join("\n\n")}
-}`;
-	})
 	.join("\n\n")}
 `,
 	);

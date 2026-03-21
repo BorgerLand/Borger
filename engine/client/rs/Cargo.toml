@@ -13,11 +13,11 @@ game_rs = { path = "../../../game" }
 log.workspace = true
 glam.workspace = true
 wasm-bindgen.workspace = true
-js-sys.workspace = true
 web-time.workspace = true
-web-sys.workspace = true
 
 console_log = { version = "*", default-features = false, features = ["color"] }
+js-sys = { version = "*", default-features = false }
+web-sys = { version = "*", default-features = false }
 
 [lib]
 crate-type = ["cdylib"]

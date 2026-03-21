@@ -6,16 +6,17 @@ import {
 	type FlattenedStruct,
 	isUtility,
 	isCollection,
-} from "@engine/code_generator/common.ts";
+	nvEnum,
+} from "@borger/code_generator/common.ts";
 
-export function generateConstructorsRS(simStructs: FlattenedStruct[][]) {
+export function generateConstructors(simStructs: FlattenedStruct[][]) {
 	Bun.write(
 		`${BORGER_GENERATED_DIR}/constructors.rs`,
 		`${STATE_WARNING}
 
 use crate::simulation_state::*;
 use crate::constructors::{ConstructCustomStruct, ConstructCollectionOrUtilityType};
-use crate::ClientStateKind;
+use crate::ClientKind;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
@@ -29,7 +30,7 @@ ${simStructs
 			.map(function generateConstructor(struct) {
 				return `impl ConstructCustomStruct for ${struct.name}
 {
-	fn construct(path: &Rc<Vec<usize32>>, _: ClientStateKind) -> Self
+	fn construct(path: &Rc<Vec<usize32>>, _: ClientKind) -> Self
 	{
 		Self
 		{
@@ -42,15 +43,8 @@ ${simStructs
 					fieldID,
 				}) {
 					let constructor;
-					if (outerType === "Vec3" && struct.isEntity && name === "scl") {
-						//let entity scale default to 1, 1, 1
-						constructor = "ONE";
-					} else if (
-						isPrimitive(outerType) ||
-						outerType === "InputState" ||
-						netVisibility === "Untracked"
-					) {
-						if (outerType === "InputState") outerType = "InputStateHistory";
+					if (isPrimitive(outerType) || outerType === "Input" || netVisibility === "untracked") {
+						if (outerType === "Input") outerType = "InputHistory";
 						constructor = `default()`;
 					} else if (isCollection(outerType) || isUtility(outerType)) {
 						constructor = `construct
@@ -59,11 +53,11 @@ ${simStructs
 				${fieldID},
 				
 				#[cfg(feature = "server")]
-				NetVisibility::${netVisibility}
+				${nvEnum(netVisibility)}
 			)`;
 					} else {
 						//struct
-						constructor = `construct(path, ClientStateKind::${struct.clientKind})`;
+						constructor = `construct(path, ClientKind::${struct.clientKind})`;
 					}
 
 					const field = `${name}: ${outerType}::${constructor},`;

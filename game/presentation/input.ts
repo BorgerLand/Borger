@@ -1,10 +1,11 @@
-import { InputPoll } from "@engine/client_ts/old/input_poll.ts";
-import * as ClientRS from "@engine/client_rs";
-import { Vector2 } from "three";
+import { InputPoll } from "@game/presentation/input_poll.ts";
+import { MathUtils, Vector2 } from "three";
 import { create } from "zustand";
+import type * as Borger from "@borger/ts";
 
 let poll: InputPoll;
-let rsInput: ClientRS.InputState;
+let yaw = 0,
+	pitch = 0;
 
 const tmpOmnidir = new Vector2();
 
@@ -19,7 +20,6 @@ const INPUT_SETTINGS = {
 	up: [" "],
 	backward: ["s"],
 	forward: ["w"],
-	undo: ["control", "z"],
 };
 
 export type TouchscreenStore = {
@@ -48,16 +48,14 @@ function makeNipple(): NippleStore {
 	return { active: false, id: 0, start: new Vector2() };
 }
 
-export function init(canvas: HTMLCanvasElement, rsInputObj: ClientRS.InputState, touchscreenMode: boolean) {
+export function init(canvas: HTMLCanvasElement, touchscreenMode: boolean) {
 	poll = new InputPoll(canvas, touchscreenMode);
 	poll.setAllowPointerLock(true);
-
-	rsInput = rsInputObj;
 
 	useTouchscreenStore.setState({ touchscreenMode, dpr: poll.pixelRatio });
 }
 
-export function update() {
+export function update(input: Borger.Input) {
 	const pointerLocked = poll.isPointerLocked();
 	if (pointerLocked) {
 		if (poll.touchscreenMode) {
@@ -102,14 +100,13 @@ export function update() {
 			const lookDX = lookDelta?.x ?? 0;
 			const lookDY = lookDelta?.y ?? 0;
 
-			ClientRS.populate_input(
-				rsInput,
-				lookDX * INPUT_SETTINGS.lookSensitivityTouchscreen,
-				lookDY * INPUT_SETTINGS.lookSensitivityTouchscreen,
-				tmpOmnidir.x,
-				Number(touchscreen.upButton) - Number(touchscreen.downButton),
-				tmpOmnidir.y,
-			);
+			yaw -= lookDX * INPUT_SETTINGS.lookSensitivityTouchscreen;
+			pitch += lookDY * INPUT_SETTINGS.lookSensitivityTouchscreen;
+
+			input.omnidir
+				.set_x(tmpOmnidir.x)
+				.set_y(Number(touchscreen.upButton) - Number(touchscreen.downButton))
+				.set_z(tmpOmnidir.y);
 		} else {
 			const pointerDelta = poll.pointerDelta.get(0);
 			const lookDX = pointerDelta?.x ?? 0;
@@ -122,22 +119,31 @@ export function update() {
 			const upKey = poll.keysAreDown(INPUT_SETTINGS.up);
 			const forwardKey = poll.keysAreDown(INPUT_SETTINGS.forward);
 
-			ClientRS.populate_input(
-				rsInput,
-				lookDX * INPUT_SETTINGS.lookSensitivityMouse,
-				lookDY * INPUT_SETTINGS.lookSensitivityMouse,
-				Number(rightKey) - Number(leftKey),
-				Number(upKey) - Number(downKey),
-				Number(forwardKey) - Number(backwardKey),
-			);
+			yaw -= lookDX * INPUT_SETTINGS.lookSensitivityMouse;
+			pitch += lookDY * INPUT_SETTINGS.lookSensitivityMouse;
+
+			input.omnidir
+				.set_x(Number(rightKey) - Number(leftKey))
+				.set_y(Number(upKey) - Number(downKey))
+				.set_z(Number(forwardKey) - Number(backwardKey));
 		}
-	} else {
-		ClientRS.populate_input(rsInput, 0, 0, 0, 0, 0);
 	}
+
+	yaw = wrapAngle(yaw);
+	pitch = MathUtils.clamp(pitch, -89.9 * MathUtils.DEG2RAD, 89.9 * MathUtils.DEG2RAD);
+	input.set_cam_yaw(yaw).set_cam_pitch(pitch);
 
 	poll.update();
 }
 
 export function dispose() {
 	poll.dispose();
+}
+
+function wrapAngle(angle: number) {
+	let diff = ((angle + Math.PI) % (Math.PI * 2)) - Math.PI;
+	if (diff < -Math.PI) {
+		diff += Math.PI * 2;
+	}
+	return diff;
 }

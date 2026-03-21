@@ -20,16 +20,11 @@ atomicbox = { version = "*", default-features = false }
 tokio = { version = "*", default-features = false, features = ["rt"] }
 num_enum = { version = "*", default-features = false }
 rapier3d = { version = "*", default-features = false, features = ["simd-stable", "dim3", "f32"] } #can't use simd-unstable https://github.com/dimforge/simba/issues/80
-crossbeam-channel = { version = "*", default-features = false, features = ["std"] }
-serde = { version = "*", default-features = false }
-postcard = { version = "*", default-features = false, features = ["use-std"] }
 
 #wasm-specific shims (used in borger crate to make client happier)
 wasm-bindgen = { version = "*", default-features = false }
 wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33
 web-time = { version = "*", default-features = false }
-js-sys = { version = "*", default-features = false }
-web-sys = { version = "*", default-features = false }
 
 #dev build
 [profile.server-dev]

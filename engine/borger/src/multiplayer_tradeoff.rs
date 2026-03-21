@@ -38,7 +38,7 @@ use std::mem;
 ///|**Example Use Cases**       |Processing client inputs (movement, shooting, etc.) should happen here in Immediate as much as possible for best game feel. Controls are by far the most latency-sensitive aspect of gameplay. Any physics interactions should also be immediate whenever possible: damage-on-collision mechanics, moving platforms, etc.    |Logic that affects entities seen by clients but are unable to be predicted by clients due to having some private state (NPC)                                                                                                                                 |Large/important game state change events that would look horrible if rolled back/mispredicted (game over, level change)                                                               |
 ///
 ///## Parameters
-///- `tradeoff` - The tradeoff level: `Immediate`, `WaitForServer`, or `WaitForConsensus`
+///- `tradeoff` - The tradeoff level: `WaitForServer`, or `WaitForConsensus`
 ///- `ctx` - The variable to rebind with the new context. Type can be either `&mut
 ///GameContext` or `&mut DiffSerializer`. You can either pass just a variable name (no &
 ///or .) or declare a new variable (eg. literally write out `let diff = &mut ctx.diff`)`
@@ -98,7 +98,7 @@ use std::mem;
 ///}
 ///
 /////process_input is called from both an Immediate block and a WaitForServer block
-///pub fn process_input(character: &mut Character, input: &InputState, diff: &mut DiffSerializer<impl ImmediateOrWaitForServer>)
+///pub fn process_input(character: &mut Character, input: &Input, diff: &mut DiffSerializer<impl ImmediateOrWaitForServer>)
 ///{
 ///	let mut pos = character.get_pos();
 ///	pos.x += input.omnidir.x * TickInfo::SIM_DT;
@@ -113,41 +113,41 @@ use std::mem;
 ///the SimulationState object and how usage of netVisibility
 ///affects the required multiplayer_tradeoff)
 ///```typescript
-///import type { SimulationState } from "@engine/code_generator/state_schema.ts";
+///import type { SimulationState } from "@borger/code_generator/state_schema.ts";
 ///
 ///export default {
 ///	//represents a real person connected to a server
 ///	clients: {
-///		netVisibility: "Public",
+///		netVisibility: "public",
 ///		type: "SlotMap",
 ///		content: {
 ///			input: {
-///				netVisibility: "Owner",
+///				netVisibility: "owner",
 ///				type: "struct",
 ///				content: {
-///					omnidir: { netVisibility: "Owner", type: "Vec2" },
+///					omnidir: { netVisibility: "owner", type: "Vec2" },
 ///				},
 ///			},
-///			character_id: { netVisibility: "Public", type: "usize32" },
+///			character_id: { netVisibility: "public", type: "usize32" },
 ///		},
 ///	},
 ///	//represents the internal thought process of a non-player character
 ///	npcs: {
-///		netVisibility: "Private",
+///		netVisibility: "private",
 ///		type: "SlotMap",
 ///		content: {
-///			character_id: { netVisibility: "Private", type: "usize32" },
-///			will_drop_rare_item: { netVisibility: "Private", type: "bool" },
+///			character_id: { netVisibility: "private", type: "usize32" },
+///			will_drop_rare_item: { netVisibility: "private", type: "bool" },
 ///			//more secret stuff that clients shouldn't know about...
 ///		},
 ///	},
 ///	//represents an entity being rendered, who may be controlled by either a client or npc
 ///	characters: {
-///		netVisibility: "Public",
+///		netVisibility: "public",
 ///		type: "SlotMap",
 ///		content: {
-///			pos: { netVisibility: "Public", type: "Vec3" },
-///			input_owner: { netVisibility: "Public", type: "enum", content: ["Client", "NPC"] },
+///			pos: { netVisibility: "public", type: "Vec3" },
+///			input_owner: { netVisibility: "public", type: "enum", content: ["Client", "NPC"] },
 ///		},
 ///	},
 ///} satisfies SimulationState;
@@ -155,38 +155,6 @@ use std::mem;
 #[macro_export]
 macro_rules! multiplayer_tradeoff
 {
-	//Immediate - no-op
-	(Immediate, $ctx:ident, $code:stmt) =>
-	{
-		{
-			let $ctx = unsafe { $ctx._to_immediate_unchecked() };
-			$code
-		}
-	};
-	(Immediate, let $rebind:ident = $ctx:expr, $code:stmt) =>
-	{
-		{
-			let $rebind = $ctx;
-			let $rebind = unsafe { $rebind._to_immediate_unchecked() };
-			$code
-		}
-	};
-	(Immediate, $ctx:ident, { $($code:tt)* }) =>
-	{
-		{
-			let $ctx = unsafe { $ctx._to_immediate_unchecked() };
-			$($code)*
-		}
-	};
-	(Immediate, let $rebind:ident = $ctx:expr, { $($code:tt)* }) =>
-	{
-		{
-			let $rebind = $ctx;
-			let $rebind = unsafe { $rebind._to_immediate_unchecked() };
-			$($code)*
-		}
-	};
-
 	//WaitForServer - adds server feature flag
 	(WaitForServer, $ctx:ident, $code:stmt) =>
 	{
@@ -279,6 +247,7 @@ macro_rules! multiplayer_tradeoff
 pub struct Immediate; //to immediate/server/consensus
 pub struct WaitForServer; //to server/consensus
 pub struct WaitForConsensus; //to consensus
+
 #[derive(Default)]
 pub(crate) struct Impl; //default contextless state used internally
 

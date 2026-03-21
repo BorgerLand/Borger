@@ -4,10 +4,11 @@ import {
 	VALID_TYPES,
 	isPrimitive,
 	type AllFlattenedStructs,
-	getFullFieldPath,
-} from "@engine/code_generator/common.ts";
+	getNestedPath,
+	nvEnum,
+} from "@borger/code_generator/common.ts";
 
-export function generateDiffSerRS(structs: AllFlattenedStructs) {
+export function generateDiffSer(structs: AllFlattenedStructs) {
 	Bun.write(
 		`${BORGER_GENERATED_DIR}/diff_ser.rs`,
 		`${STATE_WARNING}
@@ -30,14 +31,14 @@ use
 ${VALID_TYPES}
 
 #[cfg(feature = "client")]
-pub fn ser_tx_input_diff(old: &InputState, new: &InputState, diff: &mut DiffSerializer<Impl>)
+pub fn ser_tx_input_diff(old: &Input, new: &Input, diff: &mut DiffSerializer<Impl>)
 {
 ${structs.input
 	.map((struct) =>
 		struct.fields
 			.filter((field) => isPrimitive(field.outerType))
 			.map(function generateStructField({ name, fieldID }) {
-				const fieldPath = getFullFieldPath(structs.input[0].path, struct.path, name);
+				const fieldPath = getNestedPath(structs.input[0].path, struct.path, name);
 
 				return `	if new.${fieldPath} != old.${fieldPath}
 	{
@@ -55,7 +56,7 @@ ${structs.sim
 			.map(function generateSimulationStruct(struct) {
 				//primitive fields need setter/getter
 				const primitiveFields = struct.fields.filter(
-					(field) => isPrimitive(field.outerType) && field.netVisibility !== "Untracked",
+					(field) => isPrimitive(field.outerType) && field.netVisibility !== "untracked",
 				);
 
 				return `impl ${struct.name}
@@ -81,10 +82,19 @@ ${primitiveFields
 	{
 		if value != self.${name}
 		{
-			#[cfg(feature = "server")]
-			ser_sim_primitive(diff.to_impl(), &self._diff_path, ${fieldID}, self.${name}, NetVisibility::${netVisibility}, value);
-			#[cfg(feature = "client")]
-			ser_sim_primitive(diff.to_impl(), &self._diff_path, ${fieldID}, self.${name});
+			ser_sim_primitive
+			(
+				diff.to_impl(),
+				&self._diff_path,
+				${fieldID},
+				self.${name},
+				
+				#[cfg(feature = "server")]
+				${nvEnum(netVisibility)},
+				
+				#[cfg(feature = "server")]
+				value
+			);
 			
 			self.${name} = value;
 		}

@@ -2,18 +2,18 @@ import {
 	BORGER_GENERATED_DIR,
 	STATE_WARNING,
 	isPrimitive,
-	getFullFieldPath,
+	getNestedPath,
 	type AllFlattenedStructs,
 	VALID_TYPES,
 	type FlattenedField,
-} from "@engine/code_generator/common.ts";
+} from "@borger/code_generator/common.ts";
 
 //the way the generated file generally works is:
 //given a deserialized diff path and value, write
 //the value to the main simulation state object.
 //this file uses match statements to route the
 //value where it needs to go
-export function generateDiffDesRS(structs: AllFlattenedStructs) {
+export function generateDiffDes(structs: AllFlattenedStructs) {
 	Bun.write(
 		`${BORGER_GENERATED_DIR}/diff_des.rs`,
 		`${STATE_WARNING}
@@ -25,7 +25,7 @@ use crate::DeserializeOopsy;
 use crate::networked_types::collections::slotmap::SlotMapDynCompat;
 
 #[cfg(feature = "server")]
-use crate::simulation_state::InputState;
+use crate::simulation_state::Input;
 
 #[cfg(feature = "client")]
 use
@@ -33,13 +33,12 @@ use
 	crate::diff_ser::DiffSerializer,
 	crate::multiplayer_tradeoff::Impl,
 	std::vec,
-	crate::networked_types::haptic_prediction::HapticPredictionEmitterDynCompat
 };
 
 ${VALID_TYPES}
 
 #[cfg(feature = "server")]
-pub fn des_rx_input(input: &mut InputState, mut ser_rx_buffer: impl ExactSizeIterator<Item = u8>) -> Result<(), DeserializeOopsy>
+pub fn des_rx_input(input: &mut Input, mut ser_rx_buffer: impl ExactSizeIterator<Item = u8>) -> Result<(), DeserializeOopsy>
 {
 	let buffer = &mut ser_rx_buffer;
 	while buffer.len() > 0
@@ -50,9 +49,9 @@ pub fn des_rx_input(input: &mut InputState, mut ser_rx_buffer: impl ExactSizeIte
 ${structs.input
 	.map((struct) =>
 		struct.fields
-			.filter(({ outerType, netVisibility }) => isPrimitive(outerType) && netVisibility !== "Untracked")
+			.filter(({ outerType, netVisibility }) => isPrimitive(outerType) && netVisibility !== "untracked")
 			.map(function generateStructField({ name, fieldID, fullType }) {
-				const fieldPath = getFullFieldPath(structs.input[0].path, struct.path, name);
+				const fieldPath = getNestedPath(structs.input[0].path, struct.path, name);
 
 				return `			${fieldID} => input.${fieldPath} = ${fullType}::des_rx(buffer)?,`;
 			})
@@ -79,9 +78,9 @@ ${structs.sim
 ${group
 	.map((struct) =>
 		struct.fields
-			.filter(({ outerType, netVisibility }) => isPrimitive(outerType) && netVisibility !== "Untracked")
+			.filter(({ outerType, netVisibility }) => isPrimitive(outerType) && netVisibility !== "untracked")
 			.map(function generateSetFieldRollback({ name, netVisibilityAttribute, fieldID }) {
-				const field = getFullFieldPath(rootStruct.path, struct.path, name);
+				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				return `			${netVisibilityAttribute}
 			${fieldID} => self.${field} = PrimitiveSerDes::des_rollback(_buffer)?,`;
@@ -107,10 +106,10 @@ ${group
 		struct.fields
 			.filter(
 				({ outerType, netVisibility }) =>
-					isPrimitive(outerType) && netVisibility !== "Private" && netVisibility !== "Untracked",
+					isPrimitive(outerType) && netVisibility !== "private" && netVisibility !== "untracked",
 			)
 			.map(function generateSetFieldRx({ name, netVisibilityAttribute, fieldID, outerType }) {
-				const field = getFullFieldPath(rootStruct.path, struct.path, `set_${name}`);
+				const field = getNestedPath(rootStruct.path, struct.path, `set_${name}`);
 
 				return `			${netVisibilityAttribute}
 			${fieldID} => { self.${field}(${outerType}::des_rx(_buffer)?, _diff.to_impl()); },`;
@@ -128,7 +127,7 @@ ${group
 	
 	${generateGetCollectionOrUtility("get_slotmap", "dyn SlotMapDynCompat", (field) => field.outerType === "SlotMap")}
 	
-	${generateGetCollectionOrUtility("get_haptic_prediction_emitter", "dyn HapticPredictionEmitterDynCompat", (field) => field.outerType === "HapticPredictionEmitter", { needsMutability: false, clientOnly: true })}
+	${generateGetCollectionOrUtility("get_event_dispatcher", "EventDispatcher", (field) => field.outerType === "EventDispatcher")}
 }`;
 
 		//need to call this for every collection and utility type
@@ -136,15 +135,8 @@ ${group
 			getterName: string,
 			returnType: string,
 			structFilter: (field: FlattenedField) => boolean,
-			extra = { needsMutability: true, clientOnly: false },
 		) {
-			const mutability = extra.needsMutability ? "mut " : "";
-			const clientOnly = extra.clientOnly
-				? `#[cfg(feature = "client")]
-	`
-				: ``;
-
-			return `${clientOnly}fn ${getterName}(&${mutability}self, field_id: usize32) -> Result<&${mutability}${returnType}, DeserializeOopsy>
+			return `fn ${getterName}(&mut self, field_id: usize32) -> Result<&mut ${returnType}, DeserializeOopsy>
 	{
 		match field_id
 		{
@@ -153,10 +145,10 @@ ${group
 		struct.fields
 			.filter(structFilter)
 			.map(function generateGetter({ name, netVisibilityAttribute, fieldID }) {
-				const field = getFullFieldPath(rootStruct.path, struct.path, name);
+				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				return `			${netVisibilityAttribute}
-			${fieldID} => Ok(&${mutability}self.${field}),`;
+			${fieldID} => Ok(&mut self.${field}),`;
 			})
 			.join("\n\t\t\n"),
 	)

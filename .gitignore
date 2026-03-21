@@ -3,6 +3,8 @@ node_modules
 target
 release
 engine/borger/src/generated
+engine/client/rs/src/generated
+engine/client/ts/src/generated
 game/assets/devcert.json
 
 #ide config

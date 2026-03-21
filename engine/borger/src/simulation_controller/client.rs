@@ -2,7 +2,7 @@ use super::*;
 use crate::diff_des;
 use crate::diff_ser::ser_tx_input_diff;
 use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::presentation_state::CloneToPresentationState;
+use crate::presentation::PresentTick;
 use crate::tick::TickType;
 use std::sync::atomic::Ordering;
 
@@ -96,9 +96,8 @@ impl SimControllerInternals {
 		self.output_sender.store(
 			Some(Box::new(SimulationOutput {
 				time: self.ctx.tick.get_now(),
-				id: self.ctx.tick.id_cur,
 				local_client_id: self.local_client_id,
-				state: self.ctx.state.clone_to_presentation(),
+				state: self.ctx.state.clone_to_presentation(self.ctx.tick.id_cur),
 			})),
 			Ordering::AcqRel,
 		);
@@ -106,7 +105,7 @@ impl SimControllerInternals {
 
 	fn propagate_input(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
 		let mut input_is_late = true;
-		let mut new_input = InputState::default();
+		let mut new_input = Input::default();
 		let mut rx_buffers: Vec<Vec<u8>> = Vec::new();
 
 		if read_comms {
@@ -177,7 +176,7 @@ impl SimControllerInternals {
 
 			//simulate what would happen to tick.id_cur/consensus using the
 			//same tick incrementing math from the other "match tick_type" in
-			//the "do it for real now" section, storing the reuslts in
+			//the "do it for real now" section, storing the results in
 			//tick.id_cur/consensus_received
 			let tick_id_received = match tick_type {
 				TickType::ServerEvents => self.ctx.tick.id_consensus_received,
@@ -337,8 +336,8 @@ impl SimControllerInternals {
 }
 
 fn get_jitter(samples: &VecDeque<i16>) -> Duration {
-	let min = samples.iter().copied().fold(i16::MAX, i16::min);
-	let max = samples.iter().copied().fold(i16::MIN, i16::max);
+	let min = *samples.iter().min().unwrap();
+	let max = *samples.iter().max().unwrap();
 	let jitter = TickInfo::get_duration((max - min).abs() as TickID);
 	jitter
 }

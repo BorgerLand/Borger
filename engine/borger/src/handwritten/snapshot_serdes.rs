@@ -1,7 +1,7 @@
 use crate::DeserializeOopsy;
 use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::networked_types::primitive::usize32;
-use crate::simulation_state::ClientState;
+use crate::simulation_state::Client;
 use crate::simulation_state::SimulationState;
 use crate::tick::TickID;
 
@@ -19,7 +19,7 @@ pub trait SnapshotState {
 	fn des_rollback_predict_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy>;
 }
 
-impl SnapshotState for ClientState {
+impl SnapshotState for Client {
 	#[cfg(feature = "server")]
 	fn ser_tx_new_client(&self, client_id: usize32, buffer: &mut Vec<u8>) {
 		//since the server has no remote clients,
@@ -35,8 +35,8 @@ impl SnapshotState for ClientState {
 		buffer: &mut impl Iterator<Item = u8>,
 	) -> Result<(), DeserializeOopsy> {
 		match self {
-			ClientState::Owned(client) => client.des_rx_new_client(client_id, buffer),
-			ClientState::Remote(client) => client.des_rx_new_client(client_id, buffer),
+			Client::Owned(client) => client.des_rx_new_client(client_id, buffer),
+			Client::Remote(client) => client.des_rx_new_client(client_id, buffer),
 		}
 	}
 

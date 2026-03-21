@@ -1,17 +1,17 @@
-import type { SimulationState } from "@engine/code_generator/state_schema.ts";
+import type { SimulationState } from "@borger/code_generator/state_schema.ts";
 
 //make sure field names are snake_case or else you will anger rustc
 export default {
 	clients: {
-		netVisibility: "Public",
-		presentation: true,
+		netVisibility: "public",
+		presentation: "clone",
 		type: "SlotMap",
-		typeName: "ClientState",
+		typeName: "Client",
 		content: {
 			input: {
-				netVisibility: "Owner",
+				netVisibility: "owner",
 				type: "struct",
-				typeName: "InputState",
+				typeName: "Input",
 				content: {
 					//inputs should represent REQUESTS to perform ACTIONS,
 					//not the specific buttons/combos that trigger them,
@@ -23,28 +23,27 @@ export default {
 					//listed here. input.rs must be updated accordingly
 
 					//the camera's target spherical coordinate
-					cam_yaw: { netVisibility: "Owner", type: "f32" }, //horizontal,
-					cam_pitch: { netVisibility: "Owner", type: "f32" }, //vertical
+					cam_yaw: { netVisibility: "owner", type: "f32" }, //horizontal,
+					cam_pitch: { netVisibility: "owner", type: "f32" }, //vertical
 
 					//omnidirectional movement - 3D analog stick
 					//x = left/right, y = down/up, z = forward/back
 					//all axes in range [-1, 1]
-					omnidir: { netVisibility: "Owner", type: "Vec3" },
+					omnidir: { netVisibility: "owner", type: "Vec3" },
 				},
 			},
 
-			character_id: { netVisibility: "Public", presentation: true, type: "usize32" },
+			character_id: { netVisibility: "public", presentation: "clone", type: "usize32" },
 		},
 	},
 	characters: {
-		netVisibility: "Public",
-		presentation: true,
-		entity: true,
+		netVisibility: "public",
+		presentation: "clone",
 		type: "SlotMap",
 		typeName: "Character",
 		content: {
-			pos: { netVisibility: "Public", presentation: true, type: "Vec3" },
-			rot: { netVisibility: "Public", presentation: true, type: "Quat" },
+			pos: { netVisibility: "public", presentation: "interpolate", type: "Vec3" },
+			rot: { netVisibility: "public", presentation: "interpolate", type: "Quat" },
 		},
 	},
 } satisfies SimulationState;

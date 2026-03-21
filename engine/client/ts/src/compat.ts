@@ -1,11 +1,12 @@
-import { BLUE, BOLD, BROWN, styledLog } from "@engine/client_ts/console_log.ts";
+import { BLUE, BOLD, BROWN, styledLog } from "@borger/ts/console_log.ts";
 
-type CompatResult = {
+export type State = Awaited<ReturnType<typeof init>>;
+export type Result = {
 	supported: boolean;
 	hasFallback: boolean;
 };
 
-export async function testCompat() {
+export async function init() {
 	const results = {
 		"WASM SIMD": testSIMD(),
 		"WebGL 2": testWebGL2(),
@@ -30,7 +31,7 @@ export async function testCompat() {
 	return results;
 }
 
-function testSIMD(): CompatResult {
+function testSIMD(): Result {
 	return {
 		supported: WebAssembly.validate(
 			new Uint8Array([
@@ -42,7 +43,7 @@ function testSIMD(): CompatResult {
 	};
 }
 
-function testWebGL2(): CompatResult {
+function testWebGL2(): Result {
 	const hasFallback = false;
 	const gl = document.createElement("canvas").getContext("webgl2", { powerPreference: "high-performance" });
 	if (!gl) return { supported: false, hasFallback };
@@ -59,7 +60,7 @@ function testWebGL2(): CompatResult {
 	return { supported: true, hasFallback };
 }
 
-async function testWebGPU(): Promise<CompatResult> {
+async function testWebGPU(): Promise<Result> {
 	const hasFallback = true;
 	const adapter = await navigator.gpu.requestAdapter();
 	if (!adapter) return { supported: false, hasFallback };
@@ -75,11 +76,11 @@ async function testWebGPU(): Promise<CompatResult> {
 	return { supported: true, hasFallback };
 }
 
-function testSharedArrayBuffer(): CompatResult {
+function testSharedArrayBuffer(): Result {
 	return { supported: "SharedArrayBuffer" in window, hasFallback: false };
 }
 
-function testWebTransport(): CompatResult {
+function testWebTransport(): Result {
 	//https://developer.apple.com/documentation/safari-release-notes/safari-26_4-release-notes#Networking
 	//https://issues.chromium.org/issues/473215415
 	const isChromiumAndroid = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
@@ -87,6 +88,6 @@ function testWebTransport(): CompatResult {
 	return { supported: "WebTransport" in window && !isChromiumAndroid, hasFallback: true };
 }
 
-function testTouchscreen(): CompatResult {
+function testTouchscreen(): Result {
 	return { supported: !matchMedia("(hover: hover) and (pointer: fine)").matches, hasFallback: true };
 }

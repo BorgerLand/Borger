@@ -125,7 +125,7 @@ impl TickInfo {
 		self.id_consensus > self.id_cur
 	}
 
-	//analogous to InputStateAge::Fresh - true if this is the first time
+	//analogous to InputAge::Fresh - true if this is the first time
 	//the current tick ID is being simulated, false on resimulation
 	#[cfg(feature = "client")]
 	pub(crate) fn is_fresh(&self) -> bool {

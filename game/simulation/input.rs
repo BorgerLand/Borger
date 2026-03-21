@@ -1,33 +1,12 @@
-use borger::math::wrap_angle;
-use borger::networked_types::primitive::usize32;
-use borger::simulation_state::InputState;
-use borger::simulation_state::SimulationState;
+use borger::prelude::*;
 use glam::Vec3;
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-pub fn populate_input(
-	input: &mut InputState,
-	pointer_dx: f32,
-	pointer_dy: f32,
-	omnidir_x: f32,
-	omnidir_y: f32,
-	omnidir_z: f32,
-) {
-	*input = InputState {
-		cam_yaw: input.cam_yaw - pointer_dx,
-		cam_pitch: input.cam_pitch + pointer_dy,
-		omnidir: Vec3::new(omnidir_x, omnidir_y, omnidir_z),
-	};
-
-	validate(input);
-}
+use std::f32::consts::{PI, TAU};
 
 //a single client has multiple input states per simulation
 //tick due to vsync outpacing the simulation tick rate.
 //this function merges them down into one
-pub fn merge(combined: &InputState, new: &InputState) -> InputState {
-	InputState {
+pub fn merge(combined: &Input, new: &Input) -> Input {
+	Input {
 		//camera persists between frames, so always take the newest
 		cam_yaw: new.cam_yaw,
 		cam_pitch: new.cam_pitch,
@@ -44,7 +23,7 @@ pub fn merge(combined: &InputState, new: &InputState) -> InputState {
 
 //given a suspicious, untrustworthy input state,
 //return a new sanitized version
-pub fn validate(sus: &InputState) -> InputState {
+pub fn validate(sus: &Input) -> Input {
 	//be sure to pass all floating point (decimal) numbers
 	//through valid_fXX(). otherwise you have a security
 	//problem where an evil client can blow up the game.
@@ -58,7 +37,7 @@ pub fn validate(sus: &InputState) -> InputState {
 	//eg. debounce or other timings between multiple
 	//input state objects is out of scope
 
-	InputState {
+	Input {
 		cam_yaw: wrap_angle(valid_f32(sus.cam_yaw)),
 		cam_pitch: valid_f32(sus.cam_pitch).clamp(-89.9_f32.to_radians(), 89.9_f32.to_radians()),
 		omnidir: {
@@ -84,23 +63,20 @@ pub fn validate(sus: &InputState) -> InputState {
 //presentation thread stalling momentarily. this function lets
 //you choose how the engine fabricates an input, given the
 //previous tick's input. if accessing state.clients[client_id]:
-//the clientstate will always be owned. do not access
+//the Client will always be owned. do not access
 //state.client.input; it will be wrong; use prv instead.
 //is_timed_out indicates that the client took too long to send
 //an input for this tick, so the server is forcing consensus
 //without it. is_timed_out is always false on the client side
-pub fn predict_late(
-	prv: &InputState,
-	is_timed_out: bool,
-	_state: &SimulationState,
-	_client_id: usize32,
-) -> InputState {
-	InputState {
+pub fn predict_late(prv: &Input, is_timed_out: bool, _state: &SimulationState, _client_id: usize32) -> Input {
+	Input {
 		//predict that camera hasn't moved
 		cam_yaw: prv.cam_yaw,
 		cam_pitch: prv.cam_pitch,
 
 		omnidir: if is_timed_out {
+			//predict that omnidir is still going strong, otherwise a small
+			//hiccup from the presentation thread briefly stalls you
 			Vec3::default()
 		} else {
 			prv.omnidir
@@ -113,12 +89,20 @@ pub fn predict_late(
 	}
 }
 
-#[allow(dead_code)]
-fn valid_f32(sus: f32) -> f32 {
+///Wrap angle in range [-PI, PI)
+pub fn wrap_angle(angle: f32) -> f32 {
+	let mut diff = ((angle + PI) % TAU) - PI;
+	if diff < -PI {
+		diff += TAU;
+	}
+
+	diff
+}
+
+pub fn valid_f32(sus: f32) -> f32 {
 	if sus.is_finite() { sus } else { 0.0 }
 }
 
-#[allow(dead_code)]
-fn valid_f64(sus: f64) -> f64 {
+pub fn valid_f64(sus: f64) -> f64 {
 	if sus.is_finite() { sus } else { 0.0 }
 }

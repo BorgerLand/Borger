@@ -3,13 +3,13 @@ use crate::flags::Flags;
 use borger::networked_types::primitive::usize_to_32;
 use borger::networked_types::primitive::usize32;
 use borger::thread_comms::{ClientToSimCommand, SimToClientCommand};
-use crossbeam_channel::Sender as SyncSender;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use std::array::TryFromSliceError;
 use std::io::Error as IOError;
 use std::net::SocketAddr;
+use std::sync::mpsc::Sender as SyncSender;
 use std::time::Duration;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -247,7 +247,7 @@ async fn wt_listen_for_input(
 			//prevent an oom crash. default 0.5kb is
 			//intentionally very small. you'd have to
 			//be destroying your keyboard and declare
-			//too many fields on the InputState struct
+			//too many fields on the Input struct
 			//to breach that limit
 			if input_size > NET_INPUT_SIZE_LIMIT {
 				return Err(format!(

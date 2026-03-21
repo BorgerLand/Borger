@@ -1,13 +1,13 @@
 use super::*;
 use crate::diff_des;
-use crate::simulation_state::InputStateHistoryEntry;
+use crate::simulation_state::InputHistoryEntry;
 use crate::tick::TickType;
 use crate::untracked::UntrackedState;
 
 #[cfg(feature = "server")]
 use {
 	crate::networked_types::primitive::{PrimitiveSerDes, usize32},
-	crate::simulation_state::{InputState, SimulationState},
+	crate::simulation_state::{Input, SimulationState},
 };
 
 #[cfg(feature = "client")]
@@ -112,7 +112,7 @@ impl SimControllerInternals {
 							Some(entry) => {
 								acked_input = true;
 								let clone = entry.clone();
-								entry.age = InputStateAge::Resimulating;
+								entry.age = InputAge::Resimulating;
 								clone
 							}
 							None => {
@@ -127,11 +127,11 @@ impl SimControllerInternals {
 										client_id,
 									),
 									ping: None,
-									age: InputStateAge::Fresh,
+									age: InputAge::Fresh,
 								};
 
 								let mut clone = finalized_prediction.clone();
-								clone.age = InputStateAge::Resimulating;
+								clone.age = InputAge::Resimulating;
 								input_history.entries.push_back(clone);
 
 								acked_input = false;
@@ -175,7 +175,7 @@ impl SimControllerInternals {
 
 					#[cfg(feature = "server")]
 					{
-						acked_input = cur.age != InputStateAge::Predicted;
+						acked_input = cur.age != InputAge::Predicted;
 						buffer = self.ctx.diff.tx_begin_tick(client_id, acked_input);
 						if let Some(buffer) = &mut buffer {
 							tick_type.ser_tx(buffer);
@@ -196,29 +196,29 @@ impl SimControllerInternals {
 					.unwrap()
 					.input;
 
-				input.prv = InputStateHistoryEntry {
+				input.prv = InputHistoryEntry {
 					state: input_prv.input,
 
 					#[cfg(feature = "server")]
 					age: input_prv.age,
 					#[cfg(feature = "client")]
 					age: if self.ctx.tick.is_fresh() {
-						InputStateAge::Fresh
+						InputAge::Fresh
 					} else {
-						InputStateAge::Resimulating
+						InputAge::Resimulating
 					},
 				};
 
-				input.cur = InputStateHistoryEntry {
+				input.cur = InputHistoryEntry {
 					state: input_cur.input,
 
 					#[cfg(feature = "server")]
 					age: input_cur.age,
 					#[cfg(feature = "client")]
 					age: if self.ctx.tick.is_fresh() {
-						InputStateAge::Fresh
+						InputAge::Fresh
 					} else {
-						InputStateAge::Resimulating
+						InputAge::Resimulating
 					},
 				};
 
@@ -233,7 +233,7 @@ impl SimControllerInternals {
 
 			self.ctx.state.reset_untracked();
 			self.ctx.diff.rollback_begin_tick(tick_type);
-			(self.cb.simulation_tick)(self.ctx.to_immediate()); //game on
+			(self.cb.simulation_loop)(self.ctx.to_immediate()); //game on
 			self.ctx.diff.rollback_end_tick();
 
 			#[cfg(feature = "server")]
@@ -250,11 +250,11 @@ fn get_input(
 	history: &mut VecDeque<InternalInputEntry>,
 
 	#[cfg(feature = "server")] predict_late: fn(
-		/*prv*/ &InputState,
+		/*prv*/ &Input,
 		/*is_timed_out*/ bool,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
-	) -> InputState,
+	) -> Input,
 
 	#[cfg(feature = "server")] has_consensus: bool,
 	#[cfg(feature = "server")] client_id: usize32,
@@ -267,7 +267,7 @@ fn get_input(
 
 			#[cfg(feature = "server")]
 			{
-				entry.age = InputStateAge::Resimulating;
+				entry.age = InputAge::Resimulating;
 				entry.ping = None; //only send the ping the first time this input is acked
 			}
 
@@ -285,7 +285,7 @@ fn get_input(
 
 			InternalInputEntry {
 				input,
-				age: InputStateAge::Predicted,
+				age: InputAge::Predicted,
 				ping: None,
 			}
 		}
