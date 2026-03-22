@@ -28,20 +28,18 @@ pub struct Physics {
 	///Resets every tick
 	pub ccd_solver: CCDSolver,
 
-	level_col_handle: ColliderHandle,
+	level_col_handle: Option<ColliderHandle>,
 }
 
 impl UntrackedState for Physics {
 	fn reset_untracked(&mut self) {
 		let level_col = self
-			.colliders
-			.remove(
-				self.level_col_handle,
-				&mut self.islands,
-				&mut self.rigid_bodies,
-				false,
-			)
-			.unwrap();
+			.level_col_handle
+			.map(|level_col_handle| {
+				self.colliders
+					.remove(level_col_handle, &mut self.islands, &mut self.rigid_bodies, false)
+			})
+			.flatten();
 
 		self.integration_parameters = IntegrationParameters::default();
 		self.integration_parameters.dt = TickInfo::SIM_DT;
@@ -55,7 +53,9 @@ impl UntrackedState for Physics {
 		self.multibody_joints = MultibodyJointSet::new();
 		self.ccd_solver = CCDSolver::new();
 
-		self.level_col_handle = self.colliders.insert(level_col);
+		if let Some(level_col) = level_col {
+			self.level_col_handle = Some(self.colliders.insert(level_col));
+		}
 	}
 }
 
@@ -66,26 +66,24 @@ impl Debug for Physics {
 }
 
 impl Physics {
+	pub fn init_static_level_geom(&mut self, level_col: Collider) {
+		self.level_col_handle = Some(self.colliders.insert(level_col));
+	}
+
 	#[allow(unused)]
 	pub(crate) fn default() -> Self {
-		let level_col = ColliderBuilder::cuboid(100.0, 25.0, 100.0)
-			.translation(Vec3::new(0.0, -25.0, 0.0))
-			.build();
-		let mut colliders = ColliderSet::new();
-		let level_col_handle = colliders.insert(level_col);
-
 		Self {
 			integration_parameters: IntegrationParameters::default(),
 			islands: IslandManager::new(),
 			broad_phase: BroadPhaseBvh::new(),
 			narrow_phase: NarrowPhase::new(),
 			rigid_bodies: RigidBodySet::new(),
-			colliders,
+			colliders: ColliderSet::new(),
 			impulse_joints: ImpulseJointSet::new(),
 			multibody_joints: MultibodyJointSet::new(),
 			ccd_solver: CCDSolver::new(),
 
-			level_col_handle,
+			level_col_handle: None,
 		}
 	}
 

@@ -147,6 +147,7 @@ pub mod prelude {
 
 pub struct SimulationInitOptions {
 	//pipeline
+	pub init_static_level_geom: Option<fn(/*state*/ &mut SimulationState)>,
 	pub simulation_loop: fn(/*ctx*/ &mut GameContext<Immediate>),
 	pub new_client_snapshot: Vec<u8>,
 

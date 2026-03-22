@@ -5,6 +5,7 @@ pub mod input;
 
 pub fn init(new_client_snapshot: Vec<u8>) -> SimControllerExternals {
 	init_simulation(SimulationInitOptions {
+		init_static_level_geom: None,
 		simulation_loop,
 		new_client_snapshot,
 		input_merge: input::merge,
@@ -49,5 +50,5 @@ pub fn on_client_disconnect(
 	_tick_id: TickID,
 	diff: &mut DiffSerializer<WaitForConsensus>,
 ) {
-	character::on_client_disconnect(state, id, diff);
+	character::on_client_disconnect(state, client_id, diff);
 }

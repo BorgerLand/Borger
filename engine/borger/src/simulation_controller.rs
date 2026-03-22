@@ -7,6 +7,7 @@ use crate::networked_types::primitive::usize32;
 use crate::simulation_state::{Input, InputAge, SimulationState};
 use crate::thread_comms::*;
 use crate::tick::{TickID, TickInfo};
+use crate::untracked::UntrackedState;
 use log::debug;
 use std::collections::VecDeque;
 use std::rc::Rc;
@@ -220,8 +221,11 @@ pub fn init(cb: SimulationInitOptions) -> SimControllerExternals {
 }
 
 fn run_simulation(#[allow(unused_mut)] mut moved_data: SimMoveAcrossThreads) {
-	#[allow(unused_mut)]
 	let mut state = SimulationState::construct(&Rc::default(), ClientKind::NA);
+	moved_data.cb.init_static_level_geom.map(|init_level| {
+		init_level(&mut state);
+		state.reset_untracked(); //in case init_static_level_geom did anything nefarious
+	});
 
 	#[cfg(feature = "client")]
 	let header = snapshot_serdes::des_new_client(&mut state, mem::take(&mut moved_data.cb.new_client_snapshot))
