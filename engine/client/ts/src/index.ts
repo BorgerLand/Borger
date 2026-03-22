@@ -32,7 +32,7 @@ export function init(o: PresentationInitOptions) {
 			),
 		]);
 
-		const output = MemWrappersH.init();
+		const wrappers = MemWrappersH.init();
 		const rsController = new ClientRS.PresentationController(net.newClientSnapshot, net.writeInput);
 		const rsInput = rsController.get_input_ptr();
 		let frameRequest: number;
@@ -53,7 +53,7 @@ export function init(o: PresentationInitOptions) {
 			function tryAgain(retryTime: number) {
 				const rsOutput = rsController.presentation_tick(0);
 				if (rsOutput !== undefined) {
-					MemWrappersH.invalidateBorrows(output, wasm.memory.buffer);
+					wrappers.memView = new DataView(wasm.memory.buffer);
 					resolve({ initTime: retryTime, rsOutput });
 				} else {
 					frameRequest = requestAnimationFrame(tryAgain);
@@ -77,13 +77,16 @@ export function init(o: PresentationInitOptions) {
 			} else {
 				//ship the input off to the simulation + interpolate between simulation ticks
 				rsOutput = rsController.presentation_tick(state.dt)!;
+
+				const memory = wasm.memory.buffer;
+				if (wrappers.memView.buffer !== memory) wrappers.memView = new DataView(memory);
 			}
 
 			state.dt = curTime - prvTime;
 			prvTime = curTime;
 
-			cbLoop(MemWrappersG.wrap_Input(output, rsInput), MemWrappersG.wrap_Output(output, rsOutput)); //game on
-			MemWrappersH.invalidateBorrows(output, wasm.memory.buffer);
+			cbLoop(MemWrappersG.wrap_Input(wrappers, rsInput), MemWrappersG.wrap_Output(wrappers, rsOutput)); //game on
+			wrappers.curLifetime++;
 
 			frameRequest = requestAnimationFrame(presentationLoop);
 		}

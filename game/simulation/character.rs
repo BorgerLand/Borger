@@ -27,6 +27,8 @@ pub fn on_client_disconnect(
 }
 
 pub fn update(ctx: &mut GameContext<Immediate>) {
+	let diff = &mut ctx.diff;
+
 	//remember: the server "owns" all client objects.
 	//a locally running client only owns their own client
 	//object. the "input" field has owner visibility,
@@ -36,34 +38,26 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	//other "remote" players are
 	for client in ctx.state.clients.values() {
 		if let Client::Owned(client) = client {
-			let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
-			let input = client.input.get();
-
 			//if the input was predicted then don't bother moving until
 			//it arrives. otherwise there's a risk of running off a cliff
-			if !input.is_predicted() {
-				apply_input(character, &input.state, &mut ctx.diff);
+			if client.input.get().is_predicted() {
+				continue;
 			}
+
+			let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
+			let input = &client.input.get().state;
+
+			let rot = Quat::from_axis_angle(Vec3::Y, input.cam_yaw);
+			character.set_rot(rot, diff);
+
+			let forward = rot * Vec3::NEG_Z;
+			let right = forward.cross(Vec3::Y);
+
+			let mut pos = character.get_pos();
+			pos += right * input.omnidir.x * SPEED * TickInfo::SIM_DT; //left/right
+			pos += Vec3::Y * input.omnidir.y * SPEED * TickInfo::SIM_DT; //up/down
+			pos += forward * input.omnidir.z * SPEED * TickInfo::SIM_DT; //forward/backward
+			character.set_pos(pos, diff);
 		}
 	}
-}
-
-//can call this in an Immediate or WaitForServer context.
-//WaitForConsensus would be janky/unsmooth
-fn apply_input(
-	character: &mut Character,
-	input: &Input,
-	diff: &mut DiffSerializer<impl ImmediateOrWaitForServer>,
-) {
-	let rot = Quat::from_axis_angle(Vec3::Y, input.cam_yaw);
-	character.set_rot(rot, diff);
-
-	let forward = rot * Vec3::NEG_Z;
-	let right = forward.cross(Vec3::Y);
-
-	let mut pos = character.get_pos();
-	pos += right * input.omnidir.x * SPEED * TickInfo::SIM_DT; //left/right
-	pos += Vec3::Y * input.omnidir.y * SPEED * TickInfo::SIM_DT; //up/down
-	pos += forward * input.omnidir.z * SPEED * TickInfo::SIM_DT; //forward/backward
-	character.set_pos(pos, diff);
 }

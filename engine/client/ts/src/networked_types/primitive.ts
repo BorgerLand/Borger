@@ -12,24 +12,24 @@ export function wrap_Vec2(state: MemWrappers.State, ptr: number) {
 }
 
 export function wrap_mut_Vec2(state: MemWrappers.State, ptr: number) {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 
 	return {
 		get_x() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr, true);
 		},
 		set_x(x: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr, x, true);
 			return this;
 		},
 		get_y() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr + SIZEOF_32BIT, true);
 		},
 		set_y(y: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr + SIZEOF_32BIT, y, true);
 			return this;
 		},
@@ -45,24 +45,24 @@ export function wrap_DVec2(state: MemWrappers.State, ptr: number) {
 }
 
 export function wrap_mut_DVec2(state: MemWrappers.State, ptr: number) {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 
 	return {
 		get_x() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr, true);
 		},
 		set_x(x: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr, x, true);
 			return this;
 		},
 		get_y() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr + SIZEOF_64BIT, true);
 		},
 		set_y(y: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr + SIZEOF_64BIT, y, true);
 			return this;
 		},
@@ -79,33 +79,33 @@ export function wrap_Vec3(state: MemWrappers.State, ptr: number) {
 }
 
 export function wrap_mut_Vec3(state: MemWrappers.State, ptr: number) {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 
 	return {
 		get_x() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr, true);
 		},
 		set_x(x: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr, x, true);
 			return this;
 		},
 		get_y() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr + SIZEOF_32BIT, true);
 		},
 		set_y(y: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr + SIZEOF_32BIT, y, true);
 			return this;
 		},
 		get_z() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr + 2 * SIZEOF_32BIT, true);
 		},
 		set_z(z: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr + 2 * SIZEOF_32BIT, z, true);
 			return this;
 		},
@@ -122,33 +122,33 @@ export function wrap_DVec3(state: MemWrappers.State, ptr: number) {
 }
 
 export function wrap_mut_DVec3(state: MemWrappers.State, ptr: number) {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 
 	return {
 		get_x() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr, true);
 		},
 		set_x(x: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr, x, true);
 			return this;
 		},
 		get_y() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr + SIZEOF_64BIT, true);
 		},
 		set_y(y: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr + SIZEOF_64BIT, y, true);
 			return this;
 		},
 		get_z() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr + 2 * SIZEOF_64BIT, true);
 		},
 		set_z(z: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr + 2 * SIZEOF_64BIT, z, true);
 			return this;
 		},
@@ -166,42 +166,42 @@ export function wrap_Quat(state: MemWrappers.State, ptr: number) {
 }
 
 export function wrap_mut_Quat(state: MemWrappers.State, ptr: number) {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 
 	return {
 		get_x() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr, true);
 		},
 		set_x(x: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr, x, true);
 			return this;
 		},
 		get_y() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr + SIZEOF_32BIT, true);
 		},
 		set_y(y: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr + SIZEOF_32BIT, y, true);
 			return this;
 		},
 		get_z() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr + 2 * SIZEOF_32BIT, true);
 		},
 		set_z(z: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr + 2 * SIZEOF_32BIT, z, true);
 			return this;
 		},
 		get_w() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat32(ptr + 3 * SIZEOF_32BIT, true);
 		},
 		set_w(w: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat32(ptr + 3 * SIZEOF_32BIT, w, true);
 			return this;
 		},
@@ -219,42 +219,42 @@ export function wrap_DQuat(state: MemWrappers.State, ptr: number) {
 }
 
 export function wrap_mut_DQuat(state: MemWrappers.State, ptr: number) {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 
 	return {
 		get_x() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr, true);
 		},
 		set_x(x: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr, x, true);
 			return this;
 		},
 		get_y() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr + SIZEOF_64BIT, true);
 		},
 		set_y(y: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr + SIZEOF_64BIT, y, true);
 			return this;
 		},
 		get_z() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr + 2 * SIZEOF_64BIT, true);
 		},
 		set_z(z: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr + 2 * SIZEOF_64BIT, z, true);
 			return this;
 		},
 		get_w() {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return state.memView.getFloat64(ptr + 3 * SIZEOF_64BIT, true);
 		},
 		set_w(w: number) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			state.memView.setFloat64(ptr + 3 * SIZEOF_64BIT, w, true);
 			return this;
 		},

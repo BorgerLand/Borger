@@ -1,10 +1,12 @@
 import * as MemWrappers from "@borger/ts/handwritten/mem_wrappers.ts";
 import { SIZEOF_32BIT } from "@borger/ts/networked_types/primitive.ts";
 
-export type SlotMap<T> = (events?: {
+export type SlotMap<T> = ((events?: {
 	added: (id: number) => void;
 	removed: (id: number) => void;
-}) => Iterable<[number, T]> & { len: () => number; get: (id: number) => T | undefined };
+}) => Iterable<[number, T]> & { len: () => number; get: (id: number) => T | undefined }) & {
+	len: () => number;
+};
 
 type SlotMapMemOffsets = {
 	slot_0: number;
@@ -25,7 +27,7 @@ export function wrap<T>(
 	wrapElement: (state: MemWrappers.State, ptr: number) => T,
 	getElement: (ptr: number, id: number) => number | undefined,
 ): SlotMap<T> {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 	const slotsPtr = state.memView.getUint32(ptr + offsets.slots_ptr, true);
 	const slotsLen = state.memView.getUint32(ptr + offsets.slots_len, true);
 	const removedPtr = state.memView.getUint32(ptr + offsets.removed_ptr, true);
@@ -33,9 +35,10 @@ export function wrap<T>(
 	const addedPtr = state.memView.getUint32(ptr + offsets.added_ptr, true);
 	const addedLen = state.memView.getUint32(ptr + offsets.added_len, true);
 
-	return function (events) {
+	const len = () => slotsLen;
+	const ret: SlotMap<T> = function (events) {
 		if (events) {
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 
 			for (let i = 0; i < removedLen; i++)
 				events.removed(state.memView.getUint32(removedPtr + i * SIZEOF_32BIT, true));
@@ -44,15 +47,14 @@ export function wrap<T>(
 		}
 
 		return {
-			len: () => slotsLen,
-
+			len,
 			[Symbol.iterator]() {
 				let i = 0;
 				return {
 					next() {
 						if (i >= slotsLen) return { done: true, value: undefined };
 
-						MemWrappers.checkUseAfterFree(lifetime);
+						MemWrappers.checkUseAfterFree(state, lifetime);
 						const slotPtr = slotsPtr + i++ * offsets.slots_stride;
 						const id = state.memView.getUint32(slotPtr + offsets.slot_0, true);
 						return { done: false, value: [id, wrapElement(state, slotPtr + offsets.slot_1)] };
@@ -61,10 +63,13 @@ export function wrap<T>(
 			},
 
 			get(id: number) {
-				MemWrappers.checkUseAfterFree(lifetime);
+				MemWrappers.checkUseAfterFree(state, lifetime);
 				const elementPtr = getElement(ptr, id);
 				if (elementPtr !== undefined) return wrapElement(state, elementPtr);
 			},
 		};
 	};
+
+	ret.len = len;
+	return ret;
 }

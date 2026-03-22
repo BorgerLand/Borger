@@ -45,7 +45,7 @@ pub fn on_client_connect(
 #[server]
 pub fn on_client_disconnect(
 	state: &mut SimulationState,
-	id: usize32,
+	client_id: usize32,
 	_tick_id: TickID,
 	diff: &mut DiffSerializer<WaitForConsensus>,
 ) {

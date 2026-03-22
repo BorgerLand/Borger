@@ -34,7 +34,7 @@ ${structs.input
 
 export function wrap_Input(state: MemWrappers.State, ptr: number)
 {
-	const lifetime = MemWrappers.curLifetime;
+	const lifetime = state.curLifetime;
 	const offsets = state.offsets.struct.Input;
 	
 ${structs.input
@@ -53,7 +53,7 @@ ${struct.fields
 		if (isPrimitive(outerType)) {
 			return `		get_${name}()
 		{
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			return ${getPrimitive(outerType, offset)};
 		},
 		set_${name}(value: ${(function getSimplePrimitiveType() {
@@ -62,7 +62,7 @@ ${struct.fields
 			return "number";
 		})()})
 		{
-			MemWrappers.checkUseAfterFree(lifetime);
+			MemWrappers.checkUseAfterFree(state, lifetime);
 			${setSimplePrimitive(outerType as SimplePrimitiveType, offset)};
 			return this;
 		},`;
@@ -160,10 +160,9 @@ export type Client =
 function wrap_Client(state: MemWrappers.State, ptr: number): Client
 {
 	const offsets = state.offsets.struct.Client;
-	if (state.memView.getUint8(ptr) === ClientDiscriminant.Owned)
-		return { type: ClientDiscriminant.Owned, value: wrap_ClientOwned(state, ptr + offsets.owned) };
-
-	return { type: ClientDiscriminant.Remote, value: wrap_ClientRemote(state, ptr + offsets.remote) };
+	return state.memView.getUint8(ptr) === ClientDiscriminant.Owned
+			? { type: ClientDiscriminant.Owned, value: wrap_ClientOwned(state, ptr + offsets.owned) }
+			: { type: ClientDiscriminant.Remote, value: wrap_ClientRemote(state, ptr + offsets.remote) };
 }
 `,
 	);
