@@ -154,12 +154,14 @@ pub struct SimulationInitOptions {
 	//input operations
 	pub input_merge: fn(/*combined*/ &Input, /*new*/ &Input) -> Input,
 	pub input_validate: fn(/*sus*/ &Input) -> Input,
-	pub input_predict_late: fn(
+	pub input_server_predict_late: fn(
 		/*prv*/ &Input,
-		/*is_timed_out*/ bool,
 		/*state*/ &SimulationState,
 		/*client_id*/ usize32,
+		/*is_timed_out*/ bool,
 	) -> Input,
+	pub input_client_predict_late:
+		fn(/*prv*/ &Input, /*state*/ &SimulationState, /*client_id*/ usize32) -> Input,
 
 	//server_events
 	pub on_server_start:

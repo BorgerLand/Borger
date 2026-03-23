@@ -9,86 +9,107 @@ export type PresentationInitOptions = {
 	hostname?: string; //eg. location.hostname, "localhost", "192.168.0.100", "server.com"
 	webTransportPort?: number; //6969
 	webSocketPort?: number; //6996
-	game: (state: Init) => Promise<(input: MemWrappersG.Input, output: MemWrappersG.Output) => void>; //an async init function that returns a loop function
+
+	requireWebGL2?: boolean;
+	requireWebGPU?: boolean;
 };
 
-export type Init = {
-	dt: number;
-	compat: Compat.State;
-};
+export type State = Awaited<ReturnType<typeof init>>;
 
-export function init(o: PresentationInitOptions) {
-	return new Promise<void>(async function (resolve) {
-		const compat = await Compat.init();
+export async function init(o?: PresentationInitOptions) {
+	const compat = await Compat.init(o);
 
-		//init the game server connection and wasm module in parallel
-		const [wasm, net] = await Promise.all([
-			ClientRSInit(),
-			Net.init(
-				o.hostname ?? location.hostname,
-				o.webTransportPort ?? 6969,
-				o.webSocketPort ?? 6996,
-				compat.WebTransport.supported,
-			),
-		]);
+	//init the game server connection and wasm module in parallel
+	const [wasm, net] = await Promise.all([
+		ClientRSInit(),
+		Net.init(
+			o?.hostname ?? location.hostname,
+			o?.webTransportPort ?? 6969,
+			o?.webSocketPort ?? 6996,
+			compat.webTransport.supported,
+		),
+	]);
 
-		const wrappers = MemWrappersH.init();
-		const rsController = new ClientRS.PresentationController(net.newClientSnapshot, net.writeInput);
-		const rsInput = rsController.get_input_ptr();
+	const wrappers = MemWrappersH.init();
+	const rsController = new ClientRS.PresentationController(net.newClientSnapshot, net.writeInput);
+	const rsInput = rsController.get_input_ptr();
+	let initFrameRequest: number;
+
+	Net.onStateReceived(net, (buffer) => rsController.listen_for_state(buffer));
+	Net.onDisconnect(net, function () {
+		rsController.abort_simulation();
+		cancelAnimationFrame(initFrameRequest);
+	});
+
+	//launch the simulation thread (by constructing PresentationController)
+	//and wait for it to be ready
+	const { initTime, rsOutput } = await new Promise<{ initTime: number; rsOutput: number }>(function (
+		resolve,
+	) {
+		initFrameRequest = requestAnimationFrame(tryAgain);
+		function tryAgain(retryTime: number) {
+			const rsOutput = rsController.presentation_tick(0);
+			if (rsOutput !== undefined) {
+				wrappers.memView = new DataView(wasm.memory.buffer);
+				resolve({ initTime: retryTime, rsOutput });
+			} else {
+				initFrameRequest = requestAnimationFrame(tryAgain);
+			}
+		}
+	});
+
+	const state = {
+		dt: 0,
+		initTime,
+		prvTime: -1,
+		compat,
+		wasm,
+		net,
+		rsController,
+		rsInput,
+		rsOutput,
+		wrappers,
+	};
+
+	return state;
+}
+
+export function present(
+	state: State,
+	presentationLoop: (input: MemWrappersG.Input, output: MemWrappersG.Output) => void,
+) {
+	return new Promise<void>(function (resolve) {
 		let frameRequest: number;
-
-		Net.onStateReceived(net, (buffer) => rsController.listen_for_state(buffer));
-		Net.onDisconnect(net, function () {
-			rsController.abort_simulation();
+		Net.onDisconnect(state.net, function () {
+			state.rsController.abort_simulation();
 			cancelAnimationFrame(frameRequest);
 			resolve();
 		});
 
-		//launch the simulation thread (by constructing PresentationController)
-		//and wait for it to be ready
-		let { initTime, rsOutput } = await new Promise<{ initTime: number; rsOutput: number }>(function (
-			resolve,
-		) {
-			frameRequest = requestAnimationFrame(tryAgain);
-			function tryAgain(retryTime: number) {
-				const rsOutput = rsController.presentation_tick(0);
-				if (rsOutput !== undefined) {
-					wrappers.memView = new DataView(wasm.memory.buffer);
-					resolve({ initTime: retryTime, rsOutput });
-				} else {
-					frameRequest = requestAnimationFrame(tryAgain);
-				}
-			}
-		});
-
-		let prvTime = -1;
-		const state = {
-			dt: 0,
-			compat,
-		};
-
-		const cbLoop = await o.game(state);
-		presentationLoop(initTime!);
-		function presentationLoop(curTime: number) {
+		animationFrame(state.initTime!);
+		function animationFrame(curTime: number) {
 			curTime /= 1000; //convert to seconds
-			if (prvTime < 0) {
+			if (state.prvTime < 0) {
 				//initial frame
-				prvTime = curTime; //forces dt value to be 0
+				state.prvTime = curTime; //forces dt value to be 0
 			} else {
 				//ship the input off to the simulation + interpolate between simulation ticks
-				rsOutput = rsController.presentation_tick(state.dt)!;
+				state.rsOutput = state.rsController.presentation_tick(state.dt)!;
 
-				const memory = wasm.memory.buffer;
-				if (wrappers.memView.buffer !== memory) wrappers.memView = new DataView(memory);
+				const memory = state.wasm.memory.buffer;
+				if (state.wrappers.memView.buffer !== memory) state.wrappers.memView = new DataView(memory);
 			}
 
-			state.dt = curTime - prvTime;
-			prvTime = curTime;
+			state.dt = curTime - state.prvTime;
+			state.prvTime = curTime;
 
-			cbLoop(MemWrappersG.wrap_Input(wrappers, rsInput), MemWrappersG.wrap_Output(wrappers, rsOutput)); //game on
-			wrappers.curLifetime++;
+			presentationLoop(
+				MemWrappersG.wrap_Input(state.wrappers, state.rsInput),
+				MemWrappersG.wrap_Output(state.wrappers, state.rsOutput),
+			); //game on
+			state.wrappers.curLifetime++;
 
-			frameRequest = requestAnimationFrame(presentationLoop);
+			frameRequest = requestAnimationFrame(animationFrame);
 		}
 
 		ConsoleLog.init();

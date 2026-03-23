@@ -1,6 +1,6 @@
-import { useTouchscreenStore } from "@game/presentation/input.ts";
-import { Nipples } from "@game/presentation/ui/nipples.tsx";
-import { Buttons } from "@game/presentation/ui/buttons.tsx";
+import { useTouchscreenStore } from "@game/input.ts";
+import { Nipples } from "@game/ui/nipples.tsx";
+import { Buttons } from "@game/ui/buttons.tsx";
 
 export function HUD() {
 	const touchscreenMode = useTouchscreenStore((s) => s.touchscreenMode);

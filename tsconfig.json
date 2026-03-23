@@ -12,7 +12,7 @@
 			"@borger/rs": ["engine/client/rs/pkg"],
 			"@borger/ts": ["engine/client/ts/src"],
 			"@borger/ts/*": ["engine/client/ts/src/*"],
-			"@game/*": ["game/*"]
+			"@game/*": ["game/presentation/*"]
 		},
 		"moduleResolution": "bundler",
 		"resolveJsonModule": true,

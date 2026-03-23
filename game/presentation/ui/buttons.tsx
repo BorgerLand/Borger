@@ -1,4 +1,4 @@
-import { useTouchscreenStore, type TouchscreenStore } from "@game/presentation/input.ts";
+import { useTouchscreenStore, type TouchscreenStore } from "@game/input.ts";
 
 type ButtonField = {
 	[K in keyof TouchscreenStore]: K extends `${string}Button` ? K : never;

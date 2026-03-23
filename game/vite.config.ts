@@ -14,7 +14,7 @@ export default defineConfig({
 			//should match tsconfig.json
 			"@borger/rs": path.resolve("../engine/client/rs/pkg"),
 			"@borger/ts": path.resolve("../engine/client/ts/src"),
-			"@game": path.resolve("."),
+			"@game": path.resolve("presentation"),
 		},
 	},
 	server: {

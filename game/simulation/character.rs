@@ -38,12 +38,6 @@ pub fn update(ctx: &mut GameContext<Immediate>) {
 	//other "remote" players are
 	for client in ctx.state.clients.values() {
 		if let Client::Owned(client) = client {
-			//if the input was predicted then don't bother moving until
-			//it arrives. otherwise there's a risk of running off a cliff
-			if client.input.get().is_predicted() {
-				continue;
-			}
-
 			let character = ctx.state.characters.get_mut(client.get_character_id()).unwrap();
 			let input = &client.input.get().state;
 

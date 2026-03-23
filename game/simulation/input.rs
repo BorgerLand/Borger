@@ -57,35 +57,48 @@ pub fn validate(sus: &Input) -> Input {
 }
 
 //the server needs to continue simulating even if it hasn't
-//received inputs from all clients yet due to latency, and a
-//client needs to continue simulating even if it hasn't received
-//a new input from the presentation thread yet due to the
-//presentation thread stalling momentarily. this function lets
-//you choose how the engine fabricates an input, given the
-//previous tick's input. if accessing state.clients[client_id]:
-//the Client will always be owned. do not access
+//received inputs from all clients yet due to latency. this
+//function lets you choose how the engine fabricates an input,
+//given the previous tick's input. do not try to access
 //state.client.input; it will be wrong; use prv instead.
-//is_timed_out indicates that the client took too long to send
-//an input for this tick, so the server is forcing consensus
-//without it. is_timed_out is always false on the client side
-pub fn predict_late(prv: &Input, is_timed_out: bool, _state: &SimulationState, _client_id: usize32) -> Input {
+//is_timed_out indicates that the client took too long
+//to send an input for this tick, so the server is forcing
+//consensus without it. push-and-hold buttons (eg. left click,
+//controller triggers) are also usually safe to predict they are
+//still in the same position. discrete taps (eg. reload, talk to
+//npc) are normally safe to predict false or else you risk
+//triggering some action twice
+pub fn server_predict_late(
+	prv: &Input,
+	_state: &SimulationState,
+	_client_id: usize32,
+	_is_timed_out: bool,
+) -> Input {
 	Input {
 		//predict that camera hasn't moved
 		cam_yaw: prv.cam_yaw,
 		cam_pitch: prv.cam_pitch,
 
-		omnidir: if is_timed_out {
-			//predict that omnidir is still going strong, otherwise a small
-			//hiccup from the presentation thread briefly stalls you
-			Vec3::default()
-		} else {
-			prv.omnidir
-		},
-		//push-and-hold buttons (eg. left click, controller triggers)
-		//are also usually safe to predict they are still in the same
-		//position. discrete taps (eg. reload, talk to npc) are normally
-		//safe to predict false or else you risk triggering some action
-		//twice
+		//predict that this client stopped attempting to move. otherwise
+		//they're at risk of walking off a cliff while they lag. a racing
+		//game may want to predict that the throttle is gradually let off
+		//rather than immediately stopped
+		omnidir: Vec3::default(),
+	}
+}
+
+//the client needs to continue simulating even if the
+//presentation thread stuttered and missed a tick. the same
+//rules apply here as server_predict_late
+pub fn client_predict_late(prv: &Input, _state: &SimulationState, _client_id: usize32) -> Input {
+	Input {
+		//predict that camera hasn't moved
+		cam_yaw: prv.cam_yaw,
+		cam_pitch: prv.cam_pitch,
+
+		//predict that omnidir nipple is still held the same as last tick.
+		//otherwise there's risk of very short stutters/stalls in movement
+		omnidir: prv.omnidir,
 	}
 }
 
