@@ -10,7 +10,8 @@ const characterMat = new MeshLambertMaterial({ color: 0x00ff00 });
 const characterMesh = new Mesh(characterGeom, characterMat);
 
 export function update(input: Borger.Input, output: Borger.Output, scene: Scene, camera: Camera) {
-	const localCharacterID = output.state.clients().get(output.local_client_id)!.value.character_id;
+	const localCharacterID = (output.state.clients().get(output.local_client_id)!.value as Borger.ClientOwned)
+		.character_id;
 
 	const charactersSim = output.state.characters({
 		added(id) {

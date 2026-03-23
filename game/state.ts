@@ -33,7 +33,7 @@ export default {
 				},
 			},
 
-			character_id: { netVisibility: "public", presentation: "clone", type: "usize32" },
+			character_id: { netVisibility: "owner", presentation: "clone", type: "usize32" },
 		},
 	},
 	characters: {
