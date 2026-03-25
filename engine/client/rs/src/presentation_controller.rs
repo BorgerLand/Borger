@@ -3,6 +3,7 @@ use borger::presentation::{PresentationState, SimulationOutput};
 use borger::simulation_controller::{self, SimControllerExternals};
 use borger::simulation_state::Input;
 use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
+use game_rs::input;
 use js_sys::{Function, Uint8Array};
 use log::Level;
 use std::sync::atomic::Ordering;
@@ -181,4 +182,12 @@ fn log_setup() {
 	}));
 
 	console_log::init_with_level(LOG_LEVEL).unwrap();
+}
+
+//safety: this is meant to be called in js on the presentation
+//controller's Borger.Input
+#[wasm_bindgen]
+pub unsafe fn validate_input(input: *mut Input) {
+	let input = unsafe { &mut *input };
+	*input = input::validate(input);
 }

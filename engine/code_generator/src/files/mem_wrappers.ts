@@ -70,7 +70,16 @@ ${struct.fields
 
 		return `		${name}: ${fullType},`; //custom struct
 	})
-	.join("\n\t\t\n")}
+	.join("\n\t\t\n")}${
+				struct.name === "Input"
+					? `
+		
+		validate()
+		{
+			ClientRS.validate_input(ptr);
+		},`
+					: ``
+			}
 	};`,
 	)
 	.join("\n\n")}

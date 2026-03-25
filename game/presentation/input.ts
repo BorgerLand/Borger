@@ -1,5 +1,5 @@
 import { InputPoll } from "@game/input_poll.ts";
-import { MathUtils, Vector2 } from "three";
+import { Vector2 } from "three";
 import { create } from "zustand";
 import type * as Borger from "@borger/ts";
 
@@ -133,21 +133,16 @@ export function update(state: State, input: Borger.Input) {
 		}
 	}
 
-	state.yaw = wrapAngle(state.yaw);
-	state.pitch = MathUtils.clamp(state.pitch, -89.9 * MathUtils.DEG2RAD, 89.9 * MathUtils.DEG2RAD);
 	input.set_cam_yaw(state.yaw).set_cam_pitch(state.pitch);
+
+	//call input::validate() (the rust code) in order to reuse its clamping logic
+	input.validate();
+	state.yaw = input.get_cam_yaw();
+	state.pitch = input.get_cam_pitch();
 
 	state.poll.update();
 }
 
 export function dispose(state: State) {
 	state.poll.dispose();
-}
-
-function wrapAngle(angle: number) {
-	let diff = ((angle + Math.PI) % (Math.PI * 2)) - Math.PI;
-	if (diff < -Math.PI) {
-		diff += Math.PI * 2;
-	}
-	return diff;
 }
