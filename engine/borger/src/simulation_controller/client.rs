@@ -18,7 +18,7 @@ const JITTER_TOLERANCE: Duration = Duration::from_millis(50);
 const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 
 impl SimControllerInternals {
-	pub(super) fn fast_forward(&mut self, amount: TickID) {
+	pub(super) fn initial_fast_forward(&mut self, amount: TickID) {
 		self.input_history.generate_bogus_inputs(amount);
 		if amount > 0 {
 			self.simulate();

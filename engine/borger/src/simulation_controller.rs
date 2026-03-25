@@ -317,7 +317,7 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 	};
 
 	#[cfg(feature = "client")]
-	sim.fast_forward(new_client_header.fast_forward_ticks);
+	sim.initial_fast_forward(new_client_header.fast_forward_ticks);
 
 	loop {
 		sim.scheduled_tick(false);
@@ -348,7 +348,7 @@ pub fn replay_session(cb: SimulationInitOptions, actions: Vec<SessionReplayActio
 		initial_calibration: true,
 	};
 
-	sim.fast_forward(new_client_header.fast_forward_ticks);
+	sim.initial_fast_forward(new_client_header.fast_forward_ticks);
 
 	for action in actions {
 		match action {
