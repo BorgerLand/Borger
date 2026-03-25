@@ -134,23 +134,53 @@ export async function replaySession() {
 	await ClientRSInit();
 
 	// eslint-disable-next-line no-console
-	console.log("Click anywhere on the page to load a session dump file.");
-	await new Promise((resolve) => document.addEventListener("click", resolve, { once: true }));
+	console.log(
+		"Drag a session dump file onto the page, or click anywhere on the page to open a file prompt.",
+	);
 
 	const file = await new Promise<Uint8Array>((resolve, reject) => {
-		const input = document.createElement("input");
-		input.type = "file";
-		input.accept = ".dump";
+		function cleanup() {
+			document.removeEventListener("dragover", onDragOver);
+			document.removeEventListener("drop", onDrop);
+			document.removeEventListener("click", onClick);
+		}
 
-		input.onchange = async (e) => {
-			const file = (e.target as HTMLInputElement).files?.[0];
-			if (!file) return reject("No file selected");
+		function onDragOver(e: DragEvent) {
+			e.preventDefault();
+		}
+
+		async function onDrop(e: DragEvent) {
+			e.preventDefault();
+			cleanup();
+
+			const file = e.dataTransfer?.files?.[0];
+			if (!file) return reject("No file dropped");
 
 			const buffer = await file.arrayBuffer();
 			resolve(new Uint8Array(buffer));
-		};
+		}
 
-		input.click();
+		function onClick() {
+			cleanup();
+
+			const input = document.createElement("input");
+			input.type = "file";
+			input.accept = ".dump";
+
+			input.onchange = async function (e) {
+				const file = (e.target as HTMLInputElement).files?.[0];
+				if (!file) return reject("No file selected");
+
+				const buffer = await file.arrayBuffer();
+				resolve(new Uint8Array(buffer));
+			};
+
+			input.click();
+		}
+
+		document.addEventListener("dragover", onDragOver);
+		document.addEventListener("drop", onDrop);
+		document.addEventListener("click", onClick);
 	});
 
 	(ClientRS.PresentationController as any).replay_session(file);

@@ -65,7 +65,7 @@ dev_help() {
 	echo "Usage: ./borger dev [options]"
 	echo ""
 	echo "Options:"
-	echo "  --session_replay  Enable client-sided session recording+dumping+replaying"
+	echo "  --session-replay  Enable client-sided session recording+dumping+replaying"
 	echo "  --help            Show this help message"
 }
 
@@ -74,7 +74,7 @@ cmd_dev() {
 
 	while [[ $# -gt 0 ]]; do
 		case $1 in
-			--session_replay)
+			--session-replay)
 				CLIENT_FEATURES="$CLIENT_FEATURES,session_replay"
 				shift
 				;;
