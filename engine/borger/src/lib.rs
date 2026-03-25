@@ -138,7 +138,6 @@ pub mod prelude {
 	pub use crate::multiplayer_tradeoff::*;
 	pub use crate::networked_types::primitive::usize32;
 	pub use crate::simulation_controller::GameContext;
-	pub use crate::simulation_controller::{SimControllerExternals, init as init_simulation};
 	pub use crate::simulation_state::*;
 	pub use crate::tick::{TickID, TickInfo};
 	pub use borger_procmac::server;
@@ -149,7 +148,6 @@ pub struct SimulationInitOptions {
 	//pipeline
 	pub init_static_level_geom: Option<fn(/*state*/ &mut SimulationState)>,
 	pub simulation_loop: fn(/*ctx*/ &mut GameContext<Immediate>),
-	pub new_client_snapshot: Vec<u8>,
 
 	//input operations
 	pub input_merge: fn(/*combined*/ &Input, /*new*/ &Input) -> Input,

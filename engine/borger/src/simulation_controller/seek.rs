@@ -55,16 +55,13 @@ impl SimControllerInternals {
 
 		if TRACE_TICK_ADVANCEMENT {
 			let total_simulate_amount = self.ctx.tick.id_target - self.ctx.tick.id_cur;
-			if total_simulate_amount > 0 {
-				let consensus_simulate_amount =
-					self.ctx.tick.id_consensus.saturating_sub(self.ctx.tick.id_cur);
-				debug!(
-					"simulate {} ticks ({} consensus+{} predicted)",
-					total_simulate_amount,
-					consensus_simulate_amount,
-					total_simulate_amount - consensus_simulate_amount,
-				);
-			}
+			let consensus_simulate_amount = self.ctx.tick.id_consensus.saturating_sub(self.ctx.tick.id_cur);
+			debug!(
+				"simulate {} ticks ({} consensus+{} predicted)",
+				total_simulate_amount,
+				consensus_simulate_amount,
+				total_simulate_amount - consensus_simulate_amount,
+			);
 		}
 
 		while self.ctx.tick.id_cur < self.ctx.tick.id_target {

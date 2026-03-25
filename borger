@@ -61,7 +61,30 @@ cmd_setup() {
 Now run ./borger dev when you're ready to rumble"
 }
 
+dev_help() {
+	echo "Usage: ./borger dev [options]"
+	echo ""
+	echo "Options:"
+	echo "  --session_replay  Enable client-sided session recording+dumping+replaying"
+	echo "  --help            Show this help message"
+}
+
 cmd_dev() {
+	local CLIENT_FEATURES="client"
+
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+			--session_replay)
+				CLIENT_FEATURES="$CLIENT_FEATURES,session_replay"
+				shift
+				;;
+			*)
+				dev_help
+				exit 1
+				;;
+		esac
+	done
+
 	assert_dev_not_running
 	
 	#make sure code generator runs before anything else
@@ -82,7 +105,7 @@ cmd_dev() {
 		"cd engine/client/rs && cargo watch --why --no-vcs-ignores -i 'pkg/*' \
 			-i 'game/{assets,presentation}/**' \
 			-i 'game/**/*.{ts,tsx,css,json,htm,html}' \
-			-s 'wasm-pack build --no-opt --target=web --profile client-dev --features client'" \
+			-s 'wasm-pack build --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES'" \
 		"cd game && bun vite" \
 		"bun tsc --watch --preserveWatchOutput"
 }
@@ -179,9 +202,9 @@ cmd_release() {
 
 	if [ -n "$RUN" ]; then
 		if [ -z "$FULLCHAIN" ] || [ -z "$PRIVKEY" ]; then
-		echo "ERROR: --fullchain and --privkey are both required for --run"
-		exit 1
-	fi
+			echo "ERROR: --fullchain and --privkey are both required for --run"
+			exit 1
+		fi
 
 		# Convert to absolute paths before cd
 		FULLCHAIN="$(cd "$(dirname "$FULLCHAIN")" && pwd)/$(basename "$FULLCHAIN")"

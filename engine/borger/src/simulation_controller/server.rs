@@ -1,7 +1,6 @@
 use super::*;
 use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::snapshot_serdes;
-use crate::snapshot_serdes::NewClientHeader;
 use crate::tick::{TickID, TickInfo, TickType, UnrollbackableNetEvent};
 use crate::{ClientKind, diff_des};
 use log::debug;

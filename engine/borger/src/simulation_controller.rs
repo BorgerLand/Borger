@@ -5,6 +5,7 @@ use crate::diff_ser::DiffSerializer;
 use crate::multiplayer_tradeoff::{AnyTradeoff, Impl};
 use crate::networked_types::primitive::usize32;
 use crate::simulation_state::{Input, InputAge, SimulationState};
+use crate::snapshot_serdes::NewClientHeader;
 use crate::thread_comms::*;
 use crate::tick::{TickID, TickInfo};
 use crate::untracked::UntrackedState;
@@ -26,8 +27,7 @@ use {
 
 #[cfg(feature = "client")]
 use {
-	crate::presentation::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox, std::mem,
-	std::sync::Arc,
+	crate::presentation::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox, std::sync::Arc,
 };
 
 #[cfg(feature = "client")]
@@ -61,6 +61,9 @@ pub struct SimControllerExternals {
 //all fields must be Send
 struct SimMoveAcrossThreads {
 	cb: SimulationInitOptions,
+
+	#[cfg(feature = "client")]
+	new_client_snapshot: Vec<u8>,
 
 	#[cfg(feature = "server")]
 	new_connection_receiver: SyncReceiver<AsyncSender<SimToClientCommand>>,
@@ -173,24 +176,74 @@ struct InternalInputEntry {
 	ping: bool, //whether waiting to be acked for the first time
 }
 
-pub fn init(cb: SimulationInitOptions) -> SimControllerExternals {
+#[cfg(feature = "client")]
+fn make_client_comms() -> (
+	SimToPresentationChannel,
+	PresentationToSimChannel,
+	Arc<AtomicOptionBox<SimulationOutput>>,
+) {
+	let (to_presentation, from_sim) = sync_unbounded_channel();
+	let (to_sim, from_presentation) = sync_unbounded_channel();
+
+	let sim_comms = SimToPresentationChannel {
+		to_presentation,
+		from_presentation,
+	};
+	let presentation_comms = PresentationToSimChannel { to_sim, from_sim };
+	let output_sender = Arc::new(AtomicOptionBox::none());
+
+	(sim_comms, presentation_comms, output_sender)
+}
+
+struct MakeContext {
+	ctx: GameContext<Impl>,
+
+	#[cfg(feature = "client")]
+	new_client_header: NewClientHeader,
+}
+
+fn make_context(
+	cb: &SimulationInitOptions,
+	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
+) -> MakeContext {
+	let mut state = SimulationState::construct(&Rc::default(), ClientKind::NA);
+	cb.init_static_level_geom.map(|init_level| {
+		init_level(&mut state);
+		state.reset_untracked(); //in case init_static_level_geom did anything nefarious
+	});
+
+	#[cfg(feature = "client")]
+	let new_client_header = snapshot_serdes::des_new_client(&mut state, new_client_snapshot).unwrap();
+
+	#[cfg(feature = "server")]
+	let tick_info = TickInfo::new(0, 0);
+	#[cfg(feature = "client")]
+	let tick_info = TickInfo::new(
+		new_client_header.tick_id_snapshot,
+		new_client_header.fast_forward_ticks,
+	);
+
+	MakeContext {
+		ctx: GameContext {
+			state,
+			tick: tick_info,
+			diff: DiffSerializer::default(),
+		},
+
+		#[cfg(feature = "client")]
+		new_client_header,
+	}
+}
+
+pub fn init(
+	cb: SimulationInitOptions,
+	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
+) -> SimControllerExternals {
 	#[cfg(feature = "server")]
 	let (new_connection_sender, new_connection_receiver) = sync_unbounded_channel();
 
 	#[cfg(feature = "client")]
-	let (to_presentation, from_sim) = sync_unbounded_channel();
-	#[cfg(feature = "client")]
-	let (to_sim, from_presentation) = sync_unbounded_channel();
-
-	#[cfg(feature = "client")]
-	let presentation_comms = SimToPresentationChannel {
-		to_presentation,
-		from_presentation,
-	};
-	#[cfg(feature = "client")]
-	let sim_comms = PresentationToSimChannel { to_sim, from_sim };
-	#[cfg(feature = "client")]
-	let output_sender = Arc::new(AtomicOptionBox::none());
+	let (sim_comms, presentation_comms, output_sender) = make_client_comms();
 	#[cfg(feature = "client")]
 	let output_receiver = output_sender.clone();
 
@@ -198,10 +251,13 @@ pub fn init(cb: SimulationInitOptions) -> SimControllerExternals {
 		run_simulation(SimMoveAcrossThreads {
 			cb,
 
+			#[cfg(feature = "client")]
+			new_client_snapshot,
+
 			#[cfg(feature = "server")]
 			new_connection_receiver,
 			#[cfg(feature = "client")]
-			comms: presentation_comms,
+			comms: sim_comms,
 			#[cfg(feature = "client")]
 			presentation_sender: output_sender,
 		})
@@ -213,36 +269,26 @@ pub fn init(cb: SimulationInitOptions) -> SimControllerExternals {
 		#[cfg(feature = "server")]
 		new_connection_sender,
 		#[cfg(feature = "client")]
-		comms: sim_comms,
+		comms: presentation_comms,
 
 		#[cfg(feature = "client")]
 		presentation_receiver: output_receiver,
 	}
 }
 
-fn run_simulation(#[allow(unused_mut)] mut moved_data: SimMoveAcrossThreads) {
-	let mut state = SimulationState::construct(&Rc::default(), ClientKind::NA);
-	moved_data.cb.init_static_level_geom.map(|init_level| {
-		init_level(&mut state);
-		state.reset_untracked(); //in case init_static_level_geom did anything nefarious
-	});
-
-	#[cfg(feature = "client")]
-	let header = snapshot_serdes::des_new_client(&mut state, mem::take(&mut moved_data.cb.new_client_snapshot))
-		.unwrap();
-
-	#[cfg(feature = "server")]
-	let tick_info = TickInfo::new(0, 0);
-	#[cfg(feature = "client")]
-	let tick_info = TickInfo::new(header.tick_id_snapshot, header.fast_forward_ticks);
+fn run_simulation(moved_data: SimMoveAcrossThreads) {
+	let MakeContext {
+		ctx,
+		#[cfg(feature = "client")]
+		new_client_header,
+	} = make_context(
+		&moved_data.cb,
+		#[cfg(feature = "client")]
+		moved_data.new_client_snapshot,
+	);
 
 	let mut sim = SimControllerInternals {
-		ctx: GameContext {
-			state,
-			tick: tick_info,
-			diff: DiffSerializer::default(),
-		},
-
+		ctx,
 		cb: moved_data.cb,
 
 		#[cfg(feature = "server")]
@@ -263,7 +309,7 @@ fn run_simulation(#[allow(unused_mut)] mut moved_data: SimMoveAcrossThreads) {
 		server_events: VecDeque::from([UnrollbackableNetEvent::ServerStart]),
 
 		#[cfg(feature = "client")]
-		local_client_id: header.client_id,
+		local_client_id: new_client_header.client_id,
 		#[cfg(feature = "client")]
 		calibration_samples: VecDeque::new(),
 		#[cfg(feature = "client")]
@@ -271,20 +317,60 @@ fn run_simulation(#[allow(unused_mut)] mut moved_data: SimMoveAcrossThreads) {
 	};
 
 	#[cfg(feature = "client")]
-	{
-		sim.input_history.generate_bogus_inputs(header.fast_forward_ticks);
-		if header.fast_forward_ticks > 0 {
-			sim.simulate();
-		}
-	}
+	sim.fast_forward(new_client_header.fast_forward_ticks);
 
 	loop {
-		sim.scheduled_tick();
+		sim.scheduled_tick(false);
 	}
 }
 
+#[cfg(feature = "session_replay")]
+pub fn replay_session(cb: SimulationInitOptions, actions: Vec<SessionReplayAction>) -> Result<(), ()> {
+	let mut actions = actions.into_iter();
+	let Some(SessionReplayAction::Init(new_client_snapshot)) = actions.next() else {
+		return Err(());
+	};
+
+	let (sim_comms, presentation_comms, output_sender) = make_client_comms();
+	let MakeContext {
+		ctx,
+		new_client_header,
+	} = make_context(&cb, new_client_snapshot);
+
+	let mut sim = SimControllerInternals {
+		ctx,
+		cb,
+		input_history: InternalInputHistory::default(),
+		comms: sim_comms,
+		output_sender,
+		local_client_id: new_client_header.client_id,
+		calibration_samples: VecDeque::new(),
+		initial_calibration: true,
+	};
+
+	sim.fast_forward(new_client_header.fast_forward_ticks);
+	actions.next().unwrap(); //DELETE ME DELETE ME DELETE ME DELETE ME
+
+	for action in actions {
+		match action {
+			SessionReplayAction::ScheduledTick => sim.scheduled_tick(true),
+			SessionReplayAction::ReceiveComm(msg) => presentation_comms.to_sim.send(msg).map_err(|_| ())?,
+			SessionReplayAction::Init(_) => return Err(()),
+		};
+
+		//play the part of presentation thread to avoid mem leak
+		while let Ok(_) = presentation_comms.from_sim.try_recv() {}
+	}
+
+	//one more time. in the event of a crash, the final
+	//ReplayAction::ScheduledTick is not recorded
+	sim.scheduled_tick(true);
+
+	Ok(())
+}
+
 impl SimControllerInternals {
-	fn scheduled_tick(&mut self) {
+	fn scheduled_tick(&mut self, is_replay: bool) {
 		self.ctx.tick.id_target += 1;
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("begin scheduled tick @{:?}", self.ctx.tick);
@@ -321,20 +407,30 @@ impl SimControllerInternals {
 			debug!("end scheduled tick");
 		}
 
-		let next_tick_time = self.ctx.tick.get_now();
-		let now = Instant::now();
+		if !is_replay {
+			#[cfg(feature = "session_replay")]
+			self.comms
+				.to_presentation
+				.send(SimToPresentationCommand::SessionReplayAction(
+					SessionReplayAction::ScheduledTick,
+				))
+				.unwrap();
 
-		if next_tick_time > now {
-			//unfortunately this is blocking, so using repl console on this thread
-			//is probably a no go. not that you could do much anyway since it's
-			//written in rust. also seems to sleep too long+cause clock drift if
-			//tick rate is fast?
-			thread::sleep(next_tick_time - now);
-		} else if TRACE_TICK_ADVANCEMENT && now > next_tick_time {
-			//simulation tick is running behind. possible death spiral.
-			//intentionally not handling this because game is unplayable
-			//and player will just quit
-			debug!("simulation tick hiccuped");
+			let next_tick_time = self.ctx.tick.get_now();
+			let now = Instant::now();
+
+			if next_tick_time > now {
+				//unfortunately this is blocking, so using repl console on this thread
+				//is probably a no go. not that you could do much anyway since it's
+				//written in rust. also seems to sleep too long+cause clock drift if
+				//tick rate is fast?
+				thread::sleep(next_tick_time - now);
+			} else if TRACE_TICK_ADVANCEMENT && now > next_tick_time {
+				//simulation tick is running behind. possible death spiral.
+				//intentionally not handling this because game is unplayable
+				//and player will just quit
+				debug!("simulation tick hiccuped");
+			}
 		}
 	}
 }

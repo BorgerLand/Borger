@@ -14,11 +14,15 @@ export function generateSimulationState(structs: AllFlattenedStructs) {
 use crate::simulation_state::{Client, InputHistory};
 use std::rc::Rc;
 
+#[cfg(feature = "session_replay")]
+use serde::{Deserialize, Serialize};
+
 ${VALID_TYPES}
 
 ${structs.input
 	.map(function generateInputStruct(struct) {
 		return `#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "session_replay", derive(Deserialize, Serialize))]
 #[allow(non_camel_case_types)]
 pub struct ${struct.name}
 {

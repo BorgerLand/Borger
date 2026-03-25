@@ -3,11 +3,10 @@ use borger::prelude::*;
 pub mod character;
 pub mod input;
 
-pub fn init(new_client_snapshot: Vec<u8>) -> SimControllerExternals {
-	init_simulation(SimulationInitOptions {
+pub fn init() -> SimulationInitOptions {
+	SimulationInitOptions {
 		init_static_level_geom: None,
 		simulation_loop,
-		new_client_snapshot,
 		input_merge: input::merge,
 		input_validate: input::validate,
 		input_server_predict_late: input::server_predict_late,
@@ -15,7 +14,7 @@ pub fn init(new_client_snapshot: Vec<u8>) -> SimControllerExternals {
 		on_server_start,
 		on_client_connect,
 		on_client_disconnect,
-	})
+	}
 }
 
 //the deterministic-ish simulation update tick pipeline.

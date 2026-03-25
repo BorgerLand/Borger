@@ -18,6 +18,13 @@ const JITTER_TOLERANCE: Duration = Duration::from_millis(50);
 const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 
 impl SimControllerInternals {
+	pub(super) fn fast_forward(&mut self, amount: TickID) {
+		self.input_history.generate_bogus_inputs(amount);
+		if amount > 0 {
+			self.simulate();
+		}
+	}
+
 	//receive and process data from client's presentation thread
 	pub(super) fn scheduled_tick_impl(&mut self) {
 		let rx_buffers = self.propagate_input(true);
@@ -110,6 +117,14 @@ impl SimControllerInternals {
 
 		if read_comms {
 			while let Ok(presentation_msg) = self.comms.from_presentation.try_recv() {
+				#[cfg(feature = "session_replay")]
+				self.comms
+					.to_presentation
+					.send(SimToPresentationCommand::SessionReplayAction(
+						SessionReplayAction::ReceiveComm(presentation_msg.clone()),
+					))
+					.unwrap();
+
 				match presentation_msg {
 					PresentationToSimCommand::RawInput(raw_input) => {
 						//there can only be one input state per simulation tick,

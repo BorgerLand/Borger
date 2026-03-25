@@ -1,6 +1,6 @@
 use borger::interpolation::{InterpolateTicks, InterpolationOutput};
 use borger::presentation::{PresentationState, SimulationOutput};
-use borger::simulation_controller::SimControllerExternals;
+use borger::simulation_controller::{self, SimControllerExternals};
 use borger::simulation_state::Input;
 use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
 use js_sys::{Function, Uint8Array};
@@ -12,9 +12,12 @@ use wasm_bindgen::prelude::*;
 use web_sys::console;
 use web_time::Instant;
 
-#[cfg(not(debug_assertions))]
-const LOG_LEVEL: Level = Level::Info;
-#[cfg(debug_assertions)]
+#[cfg(feature = "session_replay")]
+use borger::thread_comms::SessionReplayAction;
+
+//#[cfg(not(debug_assertions))]
+//const LOG_LEVEL: Level = Level::Info;
+//#[cfg(debug_assertions)]
 const LOG_LEVEL: Level = Level::Debug;
 
 #[wasm_bindgen]
@@ -31,6 +34,9 @@ pub struct PresentationController {
 
 	input: Input,
 	output: Option<InterpolationOutput>,
+
+	#[cfg(feature = "session_replay")]
+	session_recording: Vec<SessionReplayAction>,
 }
 
 #[wasm_bindgen]
@@ -40,17 +46,15 @@ impl PresentationController {
 		new_client_snapshot: Uint8Array,
 		#[wasm_bindgen(unchecked_param_type = "(tx: Uint8Array) => void")] write_input: Function,
 	) -> Self {
-		panic::set_hook(Box::new(|info| {
-			console::log_2(
-				&JsValue::from("%c".to_string() + &info.to_string()),
-				&JsValue::from("background-color: #FCEBEB;"),
-			)
-		}));
+		log_setup();
 
-		console_log::init_with_level(LOG_LEVEL).unwrap();
+		let new_client_snapshot = new_client_snapshot.to_vec();
+
+		#[cfg(feature = "session_replay")]
+		let session_recording = vec![SessionReplayAction::Init(new_client_snapshot.clone())];
 
 		Self {
-			sim: game_rs::init(new_client_snapshot.to_vec()),
+			sim: simulation_controller::init(game_rs::init(), new_client_snapshot),
 			now: Instant::now(),
 			write_input,
 
@@ -59,6 +63,9 @@ impl PresentationController {
 
 			input: Input::default(),
 			output: None,
+
+			#[cfg(feature = "session_replay")]
+			session_recording,
 		}
 	}
 
@@ -85,6 +92,9 @@ impl PresentationController {
 						.call1(&JsValue::NULL, &Uint8Array::from(input_diff.as_slice()).into())
 						.unwrap();
 				}
+
+				#[cfg(feature = "session_replay")]
+				SimToPresentationCommand::SessionReplayAction(action) => self.session_recording.push(action),
 			};
 		}
 
@@ -142,6 +152,17 @@ impl PresentationController {
 			.unwrap();
 	}
 
+	#[cfg(feature = "session_replay")]
+	pub fn dump_session(&self) -> Vec<u8> {
+		postcard::to_allocvec(&self.session_recording).unwrap()
+	}
+
+	#[cfg(feature = "session_replay")]
+	pub fn replay_session(data: Vec<u8>) {
+		log_setup();
+		simulation_controller::replay_session(game_rs::init(), postcard::from_bytes(&data).unwrap()).unwrap();
+	}
+
 	pub fn abort_simulation(&self) {
 		self.sim
 			.comms
@@ -149,4 +170,15 @@ impl PresentationController {
 			.send(PresentationToSimCommand::Abort)
 			.unwrap();
 	}
+}
+
+fn log_setup() {
+	panic::set_hook(Box::new(|info| {
+		console::log_2(
+			&JsValue::from("%c".to_string() + &info.to_string()),
+			&JsValue::from("background-color: #FCEBEB;"),
+		)
+	}));
+
+	console_log::init_with_level(LOG_LEVEL).unwrap();
 }

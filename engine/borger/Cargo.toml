@@ -6,6 +6,7 @@ edition.workspace = true
 [features]
 server = ["tokio"]
 client = ["atomicbox"]
+session_replay = ["dep:serde", "glam/serde"]
 
 [dependencies]
 borger_procmac = { path = "../borger_procmac" }
@@ -22,3 +23,5 @@ tokio = { workspace = true, optional = true }
 
 #client only
 atomicbox = { workspace = true, optional = true }
+
+serde = { workspace = true, optional = true }

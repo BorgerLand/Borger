@@ -20,6 +20,7 @@ atomicbox = { version = "*", default-features = false }
 tokio = { version = "*", default-features = false, features = ["rt"] }
 num_enum = { version = "*", default-features = false }
 rapier3d = { version = "*", default-features = false, features = ["simd-stable", "dim3", "f32"] } #can't use simd-unstable https://github.com/dimforge/simba/issues/80
+serde = { version = "1", default-features = false, features = ["std", "derive"] }
 
 #wasm-specific shims (used in borger crate to make client happier)
 wasm-bindgen = { version = "*", default-features = false }

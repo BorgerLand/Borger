@@ -6,6 +6,7 @@ edition.workspace = true
 [features]
 server = []
 client = ["borger/client", "game_rs/client"]
+session_replay = ["borger/session_replay", "dep:postcard"]
 
 [dependencies]
 borger = { path = "../../borger" }
@@ -18,6 +19,8 @@ web-time.workspace = true
 console_log = { version = "*", default-features = false, features = ["color"] }
 js-sys = { version = "*", default-features = false }
 web-sys = { version = "*", default-features = false }
+
+postcard = { version = "*", optional = true, default-features = false, features = ["alloc"] }
 
 [lib]
 crate-type = ["cdylib"]

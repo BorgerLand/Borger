@@ -58,6 +58,20 @@ export async function init(o?: PresentationInitOptions) {
 		}
 	});
 
+	if ((rsController as any).dump_session) {
+		(globalThis as any).dumpSession = function () {
+			const blob = new Blob([(rsController as any).dump_session() as any], {
+				type: "application/octet-stream",
+			});
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = "borger.dump";
+			a.click();
+			URL.revokeObjectURL(url);
+		};
+	}
+
 	const state = {
 		dt: 0,
 		initTime,
@@ -114,6 +128,32 @@ export function present(
 
 		ConsoleLog.init();
 	});
+}
+
+export async function replaySession() {
+	await ClientRSInit();
+
+	// eslint-disable-next-line no-console
+	console.log("Click anywhere on the page to load a session dump file.");
+	await new Promise((resolve) => document.addEventListener("click", resolve, { once: true }));
+
+	const file = await new Promise<Uint8Array>((resolve, reject) => {
+		const input = document.createElement("input");
+		input.type = "file";
+		input.accept = ".dump";
+
+		input.onchange = async (e) => {
+			const file = (e.target as HTMLInputElement).files?.[0];
+			if (!file) return reject("No file selected");
+
+			const buffer = await file.arrayBuffer();
+			resolve(new Uint8Array(buffer));
+		};
+
+		input.click();
+	});
+
+	(ClientRS.PresentationController as any).replay_session(file);
 }
 
 export type * from "@borger/ts/networked_types/networked_types.ts";

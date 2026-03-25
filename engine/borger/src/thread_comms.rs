@@ -6,6 +6,9 @@ use tokio::sync::mpsc::UnboundedSender as AsyncSender;
 #[cfg(feature = "client")]
 use crate::simulation_state::Input;
 
+#[cfg(feature = "session_replay")]
+use serde::{Deserialize, Serialize};
+
 //server-sided code for communicating between
 //a client event loop on the wtransport thread
 //and the simulation thread
@@ -32,6 +35,7 @@ pub struct SimToClientChannel {
 //client-sided code for communicating between
 //main/presentation thread and simulation thread
 #[cfg(feature = "client")]
+#[cfg_attr(feature = "session_replay", derive(Deserialize, Serialize, Clone))]
 pub enum PresentationToSimCommand {
 	RawInput(Input),       //presentation thread sends hot fresh inputs here
 	ReceiveState(Vec<u8>), //received state from the server
@@ -44,6 +48,17 @@ pub enum SimToPresentationCommand {
 	//presentation thread in order to send over the
 	//wire because the webtransport object lives there
 	InputDiff(Vec<u8>),
+
+	#[cfg(feature = "session_replay")]
+	SessionReplayAction(SessionReplayAction),
+}
+
+#[cfg(feature = "session_replay")]
+#[derive(Serialize, Deserialize)]
+pub enum SessionReplayAction {
+	Init(Vec<u8>),
+	ScheduledTick,
+	ReceiveComm(PresentationToSimCommand),
 }
 
 #[cfg(feature = "client")]
