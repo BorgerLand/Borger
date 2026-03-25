@@ -9,6 +9,7 @@ path = "simulation/lib.rs"
 [features]
 server = ["borger/server"]
 client = ["borger/client"]
+session_replay = []
 
 [dependencies]
 borger = { path = "../engine/borger" }

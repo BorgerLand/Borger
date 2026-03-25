@@ -8,11 +8,11 @@ pub mod net;
 
 #[cfg(feature = "server")]
 pub const SERVER_TITLE: &str = "Borger Game Server";
-//#[cfg(feature = "server")]
-//#[cfg(not(debug_assertions))]
-//const LOG_LEVEL: LevelFilter = LevelFilter::Info;
 #[cfg(feature = "server")]
-//#[cfg(debug_assertions)]
+#[cfg(not(debug_assertions))]
+const LOG_LEVEL: LevelFilter = LevelFilter::Info;
+#[cfg(feature = "server")]
+#[cfg(debug_assertions)]
 const LOG_LEVEL: LevelFilter = LevelFilter::Debug;
 
 #[tokio::main(flavor = "current_thread")]

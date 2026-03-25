@@ -15,9 +15,9 @@ use web_time::Instant;
 #[cfg(feature = "session_replay")]
 use borger::thread_comms::SessionReplayAction;
 
-//#[cfg(not(debug_assertions))]
-//const LOG_LEVEL: Level = Level::Info;
-//#[cfg(debug_assertions)]
+#[cfg(not(debug_assertions))]
+const LOG_LEVEL: Level = Level::Info;
+#[cfg(debug_assertions)]
 const LOG_LEVEL: Level = Level::Debug;
 
 #[wasm_bindgen]
