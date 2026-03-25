@@ -159,7 +159,8 @@ impl TickInfo {
 			//early relative to server
 			let offset_from_server = offset_from_server as TickID;
 			self.first += Self::get_duration(offset_from_server);
-			self.id_target -= offset_from_server;
+			//do not modify id_target. rather, the adjustment of first
+			//causes the simulation to pause for that many ticks
 		} else {
 			//late relative to server
 			let offset_from_server = (-offset_from_server) as TickID;
