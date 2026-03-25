@@ -349,7 +349,6 @@ pub fn replay_session(cb: SimulationInitOptions, actions: Vec<SessionReplayActio
 	};
 
 	sim.fast_forward(new_client_header.fast_forward_ticks);
-	actions.next().unwrap(); //DELETE ME DELETE ME DELETE ME DELETE ME
 
 	for action in actions {
 		match action {
