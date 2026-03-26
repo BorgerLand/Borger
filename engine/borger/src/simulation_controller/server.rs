@@ -33,8 +33,12 @@ impl SimControllerInternals {
 		}
 
 		//if client has an input for this tick id already, it's
-		//probably trying to cheat, so kick it
-		let tick_id_too_early = self.ctx.tick.id_cur + TickInfo::get_ticks(INPUT_TOO_EARLY);
+		//probably trying to cheat, so kick it. rather than using
+		//id_cur here, which could trigger a false positive if the
+		//server is running behind, try to calculate "early" as an
+		//offset of where the server should truly be right now
+		let tick_id_too_early =
+			self.ctx.tick.get_tick_at(Instant::now()) + TickInfo::get_ticks(INPUT_TOO_EARLY);
 
 		//if client doesn't have an input for this tick id yet,
 		//put it in timeout mode

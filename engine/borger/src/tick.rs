@@ -116,13 +116,20 @@ impl TickInfo {
 	//non-deterministic code is allowed, and large transition events
 	//(objective complete, game end, etc.) are encouraged to happen now
 	#[cfg(feature = "server")]
-	#[doc(hidden)]
-	pub fn _has_consensus(&self) -> bool {
+	pub(crate) fn has_consensus(&self) -> bool {
 		//seems counterintuitive that consensus can be higher
 		//than cur, but this is because id_consensus is
 		//incremented at the start of a tick while id_cur of
 		//a tick while id_cur is incremented at the end
 		self.id_consensus > self.id_cur
+	}
+
+	//used by multiplayer tradeoff macro and marked unsafe for similar
+	//reasoning: multiplayer safety, not memory safety
+	#[cfg(feature = "server")]
+	#[doc(hidden)]
+	pub unsafe fn _has_consensus_tradeoff(&self) -> bool {
+		self.has_consensus()
 	}
 
 	//analogous to InputAge::Fresh - true if this is the first time
@@ -141,12 +148,18 @@ impl TickInfo {
 		Duration::from_secs_f64(Self::SIM_DT as f64 * offset as f64)
 	}
 
-	pub(crate) fn get_instant(&self, id: TickID) -> Instant {
+	pub(crate) fn get_instant_at(&self, id: TickID) -> Instant {
 		self.first + Self::get_duration(id)
 	}
 
+	#[cfg(feature = "server")]
+	pub(crate) fn get_tick_at(&self, instant: Instant) -> TickID {
+		let duration = instant - self.first;
+		Self::get_ticks(duration)
+	}
+
 	pub(crate) fn get_now(&self) -> Instant {
-		self.get_instant(self.id_cur)
+		self.get_instant_at(self.id_cur)
 	}
 
 	//recalibration is needed when server and client have

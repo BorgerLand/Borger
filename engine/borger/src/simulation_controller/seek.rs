@@ -66,7 +66,7 @@ impl SimControllerInternals {
 
 		while self.ctx.tick.id_cur < self.ctx.tick.id_target {
 			#[cfg(feature = "server")]
-			let has_consensus = self.ctx.tick._has_consensus();
+			let has_consensus = self.ctx.tick.has_consensus();
 			#[cfg(feature = "client")]
 			let has_consensus = false; //when a client is simulating a tick it is always a prediction
 

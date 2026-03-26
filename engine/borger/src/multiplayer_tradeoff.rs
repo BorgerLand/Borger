@@ -197,7 +197,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
-			if _tick.has_consensus()
+			if unsafe { _tick._has_consensus_tradeoff() }
 			{
 				let $ctx = unsafe { $ctx._to_consensus_unchecked() };
 				$code
@@ -209,7 +209,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
-			if _tick.has_consensus()
+			if unsafe { _tick._has_consensus_tradeoff() }
 			{
 				let $rebind = $ctx; //evaluate safely first
 				let $rebind = unsafe { $rebind._to_consensus_unchecked() };
@@ -222,7 +222,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
-			if _tick.has_consensus()
+			if unsafe { _tick._has_consensus_tradeoff() }
 			{
 				let $ctx = unsafe { $ctx._to_consensus_unchecked() };
 				$($code)*
@@ -234,7 +234,7 @@ macro_rules! multiplayer_tradeoff
 		#[cfg(feature = "server")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
-			if _tick.has_consensus()
+			if unsafe { _tick._has_consensus_tradeoff() }
 			{
 				let $rebind = $ctx; //evaluate safely first
 				let $rebind = unsafe { $rebind._to_consensus_unchecked() };
