@@ -155,7 +155,7 @@ Fork this repo first, in order to use it as a blank template. Then:
 git clone https://github.com/Username/MyGame.git
 cd MyGame
 ./borger setup #takes ~15 min from scratch
-./borget dev #wait a few seconds for it to stop spamming the console
+./borger dev #wait a few seconds for it to stop spamming the console
 ```
 
 Now visit https://localhost:5173 for a good meal (you'll see a security warning but you can safely dismiss it)
@@ -165,10 +165,9 @@ Now visit https://localhost:5173 for a good meal (you'll see a security warning 
 
 Files of interest:
 
-- `game/ts/src/index.ts` - Client entry point
 - `game/state.ts` - Defines the data structure representing the entire networked scene/world
-- `game/rs/src/simulation/pipeline.rs` - Entry point for the game logic simulation loop (30Hz fixed)
-- `game/ts/src/presentation/pipeline.ts` - Entry point for the rendering loop (VSync)
+- `game/presentation/index.ts` - Presentation logic entry point (rendering, UI, audio)
+- `game/simulation/lib.rs` - Simulation logic entry point (game logic)
 
 ### Acknowledgements & Inspirations
 
