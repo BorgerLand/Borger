@@ -66,16 +66,22 @@ dev_help() {
 	echo ""
 	echo "Options:"
 	echo "  --session-replay  Enable client-sided session recording+dumping+replaying"
+	echo "  --host            Allow other devices to connect to this device's dev server"
 	echo "  --help            Show this help message"
 }
 
 cmd_dev() {
 	local CLIENT_FEATURES="client"
+	local VITE_HOST=""
 
 	while [[ $# -gt 0 ]]; do
 		case $1 in
 			--session-replay)
 				CLIENT_FEATURES="$CLIENT_FEATURES,session_replay"
+				shift
+				;;
+			--host)
+				VITE_HOST="--host"
 				shift
 				;;
 			*)
@@ -106,7 +112,7 @@ cmd_dev() {
 			-i 'game/{assets,presentation}/**' \
 			-i 'game/**/*.{ts,tsx,css,json,htm,html}' \
 			-s 'wasm-pack build --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES'" \
-		"cd game && bun vite" \
+		"cd game && bun vite $VITE_HOST" \
 		"bun tsc --watch --preserveWatchOutput"
 }
 
