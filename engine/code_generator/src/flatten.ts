@@ -228,5 +228,5 @@ function pathToStructName(path: string[]) {
 				.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
 				.join(""),
 		)
-		.join("_"); // Join the processed strings with underscores
+		.join("_");
 }

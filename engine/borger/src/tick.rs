@@ -139,7 +139,7 @@ impl TickInfo {
 		self.id_cur == self.id_target - 1
 	}
 
-	#[cfg(feature = "server")]
+	#[cfg(any(feature = "server", feature = "singlethreaded"))]
 	pub(crate) const fn get_ticks(dur: Duration) -> TickID {
 		f32::round(dur.as_secs_f32() / Self::SIM_DT) as TickID
 	}
@@ -152,7 +152,7 @@ impl TickInfo {
 		self.first + Self::get_duration(id)
 	}
 
-	#[cfg(feature = "server")]
+	#[cfg(any(feature = "server", feature = "singlethreaded"))]
 	pub(crate) fn get_tick_at(&self, instant: Instant) -> TickID {
 		let duration = instant - self.first;
 		Self::get_ticks(duration)

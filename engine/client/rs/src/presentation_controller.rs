@@ -55,7 +55,11 @@ impl PresentationController {
 		let session_recording = vec![SessionReplayAction::Init(new_client_snapshot.clone())];
 
 		Self {
-			sim: simulation_controller::init(game_rs::init(), new_client_snapshot),
+			#[cfg(not(feature = "singlethreaded"))]
+			sim: simulation_controller::init_multithreaded(game_rs::init(), new_client_snapshot),
+			#[cfg(feature = "singlethreaded")]
+			sim: simulation_controller::init_singlethreaded(game_rs::init(), new_client_snapshot),
+
 			now: Instant::now(),
 			write_input,
 
@@ -99,8 +103,11 @@ impl PresentationController {
 			};
 		}
 
+		#[cfg(feature = "singlethreaded")]
+		self.sim.loop_singlethreaded();
+
 		//receive tick buffer from simulation thread
-		let next_tick = self.sim.presentation_receiver.take(Ordering::AcqRel);
+		let next_tick = self.sim.output_receiver.take(Ordering::AcqRel);
 		let received_new_tick = next_tick.is_some();
 
 		if received_new_tick {

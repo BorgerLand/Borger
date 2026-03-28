@@ -23,7 +23,6 @@ export function generateMemWrappers(structs: AllFlattenedStructs) {
 import * as MemWrappers from "@borger/ts/handwritten/mem_wrappers.ts";
 import * as SlotMap from "@borger/ts/networked_types/collections/slotmap.ts";
 import * as Primitive from "@borger/ts/networked_types/primitive.ts";
-import * as ClientRS from "@borger/rs";
 
 ${structs.input
 	.map(
@@ -76,7 +75,7 @@ ${struct.fields
 		
 		validate()
 		{
-			ClientRS.validate_input(ptr);
+			state.wasmBindgen.validate_input(ptr);
 		},`
 					: ``
 			}
@@ -132,7 +131,7 @@ ${struct.fields
 			ptr + ${offset},
 			state.offsets.slotmap.${innerType},
 			wrap_${innerType},
-			ClientRS.slotmap_get_${innerType},
+			state.wasmBindgen.slotmap_get_${innerType},
 		),`;
 	})
 	.join("\n\t\t\n")}

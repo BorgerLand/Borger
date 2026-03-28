@@ -19,11 +19,15 @@ const LOG_LEVEL: LevelFilter = LevelFilter::Debug;
 pub async fn main() {
 	#[cfg(feature = "server")]
 	{
+		use borger::simulation_controller::SimThreading;
+
 		SimpleLogger::new().with_level(LOG_LEVEL).init().unwrap();
 
 		let flags = flags::Flags::parse();
-		let sim = simulation_controller::init(game_rs::init());
-		let sim_loop = tokio::task::spawn_blocking(move || sim.thread.join().unwrap());
+		let sim = simulation_controller::init_multithreaded(game_rs::init());
+		let SimThreading::Multithreaded(thread) = sim.internals;
+
+		let sim_loop = tokio::task::spawn_blocking(move || thread.join().unwrap());
 		let net_loop = tokio::spawn(net::init(sim.new_connection_sender, flags));
 
 		//both of these are infinite loops and should never fail.

@@ -7,6 +7,7 @@ edition.workspace = true
 server = ["tokio"]
 client = ["atomicbox"]
 session_replay = ["dep:serde", "glam/serde"]
+singlethreaded = ["client"] #singlethreaded server is not a thing
 
 [dependencies]
 borger_procmac = { path = "../borger_procmac" }
@@ -23,5 +24,4 @@ tokio = { workspace = true, optional = true }
 
 #client only
 atomicbox = { workspace = true, optional = true }
-
 serde = { workspace = true, optional = true }

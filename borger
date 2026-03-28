@@ -54,7 +54,7 @@ cmd_setup() {
 	cd ../server
 	cargo build --profile server-dev --features server
 	cd ../client/rs
-	wasm-pack build --no-opt --target=web --profile client-dev --features client
+	wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features client --config 'include=[".cargo/config.mt.toml"]'
 
 	set +x
 	echo "
@@ -111,7 +111,7 @@ cmd_dev() {
 		"cd engine/client/rs && cargo watch --why --no-vcs-ignores -i 'pkg/*' \
 			-i 'game/{assets,presentation}/**' \
 			-i 'game/**/*.{ts,tsx,css,json,htm,html}' \
-			-s 'wasm-pack build --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES'" \
+			-s \"wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES --config 'include=[\\\".cargo/config.mt.toml\\\"]'\"" \
 		"cd game && bun vite $VITE_HOST" \
 		"bun tsc --watch --preserveWatchOutput"
 }
@@ -165,43 +165,40 @@ cmd_release() {
 	if [ -n "$BUILD" ]; then
 		assert_dev_not_running
 
-		if [ -d "release" ]; then
-			echo "WARNING: The existing release folder needs to be removed to proceed."
+		if [ -d "release" ] || [ -d "engine/client/rs/pkg" ]; then
+			echo "WARNING: The existing /release and /engine/client/rs/pkg folders needs to be removed to proceed."
 			echo "Are you sure you want to obliterate? (y/n)"
 
 			read -r response
 			if ! [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				exit 1
 			fi
-
-			rm -rf release
+			
+			set -x
+			rm -rf release engine/client/rs/pkg
+		else
+			set -x
 		fi
 
-		set -x
-
-		bun tsc
 		mkdir -p release/client/assets
 		cd engine/code_generator
 		bun src/main.ts
-		cd ../server
-		cargo build --profile server-release --features server
 		cd ../client/rs
-		wasm-pack build --profile client-release --target=web --features client
+		wasm-pack build --out-name client_rs_mt --profile client-release --target=web --features client --config 'include=[".cargo/config.mt.toml"]'
+		bun tsc
+		wasm-pack build --out-name client_rs_st --profile client-release --target=web --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
 		cd pkg
-		bun rolldown --minify client_rs.js -o client_rs.js
-		mv client_rs.js client_rs_bg.wasm ../../../../release/client/assets
-		cd  ../../../../game
+		bun rolldown --minify client_rs*.js -d .
+		mv *.js *.wasm ../../../../release/client/assets
+		cd ..
+		rm -r pkg #leaving stale builds confuses wasm-opt sometimes
+		cd ../../server
+		cargo build --profile server-release --features server
+		cd  ../../game
 		bun vite build
 		cd ..
 		rm -f release/client/devcert.json
 		mv target/server-release/server release
-		cd release/client/assets
-		find . -name "*.js" -type f -exec sh -c '
-			for f; do
-				sed "s/from[[:space:]]*[\"'"'"']@borger\/rs[\"'"'"']/from\".\/client_rs.js\"/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-			done
-		' _ {} +
-		cd ../../..
 
 		set +x
 	fi

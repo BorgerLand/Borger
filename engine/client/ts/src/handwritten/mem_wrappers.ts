@@ -1,10 +1,11 @@
-import * as ClientRS from "@borger/rs";
+import type { WASMBindgen } from "@borger/ts";
 
 export type State = ReturnType<typeof init>;
 
-export function init() {
+export function init(wasmBindgen: WASMBindgen) {
 	return {
-		offsets: ClientRS.get_mem_offsets(),
+		wasmBindgen,
+		offsets: wasmBindgen.get_mem_offsets(),
 		memView: new DataView<ArrayBufferLike>(new ArrayBuffer()),
 		curLifetime: Number.MIN_SAFE_INTEGER,
 	};

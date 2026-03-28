@@ -37,8 +37,7 @@ export default defineConfig({
 	build: {
 		outDir: "../release/client",
 		rolldownOptions: {
-			//can't bundle this because the simulation thread
-			//imports it in isolation
+			//can't bundle this because it's imported dynamically
 			external: ["@borger/rs"],
 		},
 	},

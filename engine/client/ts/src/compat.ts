@@ -82,7 +82,7 @@ async function testWebGPU(required: boolean): Promise<Result> {
 }
 
 function testSharedArrayBuffer(): Result {
-	return { name: "SharedArrayBuffer", supported: "SharedArrayBuffer" in window, hasFallback: false };
+	return { name: "SharedArrayBuffer", supported: "SharedArrayBuffer" in window, hasFallback: true };
 }
 
 function testWebTransport(): Result {

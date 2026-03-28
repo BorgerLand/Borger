@@ -14,7 +14,6 @@ use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::mpsc::channel as sync_unbounded_channel;
 use std::time::Duration;
-use wasm_thread as thread;
 use web_time::Instant;
 
 #[cfg(feature = "server")]
@@ -29,6 +28,9 @@ use {
 use {
 	crate::presentation::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox, std::sync::Arc,
 };
+
+#[cfg(not(feature = "singlethreaded"))]
+use wasm_thread as thread;
 
 #[cfg(feature = "client")]
 mod client;
@@ -45,7 +47,7 @@ const TRACE_TICK_ADVANCEMENT: bool = false;
 //communications between the simulation thread
 //and the owning parent thread
 pub struct SimControllerExternals {
-	pub thread: thread::JoinHandle<()>,
+	pub internals: SimThreading,
 
 	#[cfg(feature = "server")]
 	pub new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>,
@@ -53,12 +55,13 @@ pub struct SimControllerExternals {
 	pub comms: PresentationToSimChannel,
 
 	#[cfg(feature = "client")]
-	pub presentation_receiver: Arc<AtomicOptionBox<SimulationOutput>>,
+	pub output_receiver: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
 //data that needs to be moved across threads
 //during initialization of simulation thread.
 //all fields must be Send
+#[cfg(not(feature = "singlethreaded"))]
 struct SimMoveAcrossThreads {
 	cb: SimulationInitOptions,
 
@@ -70,11 +73,20 @@ struct SimMoveAcrossThreads {
 	#[cfg(feature = "client")]
 	comms: SimToPresentationChannel,
 	#[cfg(feature = "client")]
-	presentation_sender: Arc<AtomicOptionBox<SimulationOutput>>,
+	output_sender: Arc<AtomicOptionBox<SimulationOutput>>,
+}
+
+pub enum SimThreading {
+	#[cfg(not(feature = "singlethreaded"))]
+	Multithreaded(thread::JoinHandle<()>),
+
+	#[cfg(any(feature = "singlethreaded", feature = "session_replay"))]
+	#[allow(private_interfaces)]
+	Singlethreaded(SimControllerInternals),
 }
 
 //on client, owned by simulation thread
-pub(crate) struct SimControllerInternals {
+struct SimControllerInternals {
 	ctx: GameContext<Impl>,
 	cb: SimulationInitOptions,
 
@@ -177,11 +189,14 @@ struct InternalInputEntry {
 }
 
 #[cfg(feature = "client")]
-fn make_client_comms() -> (
-	SimToPresentationChannel,
-	PresentationToSimChannel,
-	Arc<AtomicOptionBox<SimulationOutput>>,
-) {
+struct ClientComms {
+	sim_comms: SimToPresentationChannel,
+	presentation_comms: PresentationToSimChannel,
+	output: Arc<AtomicOptionBox<SimulationOutput>>,
+}
+
+#[cfg(feature = "client")]
+fn make_client_comms() -> ClientComms {
 	let (to_presentation, from_sim) = sync_unbounded_channel();
 	let (to_sim, from_presentation) = sync_unbounded_channel();
 
@@ -190,9 +205,13 @@ fn make_client_comms() -> (
 		from_presentation,
 	};
 	let presentation_comms = PresentationToSimChannel { to_sim, from_sim };
-	let output_sender = Arc::new(AtomicOptionBox::none());
+	let output = Arc::new(AtomicOptionBox::none());
 
-	(sim_comms, presentation_comms, output_sender)
+	ClientComms {
+		sim_comms,
+		presentation_comms,
+		output,
+	}
 }
 
 struct MakeContext {
@@ -235,7 +254,8 @@ fn make_context(
 	}
 }
 
-pub fn init(
+#[cfg(not(feature = "singlethreaded"))]
+pub fn init_multithreaded(
 	cb: SimulationInitOptions,
 	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> SimControllerExternals {
@@ -243,28 +263,30 @@ pub fn init(
 	let (new_connection_sender, new_connection_receiver) = sync_unbounded_channel();
 
 	#[cfg(feature = "client")]
-	let (sim_comms, presentation_comms, output_sender) = make_client_comms();
-	#[cfg(feature = "client")]
-	let output_receiver = output_sender.clone();
+	let ClientComms {
+		sim_comms,
+		presentation_comms,
+		output,
+	} = make_client_comms();
 
-	let thread = thread::spawn(move || {
-		run_simulation(SimMoveAcrossThreads {
-			cb,
+	let move_me = SimMoveAcrossThreads {
+		cb,
 
-			#[cfg(feature = "client")]
-			new_client_snapshot,
+		#[cfg(feature = "client")]
+		new_client_snapshot,
 
-			#[cfg(feature = "server")]
-			new_connection_receiver,
-			#[cfg(feature = "client")]
-			comms: sim_comms,
-			#[cfg(feature = "client")]
-			presentation_sender: output_sender,
-		})
-	});
+		#[cfg(feature = "server")]
+		new_connection_receiver,
+		#[cfg(feature = "client")]
+		comms: sim_comms,
+		#[cfg(feature = "client")]
+		output_sender: output.clone(),
+	};
+
+	let thread = thread::spawn(move || loop_multithreaded(move_me));
 
 	SimControllerExternals {
-		thread,
+		internals: SimThreading::Multithreaded(thread),
 
 		#[cfg(feature = "server")]
 		new_connection_sender,
@@ -272,11 +294,12 @@ pub fn init(
 		comms: presentation_comms,
 
 		#[cfg(feature = "client")]
-		presentation_receiver: output_receiver,
+		output_receiver: output,
 	}
 }
 
-fn run_simulation(moved_data: SimMoveAcrossThreads) {
+#[cfg(not(feature = "singlethreaded"))]
+fn loop_multithreaded(moved_data: SimMoveAcrossThreads) {
 	let MakeContext {
 		ctx,
 		#[cfg(feature = "client")]
@@ -303,7 +326,7 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 		#[cfg(feature = "client")]
 		comms: moved_data.comms,
 		#[cfg(feature = "client")]
-		output_sender: moved_data.presentation_sender,
+		output_sender: moved_data.output_sender,
 
 		#[cfg(feature = "server")]
 		server_events: VecDeque::from([UnrollbackableNetEvent::ServerStart]),
@@ -320,7 +343,74 @@ fn run_simulation(moved_data: SimMoveAcrossThreads) {
 	sim.initial_fast_forward(new_client_header.fast_forward_ticks);
 
 	loop {
-		sim.scheduled_tick(false);
+		sim.scheduled_tick(
+			#[cfg(feature = "session_replay")]
+			false,
+		);
+
+		let next_tick_time = sim.ctx.tick.get_now();
+		let now = Instant::now();
+
+		if next_tick_time > now {
+			//unfortunately this is blocking, so using repl console on this thread
+			//is probably a no go. not that you could do much anyway since it's
+			//written in rust. also seems to sleep too long+cause clock drift if
+			//tick rate is fast?
+			thread::sleep(next_tick_time - now);
+		} else if TRACE_TICK_ADVANCEMENT && now > next_tick_time {
+			//simulation tick is running behind. possible death spiral.
+			//intentionally not handling this because game is unplayable
+			//and player will just quit
+			debug!("simulation tick hiccuped");
+		}
+	}
+}
+
+#[cfg(any(feature = "singlethreaded", feature = "session_replay"))]
+pub fn init_singlethreaded(
+	cb: SimulationInitOptions,
+	new_client_snapshot: Vec<u8>,
+) -> SimControllerExternals {
+	let ClientComms {
+		sim_comms,
+		presentation_comms,
+		output,
+	} = make_client_comms();
+
+	let MakeContext {
+		ctx,
+		new_client_header,
+	} = make_context(&cb, new_client_snapshot);
+
+	let mut internals = SimControllerInternals {
+		ctx,
+		cb,
+		input_history: InternalInputHistory::default(),
+		comms: sim_comms,
+		output_sender: output.clone(),
+		local_client_id: new_client_header.client_id,
+		calibration_samples: VecDeque::new(),
+		initial_calibration: true,
+	};
+
+	internals.initial_fast_forward(new_client_header.fast_forward_ticks);
+
+	SimControllerExternals {
+		internals: SimThreading::Singlethreaded(internals),
+		comms: presentation_comms,
+		output_receiver: output,
+	}
+}
+
+#[cfg(feature = "singlethreaded")]
+impl SimControllerExternals {
+	pub fn loop_singlethreaded(&mut self) {
+		let SimThreading::Singlethreaded(sim) = &mut self.internals;
+
+		let tick_id_accumulator = sim.ctx.tick.get_tick_at(Instant::now());
+		while sim.ctx.tick.id_cur < tick_id_accumulator {
+			sim.scheduled_tick();
+		}
 	}
 }
 
@@ -331,34 +421,20 @@ pub fn replay_session(cb: SimulationInitOptions, actions: Vec<SessionReplayActio
 		return Err(());
 	};
 
-	let (sim_comms, presentation_comms, output_sender) = make_client_comms();
-	let MakeContext {
-		ctx,
-		new_client_header,
-	} = make_context(&cb, new_client_snapshot);
-
-	let mut sim = SimControllerInternals {
-		ctx,
-		cb,
-		input_history: InternalInputHistory::default(),
-		comms: sim_comms,
-		output_sender,
-		local_client_id: new_client_header.client_id,
-		calibration_samples: VecDeque::new(),
-		initial_calibration: true,
+	let mut externals = init_singlethreaded(cb, new_client_snapshot);
+	let SimThreading::Singlethreaded(sim) = &mut externals.internals else {
+		return Err(());
 	};
-
-	sim.initial_fast_forward(new_client_header.fast_forward_ticks);
 
 	for action in actions {
 		match action {
 			SessionReplayAction::ScheduledTick => sim.scheduled_tick(true),
-			SessionReplayAction::ReceiveComm(msg) => presentation_comms.to_sim.send(msg).map_err(|_| ())?,
+			SessionReplayAction::ReceiveComm(msg) => externals.comms.to_sim.send(msg).map_err(|_| ())?,
 			SessionReplayAction::Init(_) => return Err(()),
 		};
 
 		//play the part of presentation thread to avoid mem leak
-		while let Ok(_) = presentation_comms.from_sim.try_recv() {}
+		while let Ok(_) = externals.comms.from_sim.try_recv() {}
 	}
 
 	//one more time. in the event of a crash, the final
@@ -369,7 +445,7 @@ pub fn replay_session(cb: SimulationInitOptions, actions: Vec<SessionReplayActio
 }
 
 impl SimControllerInternals {
-	fn scheduled_tick(&mut self, is_replay: bool) {
+	fn scheduled_tick(&mut self, #[cfg(feature = "session_replay")] is_replay: bool) {
 		self.ctx.tick.id_target += 1;
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("begin scheduled tick @{:?}", self.ctx.tick);
@@ -406,30 +482,14 @@ impl SimControllerInternals {
 			debug!("end scheduled tick");
 		}
 
+		#[cfg(feature = "session_replay")]
 		if !is_replay {
-			#[cfg(feature = "session_replay")]
 			self.comms
 				.to_presentation
 				.send(SimToPresentationCommand::SessionReplayAction(
 					SessionReplayAction::ScheduledTick,
 				))
 				.unwrap();
-
-			let next_tick_time = self.ctx.tick.get_now();
-			let now = Instant::now();
-
-			if next_tick_time > now {
-				//unfortunately this is blocking, so using repl console on this thread
-				//is probably a no go. not that you could do much anyway since it's
-				//written in rust. also seems to sleep too long+cause clock drift if
-				//tick rate is fast?
-				thread::sleep(next_tick_time - now);
-			} else if TRACE_TICK_ADVANCEMENT && now > next_tick_time {
-				//simulation tick is running behind. possible death spiral.
-				//intentionally not handling this because game is unplayable
-				//and player will just quit
-				debug!("simulation tick hiccuped");
-			}
 		}
 	}
 }

@@ -5,8 +5,11 @@ edition.workspace = true
 
 [features]
 server = ["borger/server", "game_rs/server"]
-client = []
+
+#do not use. this is for nicer rust-analyzer support only
+client = ["borger/client", "game_rs/client"]
 session_replay = []
+singlethreaded = []
 
 [dependencies]
 borger = { path = "../borger" }

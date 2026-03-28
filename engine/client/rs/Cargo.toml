@@ -4,9 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-server = []
 client = ["borger/client", "game_rs/client"]
 session_replay = ["borger/session_replay", "dep:postcard"]
+singlethreaded = ["borger/singlethreaded"] #fallback for static http servers that don't support shared array buffer
+
+#do not use. this is for nicer rust-analyzer support only
+server = ["borger/server", "game_rs/server"]
 
 [dependencies]
 borger = { path = "../../borger" }
@@ -29,7 +32,7 @@ crate-type = ["cdylib"]
 dwarf-debug-info = true #compatibility with devtools debugger
 
 [package.metadata.wasm-pack.profile.client-release]
-#enabled features should match engine/client/.cargo/config.toml
+#enabled features should match engine/client/.cargo/config.*t.toml
 #AND llvm defaults listed here (wasm-opt is not aware of llvm defaults):
 #https://doc.rust-lang.org/rustc/platform-support/wasm32-unknown-unknown.html#enabled-webassembly-features
 wasm-opt = [

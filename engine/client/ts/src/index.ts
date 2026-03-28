@@ -1,5 +1,4 @@
 import * as Net from "@borger/ts/net.ts";
-import ClientRSInit, * as ClientRS from "@borger/rs";
 import * as ConsoleLog from "@borger/ts/console_log.ts";
 import * as Compat from "@borger/ts/compat.ts";
 import * as MemWrappersH from "@borger/ts/handwritten/mem_wrappers.ts";
@@ -16,12 +15,26 @@ export type PresentationInitOptions = {
 
 export type State = Awaited<ReturnType<typeof init>>;
 
+//eslint-disable-next-line @typescript-eslint/consistent-type-imports
+export type WASMBindgen = typeof import("@borger/rs");
+
+async function initWASM(singlethreaded: boolean) {
+	let wasmBindgen: WASMBindgen;
+	if (import.meta.env.DEV) wasmBindgen = await import("@borger/rs");
+	else
+		wasmBindgen = await import(/* @vite-ignore */ `/assets/client_rs_${singlethreaded ? "st" : "mt"}.js`);
+
+	const wasmModule = await wasmBindgen.default();
+
+	return { wasmBindgen, wasmModule };
+}
+
 export async function init(o?: PresentationInitOptions) {
 	const compat = await Compat.init(o);
 
 	//init the game server connection and wasm module in parallel
-	const [wasm, net] = await Promise.all([
-		ClientRSInit(),
+	const [{ wasmBindgen, wasmModule }, net] = await Promise.all([
+		initWASM(!compat.sharedArrayBuffer.supported),
 		Net.init(
 			o?.hostname ?? location.hostname,
 			o?.webTransportPort ?? 6969,
@@ -30,8 +43,8 @@ export async function init(o?: PresentationInitOptions) {
 		),
 	]);
 
-	const wrappers = MemWrappersH.init();
-	const rsController = new ClientRS.PresentationController(net.newClientSnapshot, net.writeInput);
+	const wrappers = MemWrappersH.init(wasmBindgen);
+	const rsController = new wasmBindgen.PresentationController(net.newClientSnapshot, net.writeInput);
 	const rsInput = rsController.get_input_ptr();
 	let initFrameRequest: number;
 
@@ -50,7 +63,7 @@ export async function init(o?: PresentationInitOptions) {
 		function tryAgain(retryTime: number) {
 			const rsOutput = rsController.presentation_tick(0);
 			if (rsOutput !== undefined) {
-				wrappers.memView = new DataView(wasm.memory.buffer);
+				wrappers.memView = new DataView(wasmModule.memory.buffer);
 				resolve({ initTime: retryTime, rsOutput });
 			} else {
 				initFrameRequest = requestAnimationFrame(tryAgain);
@@ -77,7 +90,7 @@ export async function init(o?: PresentationInitOptions) {
 		initTime,
 		prvTime: -1,
 		compat,
-		wasm,
+		wasmModule,
 		net,
 		rsController,
 		rsInput,
@@ -110,7 +123,7 @@ export function present(
 				//ship the input off to the simulation + interpolate between simulation ticks
 				state.rsOutput = state.rsController.presentation_tick(state.dt)!;
 
-				const memory = state.wasm.memory.buffer;
+				const memory = state.wasmModule.memory.buffer;
 				if (state.wrappers.memView.buffer !== memory) state.wrappers.memView = new DataView(memory);
 			}
 
@@ -131,9 +144,9 @@ export function present(
 }
 
 export async function replaySession() {
-	await ClientRSInit();
+	const wasmBindgen = (await initWASM(false)).wasmBindgen;
 
-	// eslint-disable-next-line no-console
+	//eslint-disable-next-line no-console
 	console.log(
 		"Drag a session dump file onto the page, or click anywhere on the page to open a file prompt.",
 	);
@@ -183,7 +196,7 @@ export async function replaySession() {
 		document.addEventListener("click", onClick);
 	});
 
-	(ClientRS.PresentationController as any).replay_session(file);
+	(wasmBindgen.PresentationController as any).replay_session(file);
 }
 
 export type * from "@borger/ts/networked_types/networked_types.ts";
