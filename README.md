@@ -106,17 +106,17 @@ cd MyGame
 
 Now visit https://localhost:5173 for a good meal (you'll see a security warning about self-signed certificates but you can safely dismiss it)
 
-### Gallery
-
-![Hairnet Honcho](readme/demo3.webp)
-![Despicable Physics](readme/demo2.webp)
-![4 Clients](readme/demo1.webp)
-
 Files of interest:
 
 - `game/state.ts` - Defines the data structure representing the entire networked scene/world
 - `game/presentation/index.ts` - Presentation logic entry point (rendering, UI, audio)
 - `game/simulation/lib.rs` - Simulation logic entry point (game logic)
+
+### Gallery
+
+![Hairnet Honcho](readme/demo3.webp)
+![Despicable Physics](readme/demo2.webp)
+![4 Clients](readme/demo1.webp)
 
 ### Acknowledgements & Inspirations
 
