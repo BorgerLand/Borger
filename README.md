@@ -25,7 +25,7 @@
 
 1. **Describe** the fabric of your reality in a rich JSON schema. The shape of your game state data is used to autogenerate rollback machinery.
 
-```json
+```typescript
 characters: {
 	netVisibility: "public",
 	presentation: "clone",
