@@ -1,12 +1,3 @@
-#tool-generated
-node_modules
-target
-release
-engine/borger/src/generated
-engine/client/rs/src/generated
-engine/client/ts/src/generated
-game/assets/devcert.json
-
-#ide config
-.vscode/launch.json
-.vscode/settings.json
+engine/src/generated
+client/rs/src/generated
+client/ts/src/generated

@@ -1,4 +1,4 @@
-# <img src="game/assets/favicon.webp" height="30"> BORGER <img src="game/assets/favicon.webp" height="30">
+# <img src="readme/logo.webp" height="30"> BORGER <img src="readme/logo.webp" height="30">
 
 <div style="display: flex; gap: 10px;">
 	<img src="readme/flintlockwood1.webp" alt="Browser-Oriented Rust Game Engine with Rancid tech stack" style="width: 49%;">
@@ -73,21 +73,11 @@ for (const [id, character] of characters) {
 - Required technomologies
     - [Git](https://git-scm.com/install/)
     - [Something capable of running Bash scripts](https://xubuntu.org/download/) (Windows victims use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install))
-    - [IDE](https://code.visualstudio.com/Download) (though even a text editor will do!)
+    - [IDE](https://code.visualstudio.com/Download) (VSCode config is included, though even a text editor will do!)
 - Recommended
     - VS Code extensions:
         - [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) (this uses a ton of RAM - recommend having at least 12 GB)
-        - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
-        - [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)
-        - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
-            - To automatically format code each time you save, after running `setup.sh`, add this to `.vscode/settings.json`:
-                ```JSON
-                "editor.formatOnSave": true,
-                "editor.defaultFormatter": "esbenp.prettier-vscode",
-                "[rust]": {
-                	"editor.defaultFormatter": "rust-lang.rust-analyzer"
-                },
-                ```
+        - [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
     - Debugging Rust code in browser devtools:
         - [Chromium](https://chromewebstore.google.com/detail/cc++-devtools-support-dwa/pdcpmagijalfljmkmjngeonclgbbannb)
         - [Firefox (unpleasant but supposedly doable)](https://github.com/jdmichaud/dwarf-2-sourcemap)
@@ -95,13 +85,12 @@ for (const [id, character] of characters) {
 
 ### Make 'em move hunny
 
-Fork this repo first, in order to use it as a blank template. Then:
-
-```Bash
-git clone https://github.com/Username/MyGame.git
-cd MyGame
-./borger setup #takes ~15 min from scratch
-./borger dev #wait a few seconds for it to stop spamming the console
+```bash
+curl -fsSL https://eat.borger.dev | bash
+#restart your terminal/shell when that's done ^
+borger init
+cd my_game
+borger dev
 ```
 
 Now visit https://localhost:5173 for a good meal (you'll see a security warning about self-signed certificates but you can safely dismiss it)
@@ -127,7 +116,7 @@ Files of interest:
 - [Dealing with Latency](https://docs.unity3d.com/Packages/com.unity.netcode.gameobjects@2.5/manual/learn/dealing-with-latency.html) - Unity 3D
 - [Source Multiplayer Networking](http://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking) - Valve
 - [Tribes/Torque network model](https://www.gamedevs.org/uploads/tribes-networking-model.pdf) - Mark Frohnmayer, Tim Gift
-- http://dek.engineer/ - Insights from a colleague of mine
+- https://dek.engineer/ - Insights from a colleague of mine
 
 <br>
 <br>

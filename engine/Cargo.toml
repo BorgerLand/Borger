@@ -1,0 +1,26 @@
+[package]
+name = "borger"
+version.workspace = true
+edition.workspace = true
+
+[features]
+server = ["tokio"]
+client = ["atomicbox"]
+session_replay = ["dep:serde", "glam/serde"]
+singlethreaded = ["client"] #singlethreaded server is not a thing
+
+[dependencies]
+borger_procmac = { path = "../procmac" }
+log.workspace = true
+glam.workspace = true
+wasm_thread.workspace = true
+web-time.workspace = true
+num_enum.workspace = true
+rapier3d.workspace = true
+
+#server only
+tokio = { workspace = true, optional = true }
+
+#client only
+atomicbox = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }

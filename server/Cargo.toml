@@ -1,0 +1,24 @@
+[package]
+name = "server"
+version.workspace = true
+edition.workspace = true
+
+[features]
+server = ["borger/server", "game/server"]
+
+#do not use. this is for nicer rust-analyzer support only
+client = ["borger/client", "game/client"]
+session_replay = []
+singlethreaded = []
+
+[dependencies]
+borger = { path = "../engine" }
+game = { path = "../.." }
+log.workspace = true
+tokio.workspace = true
+wtransport.workspace = true
+simple_logger.workspace = true
+clap.workspace = true
+tokio-tungstenite.workspace = true
+tokio-rustls.workspace = true
+futures-util.workspace = true

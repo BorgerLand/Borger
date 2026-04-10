@@ -1,0 +1,50 @@
+[package]
+name = "client_rs"
+version.workspace = true
+edition.workspace = true
+
+[features]
+client = ["borger/client", "game/client"]
+session_replay = ["borger/session_replay", "dep:postcard"]
+singlethreaded = ["borger/singlethreaded"] #fallback for static http servers that don't support shared array buffer
+
+#do not use. this is for nicer rust-analyzer support only
+server = ["borger/server", "game/server"]
+
+[dependencies]
+borger = { path = "../../engine" }
+game = { path = "../../.." }
+log.workspace = true
+glam.workspace = true
+wasm-bindgen.workspace = true
+web-time.workspace = true
+console_log.workspace = true
+js-sys.workspace = true
+web-sys.workspace = true
+
+postcard = { workspace = true, optional = true }
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.wasm-pack.profile.client-dev.wasm-bindgen]
+dwarf-debug-info = true #compatibility with devtools debugger
+
+[package.metadata.wasm-pack.profile.client-release]
+#enabled features should match borger/client/rs/.cargo/config.*t.toml
+#AND llvm defaults listed here (wasm-opt is not aware of llvm defaults):
+#https://doc.rust-lang.org/rustc/platform-support/wasm32-unknown-unknown.html#enabled-webassembly-features
+wasm-opt = [
+	#optimize file size
+	"-Os",
+	#config.toml
+	"--enable-threads",
+	"--enable-simd",
+	#llvm defaults
+	"--enable-multivalue",
+	"--enable-mutable-globals",
+	"--enable-reference-types",
+	"--enable-sign-ext",
+	"--enable-nontrapping-float-to-int",
+	"--enable-bulk-memory",
+]
