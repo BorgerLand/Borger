@@ -6,6 +6,8 @@
 </div>
 <br />
 
+_Science isn't about why; it's about why not._
+
 **Borger** is a particularly delicious Rust-based multiplayer framework that makes it quick and easy to build cheat-proof, realtime, multiplayer browser games. It works by replacing yucky brain-hurting netcode with **annotations** that distill the hard parts away into a single question: "does this game mechanic need to be responsive or correct?" Inspired by Rust's famed memory safety, Borger aims to introduce **multiplayer safety** by preventing many classes of vulnerabilities and bugs associated with multiplayer game development at compile time.
 
 - Never ever netcode ever: Just write deceivingly simple game logic. Get server authority, client prediction, rollback, and reconciliation for free.
@@ -20,6 +22,14 @@
 - Need to hide sensitive, private data from prying clients? Use `WaitForServer` for peace of mind.
 - Need guaranteed correctness at all costs? Use `WaitForConsensus` for server authority.
 - That's all there is to it!
+
+### Try it Out
+
+[**Documentation**](https://borger.dev/docs)
+
+```bash
+curl -fsSL https://eat.borger.dev | bash
+```
 
 ### How it works
 
@@ -68,39 +78,6 @@ for (const [id, character] of characters) {
 }
 ```
 
-### Getting started:
-
-- Required technomologies
-    - [Git](https://git-scm.com/install/)
-    - [Something capable of running Bash scripts](https://xubuntu.org/download/) (Windows victims use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install))
-    - [IDE](https://code.visualstudio.com/Download) (VSCode config is included, though even a text editor will do!)
-- Recommended
-    - VS Code extensions:
-        - [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) (this uses a ton of RAM - recommend having at least 12 GB)
-        - [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml)
-    - Debugging Rust code in browser devtools:
-        - [Chromium](https://chromewebstore.google.com/detail/cc++-devtools-support-dwa/pdcpmagijalfljmkmjngeonclgbbannb)
-        - [Firefox (unpleasant but supposedly doable)](https://github.com/jdmichaud/dwarf-2-sourcemap)
-        - Safari (lol)
-
-### Make 'em move hunny
-
-```bash
-curl -fsSL https://eat.borger.dev | bash
-#restart your terminal/shell when that's done ^
-borger init
-cd my_game
-borger dev
-```
-
-Now visit https://localhost:5173 for a good meal (you'll see a security warning about self-signed certificates but you can safely dismiss it)
-
-Files of interest:
-
-- `game/state.ts` - Defines the data structure representing the entire networked scene/world
-- `game/presentation/index.ts` - Presentation logic entry point (rendering, UI, audio)
-- `game/simulation/lib.rs` - Simulation logic entry point (game logic)
-
 ### Gallery
 
 ![Hairnet Honcho](readme/demo3.webp)
@@ -120,5 +97,3 @@ Files of interest:
 
 <br>
 <br>
-
-_Science isn't about why; it's about why not._
