@@ -8,11 +8,11 @@
 
 **Borger** is a particularly delicious Rust-based multiplayer framework that makes it quick and easy to build cheat-proof, realtime, multiplayer browser games. It works by replacing yucky brain-hurting netcode with **annotations** that distill the hard parts away into a single question: "does this game mechanic need to be responsive or correct?" Inspired by Rust's famed memory safety, Borger aims to introduce **multiplayer safety** by preventing many classes of vulnerabilities and bugs associated with multiplayer game development at compile time.
 
-- Never ever netcode ever: Just write deceivingly simple game logic. Get server authority, client prediction, rollback, and reconciliation for free.
-- Bring your own renderer: Borger is served fresh in the form of a scaffolded Vite project, allowing interoperability with your favorite hot-reloading tools: React, Three.js, or any other combo of renderers.
-- Unified codebase: The same exact code produces both an efficient server executable and a client WebAssembly module.
-- Vibe code friendly: Borger's API surface is modeled after what LLM's (and humans) excel at the most: declarative, composable, and delightfully puny.
-- Deploy whenever, wherever: Being browser-first isn't a limitation; it's the lowest common denominator that all players can run. Wrap that Borger up in Electron and deliver it through any app store.
+- 🚫 Never ever netcode ever: Just write deceivingly simple game logic. Get server authority, client prediction, rollback, and reconciliation for free.
+- 🎨 Bring your own renderer: Borger is served fresh in the form of a scaffolded Vite project, allowing interoperability with your favorite hot-reloading tools: React, Three.js, or any other combo of renderers.
+- 🤝 Unified codebase: The same exact code produces both an efficient server executable and a client WebAssembly module.
+- 🤖 Vibe code friendly: Borger's API surface is modeled after what LLM's (and humans) excel at the most: declarative, composable, and delightfully puny.
+- 💃 Deploy whenever, wherever: Being browser-first isn't a limitation; it's the lowest common denominator that all players can run. Wrap that Borger up in Electron and deliver it through any app store.
 
 ### The bodacious gambit: a macro called `multiplayer_tradeoff!()`
 
