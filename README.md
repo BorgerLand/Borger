@@ -33,7 +33,7 @@ curl -fsSL https://eat.borger.dev | bash
 
 ### How it works
 
-1. **Describe** the fabric of your reality in a rich JSON schema. The shape of your game state data is used to autogenerate rollback machinery.
+1. **Outline** the fabric of your reality in a rich JSON schema. The shape of your game state data is used to autogenerate rollback machinery.
 
 ```typescript
 characters: {
