@@ -2,6 +2,7 @@ use crate::Scope;
 use crate::simulation_state::Input;
 use crate::simulation_state::{ClientOwned, ClientRemote};
 
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub type Client = Scope<ClientOwned, ClientRemote>;
 
 //wraps input state in a separate struct to allow disjoint

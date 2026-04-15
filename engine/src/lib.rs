@@ -15,6 +15,7 @@ pub mod simulation_controller;
 ///Defines bidirectional, RPC-like communication
 ///channels between threads and they data they
 ///can carry
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub mod thread_comms;
 
 ///Time-keeping
@@ -56,6 +57,7 @@ mod generated {
 }
 
 ///Struct definitions of simulation state objects
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub mod simulation_state {
 	pub use super::generated::simulation_state::*;
 	pub use super::handwritten::simulation_state::*;
@@ -70,7 +72,7 @@ pub(crate) mod constructors {
 ///are recorded by this system as they're
 ///happening. Rollback and rx systems use this
 ///data to make multiplayer happen
-pub(crate) mod diff_ser {
+pub mod diff_ser {
 	pub use super::handwritten::diff_ser::*;
 
 	#[cfg(feature = "client")]
@@ -142,7 +144,7 @@ pub mod prelude {
 	pub use crate::simulation_state::*;
 	pub use crate::tick::{TickID, TickInfo};
 	pub use borger_procmac::server;
-	pub use log::*;
+	pub use log::{debug, error, info, warn};
 }
 
 pub struct SimulationInitOptions {

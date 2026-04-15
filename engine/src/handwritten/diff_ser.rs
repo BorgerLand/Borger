@@ -9,11 +9,19 @@ use std::rc::Rc;
 #[cfg(feature = "server")]
 use {crate::NetVisibility, std::collections::HashMap};
 
-//diff serializer's purpose is to capture any and
-//all changes to state. a serializer of differences.
-//the generic param functionally does nothing, and
-//should not cause any function duplication bloat in
-//an optimized build
+///All state-mutating function signatures that the code generator produces
+///require this struct to be passed in. It follows the opaque handle pattern,
+///so everything Just Works™. Internally, it's capturing and serializing the
+///before and after values, allowing the value to be both rolled back and
+///transmitted to clients.
+///
+///# Examples
+///```rust
+///let diff: &mut DiffSerializer = &mut ctx.diff;
+///let mut cur_time = ctx.state.get_time();
+///cur_time -= 1;
+///ctx.state.set_time(cur_time, diff);
+///```
 #[derive(Default)]
 pub struct DiffSerializer<Tradeoff: AnyTradeoff> {
 	//write the PREVIOUS value of a state in order to
@@ -73,7 +81,7 @@ impl DiffSerializer<Impl> {
 	//should be called in pairs, one after the other. caller must
 	//serialize the diff operation
 
-	pub fn ser_rollback_begin(&mut self, path: &Rc<Vec<usize32>>) -> Option<&mut Vec<u8>> {
+	pub(crate) fn ser_rollback_begin(&mut self, path: &Rc<Vec<usize32>>) -> Option<&mut Vec<u8>> {
 		if self.rollback_enabled {
 			self.ser_rollback_navigate_to(path);
 			Some(&mut self.rollback_buffer)
@@ -84,7 +92,7 @@ impl DiffSerializer<Impl> {
 
 	//only the server sends authoritative state updates
 	#[cfg(feature = "server")]
-	pub fn ser_tx_begin(
+	pub(crate) fn ser_tx_begin(
 		&mut self,
 		path: &Rc<Vec<usize32>>,
 		visibility: NetVisibility,
@@ -112,13 +120,13 @@ impl DiffSerializer<Impl> {
 
 	//only the client sends authoritative input updates
 	#[cfg(feature = "client")]
-	pub fn ser_tx_begin(&mut self) -> &mut Vec<u8> {
+	pub(crate) fn ser_tx_begin(&mut self) -> &mut Vec<u8> {
 		&mut self.tx.buffer
 	}
 
 	//---tick lifecycle---//
 
-	pub fn rollback_begin_tick(&mut self, tick_type: TickType) {
+	pub(crate) fn rollback_begin_tick(&mut self, tick_type: TickType) {
 		self.rollback_enabled = tick_type == TickType::Predicted;
 		self.rollback_prv_path = None;
 
@@ -127,14 +135,14 @@ impl DiffSerializer<Impl> {
 		}
 	}
 
-	pub fn rollback_end_tick(&mut self) {
+	pub(crate) fn rollback_end_tick(&mut self) {
 		if self.rollback_enabled {
 			self.ser_rollback_navigate_to(&Rc::default());
 		}
 	}
 
 	#[cfg(feature = "server")]
-	pub fn tx_begin_tick(&mut self, id: usize32, enable: bool) -> Option<&mut Vec<u8>> {
+	pub(crate) fn tx_begin_tick(&mut self, id: usize32, enable: bool) -> Option<&mut Vec<u8>> {
 		let client = self.tx.get_mut(&id).unwrap();
 		client.enabled = enable;
 		enable.then(|| &mut client.buffer)
@@ -142,7 +150,7 @@ impl DiffSerializer<Impl> {
 
 	//get the finalized data to send over the wire.
 	//called per-webtransport connection
-	pub fn tx_end_tick(&mut self, #[cfg(feature = "server")] client_id: usize32) -> Option<Vec<u8>> {
+	pub(crate) fn tx_end_tick(&mut self, #[cfg(feature = "server")] client_id: usize32) -> Option<Vec<u8>> {
 		//server is sending simulation state
 		#[cfg(feature = "server")]
 		let (tx, enabled) = {
@@ -176,13 +184,13 @@ impl DiffSerializer<Impl> {
 	}
 
 	#[cfg(feature = "server")]
-	pub fn on_connect(&mut self, client_id: usize32) -> &mut Vec<u8> {
+	pub(crate) fn on_connect(&mut self, client_id: usize32) -> &mut Vec<u8> {
 		self.tx.insert(client_id, TxData::default()); //default = tx enabled
 		&mut self.tx.get_mut(&client_id).unwrap().buffer
 	}
 
 	#[cfg(feature = "server")]
-	pub fn on_disconnect(&mut self, client_id: usize32) {
+	pub(crate) fn on_disconnect(&mut self, client_id: usize32) {
 		self.tx.remove(&client_id).unwrap();
 	}
 

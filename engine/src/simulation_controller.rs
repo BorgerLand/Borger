@@ -6,7 +6,6 @@ use crate::multiplayer_tradeoff::{AnyTradeoff, Impl};
 use crate::networked_types::primitive::usize32;
 use crate::simulation_state::{Input, InputAge, SimulationState};
 use crate::snapshot_serdes::NewClientHeader;
-use crate::thread_comms::*;
 use crate::tick::{TickID, TickInfo};
 use crate::untracked::UntrackedState;
 use log::debug;
@@ -15,6 +14,9 @@ use std::rc::Rc;
 use std::sync::mpsc::channel as sync_unbounded_channel;
 use std::time::Duration;
 use web_time::Instant;
+
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
+use crate::thread_comms::*;
 
 #[cfg(feature = "server")]
 use {
@@ -46,6 +48,7 @@ const TRACE_TICK_ADVANCEMENT: bool = false;
 
 //communications between the simulation thread
 //and the owning parent thread
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub struct SimControllerExternals {
 	pub internals: SimThreading,
 
@@ -76,6 +79,7 @@ struct SimMoveAcrossThreads {
 	output_sender: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub enum SimThreading {
 	#[cfg(not(feature = "singlethreaded"))]
 	Multithreaded(thread::JoinHandle<()>),
@@ -255,6 +259,7 @@ fn make_context(
 }
 
 #[cfg(not(feature = "singlethreaded"))]
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub fn init_multithreaded(
 	cb: SimulationInitOptions,
 	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,

@@ -3,6 +3,7 @@ use {
 	crate::Scope, crate::interpolation::*, crate::networked_types::primitive::usize32, crate::presentation,
 };
 
+///Classic lerp/slerp helper for various simple math primitives
 pub trait Interpolate: Copy {
 	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self;
 }
