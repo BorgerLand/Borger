@@ -25,6 +25,7 @@ pub type isize32 = i32;
 #[cfg(target_pointer_width = "64")]
 const PTR_ERR: &str = "Server must abort because it is using more memory than a client can reference. The server is 64-bit, but the client is 32-bit (wasm32)";
 
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub fn usize_to_32(v: usize) -> usize32 {
 	#[cfg(target_pointer_width = "32")]
 	return v as usize32;
