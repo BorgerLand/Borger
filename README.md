@@ -6,7 +6,7 @@
 </div>
 <br />
 
-_Science isn't about why; it's about why not._
+https://borger.dev/
 
 **Borger** is a particularly delicious Rust-based multiplayer framework that makes it quick and easy to build cheat-proof, realtime, multiplayer browser games. It works by replacing yucky brain-hurting netcode with **annotations** that distill the hard parts away into a single question: "does this game mechanic need to be responsive or correct?" Inspired by Rust's famed memory safety, Borger aims to introduce **multiplayer safety** by preventing many classes of vulnerabilities and bugs associated with multiplayer game development at compile time.
 
