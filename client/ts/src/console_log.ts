@@ -7,7 +7,7 @@ export function styledLog(
 	styles.unshift(text);
 
 	//eslint-disable-next-line no-console
-	console.log.apply(console, styles);
+	console.log(...styles);
 }
 
 export const BROWN = "color: #7f3a00;";

@@ -20,6 +20,8 @@ export function generateMemWrappers(structs: AllFlattenedStructs) {
 		`${CLIENT_TS_GENERATED_DIR}/mem_wrappers.ts`,
 		`${STATE_WARNING}
 
+/*eslint-disable*/
+
 import * as MemWrappers from "@borger/ts/handwritten/mem_wrappers.ts";
 import * as SlotMap from "@borger/ts/networked_types/collections/slotmap.ts";
 import * as Primitive from "@borger/ts/networked_types/primitive.ts";
