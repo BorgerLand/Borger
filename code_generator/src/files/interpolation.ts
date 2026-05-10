@@ -64,11 +64,22 @@ ${struct.fields
 	.join("\n")}
 }
 
-#[cfg(feature = "client")]
-impl InterpolateTicks for presentation::${getPresentationStructName(struct.name)}
+${generateInterpolateTicksImpl(false)}${
+					struct.clientKind === "Remote"
+						? `
+
+${generateInterpolateTicksImpl(true)}`
+						: ""
+				}`;
+
+				function generateInterpolateTicksImpl(downgradeScope: boolean) {
+					const presentationStructName = getPresentationStructName(struct.name);
+					const downgradedName = presentationStructName.replace(/Remote$/, "Owned"); //only valid if downgradeScope true
+					return `#[cfg(feature = "client")]
+impl InterpolateTicks${downgradeScope ? `<presentation::${downgradedName}>` : ""} for presentation::${presentationStructName}
 {
 	type InterpolationState = ${interpolationStructName};
-	fn interpolate_and_diff(_prv: Option<&Self>, _cur: &Self, _amount: f32, _received_new_tick: bool) -> Self::InterpolationState
+	fn interpolate_and_diff(_prv: Option<&${downgradeScope ? `presentation::${downgradedName}` : "Self"}>, _cur: &Self, _amount: f32, _received_new_tick: bool) -> Self::InterpolationState
 	{
 		Self::InterpolationState
 		{
@@ -105,6 +116,7 @@ ${struct.fields
 		}
 	}
 }`;
+				}
 			})
 			.join("\n\n"),
 	)

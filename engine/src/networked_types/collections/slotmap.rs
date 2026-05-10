@@ -509,10 +509,10 @@ pub struct InterpolationSlotMap<V> {
 }
 
 #[cfg(feature = "client")]
-impl<V: InterpolateTicks> InterpolateTicks for RawSlotMap<V> {
+impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlotMap<V> {
 	type InterpolationState = InterpolationSlotMap<V::InterpolationState>;
 	fn interpolate_and_diff(
-		prv: Option<&Self>,
+		prv: Option<&RawSlotMap<Prv>>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
@@ -530,8 +530,14 @@ impl<V: InterpolateTicks> InterpolateTicks for RawSlotMap<V> {
 				.collect();
 
 			let slots_ptr = slots.as_ptr();
-			let added: Vec<_> = cur.ids().collect();
+			let added: Vec<_> = if received_new_tick {
+				cur.ids().collect()
+			} else {
+				Vec::new()
+			};
+
 			let added_ptr = added.as_ptr();
+			let added_len = added.len() as usize32;
 
 			return InterpolationSlotMap {
 				data: RawSlotMap {
@@ -547,7 +553,7 @@ impl<V: InterpolateTicks> InterpolateTicks for RawSlotMap<V> {
 				removed_len: 0,
 				added,
 				added_ptr,
-				added_len: cur.len(),
+				added_len,
 			};
 		};
 
@@ -585,7 +591,7 @@ impl<V: InterpolateTicks> InterpolateTicks for RawSlotMap<V> {
 						V::interpolate_and_diff(prv_moved_slot, &cur_slot.1, amount, received_new_tick),
 					));
 
-					if prv_moved_slot.is_none() && received_new_tick {
+					if received_new_tick && prv_moved_slot.is_none() {
 						added.push(cur_slot.0);
 					}
 				}

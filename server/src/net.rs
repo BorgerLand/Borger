@@ -30,17 +30,18 @@ use wtransport::tls::rustls::ServerConfig as WSServerConfig;
 use wtransport::tls::rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use wtransport::{Endpoint, Identity, RecvStream, SendStream, ServerConfig as WTServerConfig};
 
-pub const NET_TIMEOUT: u64 = 10; //kill a connection after this many seconds of lag. should match net.ts
+pub const NET_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10); //kill a webtransport connection after this much lag. should match net.ts
+pub const NET_IDLE_TIMEOUT: Duration = Duration::from_secs(60 * 5); //kill a connection after this much waiting for inputs. unfocused/background tabs stop sending inputs
 pub const NET_INPUT_SIZE_LIMIT: usize32 = 512; //in bytes
 
 pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>, flags: Flags) {
-	let external_certs = match (&flags.fullchain, &flags.privkey) {
+	let certs = match (&flags.fullchain, &flags.privkey) {
 		(Some(fullchain), Some(privkey)) => Some((fullchain, privkey)),
 		(None, None) => None,
 		_ => panic!("--fullchain and --privkey must both be provided, or neither"),
 	};
 
-	let wt_identity = match external_certs {
+	let wt_identity = match certs {
 		Some((fullchain, privkey)) => Identity::load_pemfiles(fullchain, privkey).await.unwrap(),
 		None => Identity::self_signed(["localhost"]).unwrap(),
 	};
@@ -66,8 +67,8 @@ pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientComma
 		//both chromium+firefox have their own keepalive/idle settings that
 		//wtransport respects. these are mainly for redundancy in the case
 		//of misbehaving clients
-		.keep_alive_interval(Some(Duration::from_secs(NET_TIMEOUT / 2))) //defaults to none/infinite
-		.max_idle_timeout(Some(Duration::from_secs(NET_TIMEOUT)))
+		.keep_alive_interval(Some(NET_CONNECTION_TIMEOUT / 2)) //defaults to none/infinite
+		.max_idle_timeout(Some(NET_CONNECTION_TIMEOUT))
 		.unwrap() //default 30
 		.build();
 
@@ -236,7 +237,7 @@ async fn wt_listen_for_input(
 		let input_result = async {
 			//receive number of bytes in client's input state diff
 			let input_size_bytes = timeout(
-				Duration::from_secs(NET_TIMEOUT),
+				NET_IDLE_TIMEOUT,
 				wt_receive_packet(&mut input_stream, size_of::<usize32>() as usize32),
 			)
 			.await
@@ -263,7 +264,9 @@ async fn wt_listen_for_input(
 			}
 
 			//receive client's input state diff
-			let input_bytes = wt_receive_packet(&mut input_stream, input_size).await?;
+			let input_bytes = timeout(NET_IDLE_TIMEOUT, wt_receive_packet(&mut input_stream, input_size))
+				.await
+				.map_err(|_| "input stream timed out".to_string())??;
 			to_sim
 				.send(ClientToSimCommand::ReceiveInput(input_bytes))
 				.map_err(|oops| oops.to_string())?;
@@ -375,7 +378,10 @@ async fn ws_listen_for_input(
 	to_sim: &SyncSender<ClientToSimCommand>,
 ) -> String {
 	loop {
-		match timeout(Duration::from_secs(NET_TIMEOUT), input_stream.next()).await {
+		//unfortunately NET_CONNECTION_TIMEOUT is not applicable to ws.
+		//the protocol has no built in timeout support, so there's no way
+		//to distinguish between timeout and idle. maybe ping/pong?
+		match timeout(NET_IDLE_TIMEOUT, input_stream.next()).await {
 			Err(_) => break "input stream timed out".to_string(),
 			Ok(Some(Ok(Message::Binary(input_bytes)))) => {
 				if let Err(e) = to_sim.send(ClientToSimCommand::ReceiveInput(input_bytes.into())) {

@@ -117,7 +117,7 @@ impl SimControllerInternals {
 								input_history.timed_out_ticks += 1;
 
 								let finalized_prediction = InternalInputEntry {
-									input: (self.cb.input_server_predict_late)(
+									input: (self.o.input_server_predict_late)(
 										&prv.input,
 										&self.ctx.state,
 										client_id,
@@ -151,7 +151,7 @@ impl SimControllerInternals {
 						&self.ctx,
 						&mut input_history.entries,
 						#[cfg(feature = "server")]
-						self.cb.input_server_predict_late,
+						self.o.input_server_predict_late,
 						#[cfg(feature = "server")]
 						has_consensus,
 						#[cfg(feature = "server")]
@@ -163,7 +163,7 @@ impl SimControllerInternals {
 						&self.ctx,
 						&mut input_history.entries,
 						#[cfg(feature = "server")]
-						self.cb.input_server_predict_late,
+						self.o.input_server_predict_late,
 						#[cfg(feature = "server")]
 						has_consensus,
 						#[cfg(feature = "server")]
@@ -230,7 +230,7 @@ impl SimControllerInternals {
 
 			self.ctx.state.reset_untracked();
 			self.ctx.diff.rollback_begin_tick(tick_type);
-			(self.cb.simulation_loop)(self.ctx.to_immediate()); //game on
+			(self.o.simulation_loop)(self.ctx.to_immediate()); //game on
 			self.ctx.diff.rollback_end_tick();
 
 			#[cfg(feature = "server")]

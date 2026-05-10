@@ -100,6 +100,7 @@ ${struct.fields
 	let structs = Object::new();
 	Reflect::set(&structs, &"Input".into(), &struct_Input).unwrap();
 ${structs.sim
+	.filter((group) => presentationStructFilter(group[0]))
 	.map(function generateStructs(group) {
 		const rootStructName = getOutputStructName(group[0].name);
 		return `	Reflect::set(&structs, &"${rootStructName}".into(), &struct_${rootStructName}).unwrap();`;

@@ -13,10 +13,10 @@ pub trait Interpolate: Copy {
 //be an option in order to fire initial collection add/remove
 //events, otherwise no change would be detected
 #[cfg(feature = "client")]
-pub trait InterpolateTicks {
+pub trait InterpolateTicks<Prv = Self> {
 	type InterpolationState;
 	fn interpolate_and_diff(
-		prv: Option<&Self>,
+		prv: Option<&Prv>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
@@ -33,21 +33,35 @@ impl InterpolateTicks for presentation::Client {
 		prv: Option<&Self>,
 		cur: &Self,
 		amount: f32,
-		receive_new_tick: bool,
+		received_new_tick: bool,
 	) -> Self::InterpolationState {
 		match cur {
 			Self::Owned(cur) => Client::Owned(InterpolateTicks::interpolate_and_diff(
 				prv.map(|prv| prv.as_owned().unwrap()),
 				cur,
 				amount,
-				receive_new_tick,
+				received_new_tick,
 			)),
-			Self::Remote(cur) => Client::Remote(InterpolateTicks::interpolate_and_diff(
-				prv.map(|prv| prv.as_remote().unwrap()),
-				cur,
-				amount,
-				receive_new_tick,
-			)),
+			Self::Remote(cur) => {
+				if let Some(presentation::Client::Owned(prv)) = prv {
+					//special case: received a new client id after reconnecting
+					//to server. the previously owned client is now a stale
+					//remote client that the server hasn't timed out yet
+					Client::Remote(presentation::ClientRemote::interpolate_and_diff(
+						Some(prv),
+						cur,
+						amount,
+						received_new_tick,
+					))
+				} else {
+					Client::Remote(presentation::ClientRemote::interpolate_and_diff(
+						prv.map(|prv| prv.as_remote().unwrap()),
+						cur,
+						amount,
+						received_new_tick,
+					))
+				}
+			}
 		}
 	}
 }

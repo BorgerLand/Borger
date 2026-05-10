@@ -82,11 +82,16 @@ async function testWebGPU(required: boolean): Promise<Result> {
 }
 
 function testSharedArrayBuffer(): Result {
+	if (!crossOriginIsolated)
+		//eslint-disable-next-line no-console
+		console.warn(
+			"HTTP server's cross-origin isolation headers are improperly configured. Performance may suffer.",
+		);
+
 	return { name: "SharedArrayBuffer", supported: "SharedArrayBuffer" in window, hasFallback: true };
 }
 
 function testWebTransport(): Result {
-	//https://developer.apple.com/documentation/safari-release-notes/safari-26_4-release-notes#Networking
 	//https://issues.chromium.org/issues/473215415
 	const isChromiumAndroid = /Chrome/.test(navigator.userAgent) && /Android/.test(navigator.userAgent);
 

@@ -56,9 +56,6 @@ pub struct SimControllerExternals {
 	pub new_connection_sender: SyncSender<AsyncSender<SimToClientCommand>>,
 	#[cfg(feature = "client")]
 	pub comms: PresentationToSimChannel,
-
-	#[cfg(feature = "client")]
-	pub output_receiver: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
 //data that needs to be moved across threads
@@ -66,7 +63,7 @@ pub struct SimControllerExternals {
 //all fields must be Send
 #[cfg(not(feature = "singlethreaded"))]
 struct SimMoveAcrossThreads {
-	cb: SimulationInitOptions,
+	o: SimulationInitOptions,
 
 	#[cfg(feature = "client")]
 	new_client_snapshot: Vec<u8>,
@@ -75,8 +72,6 @@ struct SimMoveAcrossThreads {
 	new_connection_receiver: SyncReceiver<AsyncSender<SimToClientCommand>>,
 	#[cfg(feature = "client")]
 	comms: SimToPresentationChannel,
-	#[cfg(feature = "client")]
-	output_sender: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
 #[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
@@ -92,7 +87,7 @@ pub enum SimThreading {
 //on client, owned by simulation thread
 struct SimControllerInternals {
 	ctx: GameContext<Impl>,
-	cb: SimulationInitOptions,
+	o: SimulationInitOptions,
 
 	//inputs associated with ticks that haven't reached consensus yet
 	//are stored here. when more info is received ticks will be
@@ -109,8 +104,6 @@ struct SimControllerInternals {
 	comms: HashMap<usize32, SimToClientChannel>,
 	#[cfg(feature = "client")]
 	comms: SimToPresentationChannel,
-	#[cfg(feature = "client")]
-	output_sender: Arc<AtomicOptionBox<SimulationOutput>>,
 
 	#[cfg(feature = "server")]
 	server_events: VecDeque<UnrollbackableNetEvent>,
@@ -196,25 +189,28 @@ struct InternalInputEntry {
 struct ClientComms {
 	sim_comms: SimToPresentationChannel,
 	presentation_comms: PresentationToSimChannel,
-	output: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
 #[cfg(feature = "client")]
 fn make_client_comms() -> ClientComms {
+	let sim_out = Arc::new(AtomicOptionBox::none());
 	let (to_presentation, from_sim) = sync_unbounded_channel();
 	let (to_sim, from_presentation) = sync_unbounded_channel();
 
 	let sim_comms = SimToPresentationChannel {
 		to_presentation,
 		from_presentation,
+		sim_out: sim_out.clone(),
 	};
-	let presentation_comms = PresentationToSimChannel { to_sim, from_sim };
-	let output = Arc::new(AtomicOptionBox::none());
+	let presentation_comms = PresentationToSimChannel {
+		to_sim,
+		from_sim,
+		sim_out,
+	};
 
 	ClientComms {
 		sim_comms,
 		presentation_comms,
-		output,
 	}
 }
 
@@ -226,11 +222,11 @@ struct MakeContext {
 }
 
 fn make_context(
-	cb: &SimulationInitOptions,
+	o: &SimulationInitOptions,
 	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> MakeContext {
 	let mut state = SimulationState::construct(&Rc::default(), ClientKind::NA);
-	cb.init_static_level_geom.map(|init_level| {
+	o.init_static_level_geom.map(|init_level| {
 		init_level(&mut state);
 		state.reset_untracked(); //in case init_static_level_geom did anything nefarious
 	});
@@ -261,7 +257,7 @@ fn make_context(
 #[cfg(not(feature = "singlethreaded"))]
 #[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub fn init_multithreaded(
-	cb: SimulationInitOptions,
+	o: SimulationInitOptions,
 	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> SimControllerExternals {
 	#[cfg(feature = "server")]
@@ -271,11 +267,10 @@ pub fn init_multithreaded(
 	let ClientComms {
 		sim_comms,
 		presentation_comms,
-		output,
 	} = make_client_comms();
 
 	let move_me = SimMoveAcrossThreads {
-		cb,
+		o,
 
 		#[cfg(feature = "client")]
 		new_client_snapshot,
@@ -284,8 +279,6 @@ pub fn init_multithreaded(
 		new_connection_receiver,
 		#[cfg(feature = "client")]
 		comms: sim_comms,
-		#[cfg(feature = "client")]
-		output_sender: output.clone(),
 	};
 
 	let thread = thread::spawn(move || loop_multithreaded(move_me));
@@ -297,9 +290,6 @@ pub fn init_multithreaded(
 		new_connection_sender,
 		#[cfg(feature = "client")]
 		comms: presentation_comms,
-
-		#[cfg(feature = "client")]
-		output_receiver: output,
 	}
 }
 
@@ -310,14 +300,14 @@ fn loop_multithreaded(moved_data: SimMoveAcrossThreads) {
 		#[cfg(feature = "client")]
 		new_client_header,
 	} = make_context(
-		&moved_data.cb,
+		&moved_data.o,
 		#[cfg(feature = "client")]
 		moved_data.new_client_snapshot,
 	);
 
 	let mut sim = SimControllerInternals {
 		ctx,
-		cb: moved_data.cb,
+		o: moved_data.o,
 
 		#[cfg(feature = "server")]
 		input_history: HashMap::new(),
@@ -330,8 +320,6 @@ fn loop_multithreaded(moved_data: SimMoveAcrossThreads) {
 		comms: HashMap::new(),
 		#[cfg(feature = "client")]
 		comms: moved_data.comms,
-		#[cfg(feature = "client")]
-		output_sender: moved_data.output_sender,
 
 		#[cfg(feature = "server")]
 		server_events: VecDeque::from([UnrollbackableNetEvent::ServerStart]),
@@ -348,10 +336,13 @@ fn loop_multithreaded(moved_data: SimMoveAcrossThreads) {
 	sim.initial_fast_forward(new_client_header.fast_forward_ticks);
 
 	loop {
-		sim.scheduled_tick(
+		if sim.scheduled_tick(
 			#[cfg(feature = "session_replay")]
 			false,
-		);
+		) == None
+		{
+			break;
+		}
 
 		let next_tick_time = sim.ctx.tick.get_now();
 		let now = Instant::now();
@@ -372,27 +363,22 @@ fn loop_multithreaded(moved_data: SimMoveAcrossThreads) {
 }
 
 #[cfg(any(feature = "singlethreaded", feature = "session_replay"))]
-pub fn init_singlethreaded(
-	cb: SimulationInitOptions,
-	new_client_snapshot: Vec<u8>,
-) -> SimControllerExternals {
+pub fn init_singlethreaded(o: SimulationInitOptions, new_client_snapshot: Vec<u8>) -> SimControllerExternals {
 	let ClientComms {
 		sim_comms,
 		presentation_comms,
-		output,
 	} = make_client_comms();
 
 	let MakeContext {
 		ctx,
 		new_client_header,
-	} = make_context(&cb, new_client_snapshot);
+	} = make_context(&o, new_client_snapshot);
 
 	let mut internals = SimControllerInternals {
 		ctx,
-		cb,
+		o,
 		input_history: InternalInputHistory::default(),
 		comms: sim_comms,
-		output_sender: output.clone(),
 		local_client_id: new_client_header.client_id,
 		calibration_samples: VecDeque::new(),
 		initial_calibration: true,
@@ -403,7 +389,6 @@ pub fn init_singlethreaded(
 	SimControllerExternals {
 		internals: SimThreading::Singlethreaded(internals),
 		comms: presentation_comms,
-		output_receiver: output,
 	}
 }
 
@@ -414,26 +399,33 @@ impl SimControllerExternals {
 
 		let tick_id_accumulator = sim.ctx.tick.get_tick_at(Instant::now());
 		while sim.ctx.tick.id_cur < tick_id_accumulator {
-			sim.scheduled_tick();
+			if sim.scheduled_tick(
+				#[cfg(feature = "session_replay")]
+				false,
+			) == None
+			{
+				break;
+			}
 		}
 	}
 }
 
 #[cfg(feature = "session_replay")]
-pub fn replay_session(cb: SimulationInitOptions, actions: Vec<SessionReplayAction>) -> Result<(), ()> {
+pub fn replay_session(o: SimulationInitOptions, actions: Vec<SessionReplayAction>) -> Result<(), ()> {
 	let mut actions = actions.into_iter();
 	let Some(SessionReplayAction::Init(new_client_snapshot)) = actions.next() else {
 		return Err(());
 	};
 
-	let mut externals = init_singlethreaded(cb, new_client_snapshot);
+	let mut externals = init_singlethreaded(o, new_client_snapshot);
 	let SimThreading::Singlethreaded(sim) = &mut externals.internals else {
 		return Err(());
 	};
 
+	//ok to unwrap scheduled_tick() in here. no risk of disconnection
 	for action in actions {
 		match action {
-			SessionReplayAction::ScheduledTick => sim.scheduled_tick(true),
+			SessionReplayAction::ScheduledTick => sim.scheduled_tick(true).unwrap(),
 			SessionReplayAction::ReceiveComm(msg) => externals.comms.to_sim.send(msg).map_err(|_| ())?,
 			SessionReplayAction::Init(_) => return Err(()),
 		};
@@ -444,13 +436,15 @@ pub fn replay_session(cb: SimulationInitOptions, actions: Vec<SessionReplayActio
 
 	//one more time. in the event of a crash, the final
 	//ReplayAction::ScheduledTick is not recorded
-	sim.scheduled_tick(true);
+	sim.scheduled_tick(true).unwrap();
 
 	Ok(())
 }
 
 impl SimControllerInternals {
-	fn scheduled_tick(&mut self, #[cfg(feature = "session_replay")] is_replay: bool) {
+	#[must_use]
+	//on a client, this returns none upon disconnection
+	fn scheduled_tick(&mut self, #[cfg(feature = "session_replay")] is_replay: bool) -> Option<()> {
 		self.ctx.tick.id_target += 1;
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("begin scheduled tick @{:?}", self.ctx.tick);
@@ -481,7 +475,7 @@ impl SimControllerInternals {
 		//remember tick.id_cur is the number of completed ticks. the
 		//target/goal of this iteration of the loop is to simulate 1
 		//more tick than has currently finished simulating
-		self.scheduled_tick_impl();
+		self.scheduled_tick_impl()?;
 
 		if TRACE_TICK_ADVANCEMENT {
 			debug!("end scheduled tick");
@@ -496,6 +490,8 @@ impl SimControllerInternals {
 				))
 				.unwrap();
 		}
+
+		Some(())
 	}
 }
 

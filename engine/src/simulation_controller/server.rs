@@ -12,7 +12,7 @@ const INPUT_TOO_LATE: Duration = Duration::from_millis(1500); //too late = serve
 
 impl SimControllerInternals {
 	//receive and process data from server's main thread
-	pub(super) fn scheduled_tick_impl(&mut self) {
+	pub(super) fn scheduled_tick_impl(&mut self) -> Option<()> {
 		//in order to minimize the amount of rolling back
 		//for processing non-deterministic server_events,
 		//inputs need to be deserialized first. remember
@@ -76,7 +76,7 @@ impl SimControllerInternals {
 						match diff_des::des_rx_input(&mut new_input, ser_rx_buffer.into_iter()) {
 							Ok(_) => {
 								tick_id_associated += 1;
-								new_input = (self.cb.input_validate)(&new_input);
+								new_input = (self.o.input_validate)(&new_input);
 
 								if history.is_timed_out && tick_id_associated >= tick_id_caught_up {
 									history.is_timed_out = false;
@@ -200,6 +200,8 @@ impl SimControllerInternals {
 		self.ctx.tick.id_consensus += advance;
 
 		self.simulate();
+
+		Some(())
 	}
 
 	fn trigger_server_events(&mut self, mut rollback_amount: TickID) {
@@ -226,7 +228,7 @@ impl SimControllerInternals {
 		while let Some(event) = self.server_events.pop_front() {
 			match event {
 				UnrollbackableNetEvent::ServerStart => {
-					(self.cb.on_server_start)(&mut self.ctx.state, self.ctx.diff.to_consensus());
+					(self.o.on_server_start)(&mut self.ctx.state, self.ctx.diff.to_consensus());
 				}
 
 				UnrollbackableNetEvent::ClientConnect(comms) => {
@@ -238,7 +240,7 @@ impl SimControllerInternals {
 						.0;
 
 					//game logic-specific
-					(self.cb.on_client_connect)(
+					(self.o.on_client_connect)(
 						&mut self.ctx.state,
 						new_client_id,
 						self.ctx.tick.id_cur,
@@ -273,7 +275,7 @@ impl SimControllerInternals {
 					self.comms.remove(&old_client_id).unwrap();
 
 					//game logic-specific
-					(self.cb.on_client_disconnect)(
+					(self.o.on_client_disconnect)(
 						&mut self.ctx.state,
 						old_client_id,
 						self.ctx.tick.id_cur,

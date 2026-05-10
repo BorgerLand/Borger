@@ -5,6 +5,7 @@ use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::presentation::PresentTick;
 use crate::tick::TickType;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc::TryRecvError;
 
 //how many calibration samples to take before drawing conclusions
 const OFFSET_BUFFER_SIZE: usize = 20;
@@ -26,9 +27,9 @@ impl SimControllerInternals {
 	}
 
 	//receive and process data from client's presentation thread
-	pub(super) fn scheduled_tick_impl(&mut self) {
-		let rx_buffers = self.propagate_input(true);
-		let offset = self.reconcile(rx_buffers);
+	pub(super) fn scheduled_tick_impl(&mut self) -> Option<()> {
+		let rx_buffers = self.propagate_input(true)?;
+		let offset = self.reconcile(rx_buffers)?;
 
 		if self.ctx.tick.id_target > self.ctx.tick.id_consensus {
 			debug_assert_eq!(offset, 0);
@@ -73,26 +74,25 @@ impl SimControllerInternals {
 				self.calibration_samples.clear();
 				self.initial_calibration = false;
 
-				if average_offset == 0 {
-					return;
-				}
+				if average_offset != 0 {
+					self.ctx.tick.recalibrate(average_offset);
 
-				self.ctx.tick.recalibrate(average_offset);
+					if average_offset < 0 {
+						for _ in average_offset..0 {
+							//not reading comms, so this can't fail
+							self.propagate_input(false).unwrap();
+						}
 
-				if average_offset < 0 {
-					for _ in average_offset..0 {
-						self.propagate_input(false);
+						self.simulate();
 					}
-
-					self.simulate();
+					//else not much we can do here except freeze the simulation.
+					//can't rewind because inputs have already been sent.
+					//theoretically should not be frozen any longer than
+					//INPUT_TOO_EARLY or else the server would have kicked you.
+					//being too early is also be logically impossible unless the
+					//client isn't sleeping as much as it should between ticks,
+					//or cheating
 				}
-				//else not much we can do here except freeze the simulation.
-				//can't rewind because inputs have already been sent.
-				//theoretically should not be frozen any longer than
-				//INPUT_TOO_EARLY or else the server would have kicked you.
-				//being too early is also be logically impossible unless the
-				//client isn't sleeping as much as it should between ticks,
-				//or cheating
 			}
 		}
 
@@ -100,7 +100,7 @@ impl SimControllerInternals {
 		//scheduled tick, render it. note there is no guarantee
 		//that every simulation tick is rendered, depending on
 		//whether presentation tick is able to keep up with SIM_DT
-		self.output_sender.store(
+		self.comms.sim_out.store(
 			Some(Box::new(SimulationOutput {
 				time: self.ctx.tick.get_now(),
 				local_client_id: self.local_client_id,
@@ -108,50 +108,56 @@ impl SimControllerInternals {
 			})),
 			Ordering::AcqRel,
 		);
+
+		Some(())
 	}
 
-	fn propagate_input(&mut self, read_comms: bool) -> Vec<Vec<u8>> {
+	#[must_use]
+	fn propagate_input(&mut self, read_comms: bool) -> Option<Vec<Vec<u8>>> {
 		let mut input_is_late = true;
 		let mut new_input = Input::default();
 		let mut rx_buffers: Vec<Vec<u8>> = Vec::new();
 
 		if read_comms {
-			while let Ok(presentation_msg) = self.comms.from_presentation.try_recv() {
-				#[cfg(feature = "session_replay")]
-				self.comms
-					.to_presentation
-					.send(SimToPresentationCommand::SessionReplayAction(
-						SessionReplayAction::ReceiveComm(presentation_msg.clone()),
-					))
-					.unwrap();
+			loop {
+				match self.comms.from_presentation.try_recv() {
+					Ok(presentation_msg) => {
+						#[cfg(feature = "session_replay")]
+						self.comms
+							.to_presentation
+							.send(SimToPresentationCommand::SessionReplayAction(
+								SessionReplayAction::ReceiveComm(presentation_msg.clone()),
+							))
+							.ok()?;
 
-				match presentation_msg {
-					PresentationToSimCommand::RawInput(raw_input) => {
-						//there can only be one input state per simulation tick,
-						//so merge together however many the presentation thread
-						//has produced
-						new_input = (self.cb.input_merge)(&new_input, &raw_input);
-						input_is_late = false;
+						match presentation_msg {
+							PresentationToSimCommand::RawInput(raw_input) => {
+								//there can only be one input state per simulation tick,
+								//so merge together however many the presentation thread
+								//has produced
+								new_input = (self.o.input_merge)(&new_input, &raw_input);
+								input_is_late = false;
+							}
+							PresentationToSimCommand::ReceiveState(buffer) => {
+								rx_buffers.push(buffer);
+							}
+						};
 					}
-					PresentationToSimCommand::ReceiveState(buffer) => {
-						rx_buffers.push(buffer);
-					}
-					PresentationToSimCommand::Abort => {
-						panic!("Simulation received abort signal");
-					}
-				};
+					Err(TryRecvError::Disconnected) => return None,
+					Err(TryRecvError::Empty) => break,
+				}
 			}
 		}
 
 		if input_is_late && read_comms {
-			new_input = (self.cb.input_client_predict_late)(
+			new_input = (self.o.input_client_predict_late)(
 				&self.input_history.entries.back().unwrap().input,
 				&self.ctx.state,
 				self.local_client_id,
 			);
 		}
 
-		new_input = (self.cb.input_validate)(&new_input);
+		new_input = (self.o.input_validate)(&new_input);
 
 		let diff = &mut self.ctx.diff;
 		let prv_input = &self.input_history.entries.back().unwrap().input;
@@ -167,15 +173,15 @@ impl SimControllerInternals {
 		self.comms
 			.to_presentation
 			.send(SimToPresentationCommand::InputDiff(diff.tx_end_tick().unwrap()))
-			.unwrap();
+			.ok()?;
 
-		rx_buffers
+		Some(rx_buffers)
 	}
 
 	//returns the number of buffers/ticks received that this client
 	//hasn't simulated yet. anything other than 0 indicates client's
 	//simulation is running very far behind
-	fn reconcile(&mut self, received: Vec<Vec<u8>>) -> TickID {
+	fn reconcile(&mut self, received: Vec<Vec<u8>>) -> Option<TickID> {
 		//build the list of buffers that will actually be reconciled.
 		//because the server can jump back in time and overwrite its own
 		//previous predictions, there is a risk of seeing other clients'
@@ -267,7 +273,7 @@ impl SimControllerInternals {
 						self.comms
 							.to_presentation
 							.send(SimToPresentationCommand::InputDiff(Vec::default()))
-							.unwrap();
+							.ok()?;
 					}
 
 					if !input_acked {
@@ -345,7 +351,7 @@ impl SimControllerInternals {
 			}
 		}
 
-		input_underflow
+		Some(input_underflow)
 	}
 }
 

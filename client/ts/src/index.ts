@@ -3,70 +3,184 @@ import * as ConsoleLog from "@borger/ts/console_log.ts";
 import * as Compat from "@borger/ts/compat.ts";
 import * as MemWrappersH from "@borger/ts/handwritten/mem_wrappers.ts";
 import * as MemWrappersG from "@borger/ts/generated/mem_wrappers.ts";
+import type * as WASMBindgenNS from "@borger/rs";
 
-export type PresentationInitOptions = {
-	hostname?: string; //eg. location.hostname, "localhost", "192.168.0.100", "server.com"
-	webTransportPort?: number; //6969
-	webSocketPort?: number; //6996
+export type PresentationInitOptions =
+	| {
+			hostname?: string; //eg. location.hostname, "localhost", "192.168.0.100", "server.com"
+			webTransportPort?: number; //6969
+			webSocketPort?: number; //6996
+			onConnectionChange?: (oops?: { message: string; attempt: number }) => void | Promise<void>;
 
-	requireWebGL2?: boolean;
-	requireWebGPU?: boolean;
-};
+			requireWebGL2?: boolean;
+			requireWebGPU?: boolean;
+	  }
+	| undefined;
 
-export type State = Awaited<ReturnType<typeof init>>;
-
-//eslint-disable-next-line @typescript-eslint/consistent-type-imports
-export type WASMBindgen = typeof import("@borger/rs");
+export type WASMBindgen = typeof WASMBindgenNS;
+type WASMState = Awaited<ReturnType<typeof initWASM>>;
 
 async function initWASM(singlethreaded: boolean) {
-	let wasmBindgen: WASMBindgen;
-	if (import.meta.env.DEV) wasmBindgen = await import("@borger/rs");
-	else
-		wasmBindgen = await import(/* @vite-ignore */ `/assets/client_rs_${singlethreaded ? "st" : "mt"}.js`);
+	let bindgen: WASMBindgen;
+	if (import.meta.env.DEV) bindgen = await import("@borger/rs");
+	else bindgen = await import(/* @vite-ignore */ `/assets/client_rs_${singlethreaded ? "st" : "mt"}.js`);
 
-	const wasmModule = await wasmBindgen.default();
+	const module = await bindgen.default();
 
-	return { wasmBindgen, wasmModule };
+	return { bindgen, module };
 }
 
-export async function init(o?: PresentationInitOptions) {
-	const compat = await Compat.init(o);
+type PresentationLoop = (dt: number, input: MemWrappersG.Input, output: MemWrappersG.Output) => void;
 
-	//init the game server connection and wasm module in parallel
-	const [{ wasmBindgen, wasmModule }, net] = await Promise.all([
+export async function play(
+	initGameCB: (compat: Compat.State) => PresentationLoop | Promise<PresentationLoop>,
+	o?: PresentationInitOptions,
+) {
+	const compat = await Compat.init(o);
+	const [wasm, presentationLoop] = await Promise.all([
 		initWASM(!compat.sharedArrayBuffer.supported),
-		Net.init(
+		initGameCB(compat),
+	]);
+
+	const initialSession = await initConnectionSession(o, wasm, compat);
+	if (!initialSession) return;
+	let connectionSession = initialSession;
+
+	let dt = 0,
+		prvTime = -1;
+
+	await new Promise<void>(function (resolve) {
+		if (connectionSession.userCancel instanceof Promise) connectionSession.userCancel.then(resolve);
+
+		animationFrame(connectionSession.initTime);
+		async function animationFrame(curTime: number) {
+			let resumed = false;
+			if (typeof connectionSession.net.oops === "string") {
+				//connection failed during gameplay. try to reconnect under a new
+				//connection session and then resume the presentation loop. this
+				//is possible without a major reload because presentation will
+				//just resume rendering whatever the new simulation tells it to
+				//render, with the only side effect being a single large dt
+				const newSession = await initConnectionSession(o, wasm, compat, connectionSession);
+				if (!newSession) {
+					//user cancelled/gave up
+					resolve();
+					return;
+				}
+
+				if (newSession.userCancel instanceof Promise) newSession.userCancel.then(resolve);
+
+				connectionSession = newSession;
+				curTime = connectionSession.initTime;
+				resumed = true;
+			}
+
+			curTime /= 1000; //convert to seconds
+			if (prvTime < 0) {
+				prvTime = curTime; //forces initial dt value to be 0
+			} else if (!resumed) {
+				//ship the input off to the simulation + interpolate between simulation ticks
+				connectionSession.rsOutput = connectionSession.rsController.presentation_tick(dt)!;
+			}
+
+			dt = curTime - prvTime;
+			prvTime = curTime;
+
+			const memory = wasm.module.memory.buffer;
+			if (connectionSession.wrappers.memView.buffer !== memory)
+				connectionSession.wrappers.memView = new DataView(memory);
+
+			presentationLoop(
+				dt,
+				MemWrappersG.wrap_Input(connectionSession.wrappers, connectionSession.rsInput),
+				MemWrappersG.wrap_Output(connectionSession.wrappers, connectionSession.rsOutput),
+			); //game on
+			connectionSession.wrappers.curLifetime++;
+
+			requestAnimationFrame(animationFrame);
+		}
+
+		ConsoleLog.init();
+	});
+}
+
+type ConnectionSession = {
+	net: Net.State;
+	rsController: WASMBindgenNS.PresentationController;
+	rsInput: number;
+	initTime: number;
+	rsOutput: number;
+	wrappers: MemWrappersH.State;
+	userCancel: void | Promise<void>;
+};
+
+//represents the data whose lifetime spans from connection opening to disconnecting
+async function initConnectionSession(
+	o: PresentationInitOptions,
+	wasm: WASMState,
+	compat: Compat.State,
+	resumeFrom?: ConnectionSession,
+): Promise<ConnectionSession | undefined> {
+	//awkward co-dependency between presentation controller and net
+	const onStateReceivedPromise = Promise.withResolvers<(stateBuffer: Uint8Array) => void>();
+
+	let net,
+		userCancel,
+		attempt = 1;
+
+	userCancel = o?.onConnectionChange?.({
+		message: resumeFrom ? resumeFrom.net.oops! : "Connecting...",
+		attempt,
+	});
+
+	//keep retrying until success or cancel
+	while (true) {
+		const netResult = await Net.init(
 			o?.hostname ?? location.hostname,
 			o?.webTransportPort ?? 6969,
 			o?.webSocketPort ?? 6996,
 			compat.webTransport.supported,
-		),
-	]);
+			onStateReceivedPromise.promise,
+			userCancel,
+		);
 
-	const wrappers = MemWrappersH.init(wasmBindgen);
-	const rsController = new wasmBindgen.PresentationController(net.newClientSnapshot, net.writeInput);
+		if (netResult.type === Net.NetResultType.Err) {
+			userCancel = o?.onConnectionChange?.({ message: netResult.result, attempt: ++attempt });
+			await new Promise((resolve) => setTimeout(resolve, 500));
+		} else if (netResult.type === Net.NetResultType.UserCancel) {
+			return;
+		} else {
+			net = netResult.result;
+			break;
+		}
+	}
+
+	let rsController: WASMBindgenNS.PresentationController;
+	if (!resumeFrom)
+		rsController = new wasm.bindgen.PresentationController(net.newClientSnapshot, net.writeInput);
+	else
+		rsController = wasm.bindgen.PresentationController.resume_disconnected_session(
+			resumeFrom.rsController,
+			net.newClientSnapshot,
+			net.writeInput,
+		);
+
+	onStateReceivedPromise.resolve((buffer) => rsController.listen_for_state(buffer));
 	const rsInput = rsController.get_input_ptr();
-	let initFrameRequest: number;
-
-	Net.onStateReceived(net, (buffer) => rsController.listen_for_state(buffer));
-	Net.onDisconnect(net, function () {
-		rsController.abort_simulation();
-		cancelAnimationFrame(initFrameRequest);
-	});
+	const wrappers = MemWrappersH.init(wasm.bindgen);
 
 	//launch the simulation thread (by constructing PresentationController)
 	//and wait for it to be ready
 	const { initTime, rsOutput } = await new Promise<{ initTime: number; rsOutput: number }>(function (
 		resolve,
 	) {
-		initFrameRequest = requestAnimationFrame(tryAgain);
+		requestAnimationFrame(tryAgain);
 		function tryAgain(retryTime: number) {
 			const rsOutput = rsController.presentation_tick(0);
 			if (rsOutput !== undefined) {
-				wrappers.memView = new DataView(wasmModule.memory.buffer);
 				resolve({ initTime: retryTime, rsOutput });
 			} else {
-				initFrameRequest = requestAnimationFrame(tryAgain);
+				requestAnimationFrame(tryAgain);
 			}
 		}
 	});
@@ -85,71 +199,26 @@ export async function init(o?: PresentationInitOptions) {
 		};
 	}
 
-	const state = {
-		dt: 0,
-		initTime,
-		prvTime: -1,
-		compat,
-		wasmModule,
+	userCancel = o?.onConnectionChange?.();
+
+	return {
 		net,
 		rsController,
 		rsInput,
+		initTime,
 		rsOutput,
 		wrappers,
+		userCancel,
 	};
-
-	return state;
-}
-
-export function present(
-	state: State,
-	presentationLoop: (input: MemWrappersG.Input, output: MemWrappersG.Output) => void,
-) {
-	return new Promise<void>(function (resolve) {
-		let frameRequest: number;
-		Net.onDisconnect(state.net, function () {
-			state.rsController.abort_simulation();
-			cancelAnimationFrame(frameRequest);
-			resolve();
-		});
-
-		animationFrame(state.initTime!);
-		function animationFrame(curTime: number) {
-			curTime /= 1000; //convert to seconds
-			if (state.prvTime < 0) {
-				//initial frame
-				state.prvTime = curTime; //forces dt value to be 0
-			} else {
-				//ship the input off to the simulation + interpolate between simulation ticks
-				state.rsOutput = state.rsController.presentation_tick(state.dt)!;
-
-				const memory = state.wasmModule.memory.buffer;
-				if (state.wrappers.memView.buffer !== memory) state.wrappers.memView = new DataView(memory);
-			}
-
-			state.dt = curTime - state.prvTime;
-			state.prvTime = curTime;
-
-			presentationLoop(
-				MemWrappersG.wrap_Input(state.wrappers, state.rsInput),
-				MemWrappersG.wrap_Output(state.wrappers, state.rsOutput),
-			); //game on
-			state.wrappers.curLifetime++;
-
-			frameRequest = requestAnimationFrame(animationFrame);
-		}
-
-		ConsoleLog.init();
-	});
 }
 
 export async function replaySession() {
-	const wasmBindgen = (await initWASM(false)).wasmBindgen;
+	const wasmBindgen = (await initWASM(false)).bindgen;
 
-	//eslint-disable-next-line no-console
-	console.log(
+	ConsoleLog.styledLog(false, [
 		"Drag a session dump file onto the page, or click anywhere on the page to open a file prompt.",
-	);
+		[ConsoleLog.BROWN, ConsoleLog.BOLD],
+	]);
 
 	const file = await new Promise<Uint8Array>((resolve, reject) => {
 		function cleanup() {

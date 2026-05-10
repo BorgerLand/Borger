@@ -1,10 +1,10 @@
 import * as MemWrappers from "@borger/ts/handwritten/mem_wrappers.ts";
 import { SIZEOF_32BIT } from "@borger/ts/networked_types/primitive.ts";
 
-export type SlotMap<T> = ((events?: {
+export type SlotMap<V> = ((events?: {
 	added: (id: number) => void;
 	removed: (id: number) => void;
-}) => Iterable<[number, T]> & { len: () => number; get: (id: number) => T | undefined }) & {
+}) => Iterable<[number, V]> & { len: () => number; get: (id: number) => V | undefined }) & {
 	len: () => number;
 };
 
@@ -20,13 +20,13 @@ type SlotMapMemOffsets = {
 	added_len: number;
 };
 
-export function wrap<T>(
+export function wrap<V>(
 	state: MemWrappers.State,
 	ptr: number,
 	offsets: SlotMapMemOffsets,
-	wrapElement: (state: MemWrappers.State, ptr: number) => T,
+	wrapElement: (state: MemWrappers.State, ptr: number) => V,
 	getElement: (ptr: number, id: number) => number | undefined,
-): SlotMap<T> {
+): SlotMap<V> {
 	const lifetime = state.curLifetime;
 	const slotsPtr = state.memView.getUint32(ptr + offsets.slots_ptr, true);
 	const slotsLen = state.memView.getUint32(ptr + offsets.slots_len, true);
@@ -36,7 +36,7 @@ export function wrap<T>(
 	const addedLen = state.memView.getUint32(ptr + offsets.added_len, true);
 
 	const len = () => slotsLen;
-	const ret: SlotMap<T> = function (events) {
+	const ret: SlotMap<V> = function (events) {
 		if (events) {
 			MemWrappers.checkUseAfterFree(state, lifetime);
 

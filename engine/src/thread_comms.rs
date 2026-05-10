@@ -4,7 +4,10 @@ use std::sync::mpsc::{Receiver as SyncReceiver, Sender as SyncSender};
 use tokio::sync::mpsc::UnboundedSender as AsyncSender;
 
 #[cfg(feature = "client")]
-use crate::simulation_state::Input;
+use {
+	crate::presentation::SimulationOutput, crate::simulation_state::Input, atomicbox::AtomicOptionBox,
+	std::sync::Arc,
+};
 
 #[cfg(feature = "session_replay")]
 use serde::{Deserialize, Serialize};
@@ -39,7 +42,6 @@ pub struct SimToClientChannel {
 pub enum PresentationToSimCommand {
 	RawInput(Input),       //presentation thread sends hot fresh inputs here
 	ReceiveState(Vec<u8>), //received state from the server
-	Abort,
 }
 
 #[cfg(feature = "client")]
@@ -65,10 +67,12 @@ pub enum SessionReplayAction {
 pub struct PresentationToSimChannel {
 	pub to_sim: SyncSender<PresentationToSimCommand>,
 	pub from_sim: SyncReceiver<SimToPresentationCommand>,
+	pub sim_out: Arc<AtomicOptionBox<SimulationOutput>>,
 }
 
 #[cfg(feature = "client")]
 pub struct SimToPresentationChannel {
 	pub to_presentation: SyncSender<SimToPresentationCommand>,
 	pub from_presentation: SyncReceiver<PresentationToSimCommand>,
+	pub sim_out: Arc<AtomicOptionBox<SimulationOutput>>,
 }

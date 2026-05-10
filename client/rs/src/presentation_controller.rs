@@ -6,7 +6,7 @@ use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
 use game::input;
 use js_sys::{Function, Uint8Array};
 use log::Level;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::{mem, panic};
 use wasm_bindgen::prelude::*;
@@ -44,12 +44,12 @@ pub struct PresentationController {
 impl PresentationController {
 	#[wasm_bindgen(constructor)]
 	pub fn new(
-		new_client_snapshot: Uint8Array,
+		new_client_snapshot: Vec<u8>,
 		#[wasm_bindgen(unchecked_param_type = "(tx: Uint8Array<ArrayBuffer>) => void")] write_input: Function,
 	) -> Self {
 		log_setup();
 
-		let new_client_snapshot = new_client_snapshot.to_vec();
+		let new_client_snapshot = new_client_snapshot;
 
 		#[cfg(feature = "session_replay")]
 		let session_recording = vec![SessionReplayAction::Init(new_client_snapshot.clone())];
@@ -74,6 +74,22 @@ impl PresentationController {
 		}
 	}
 
+	//when resuming it is very important to not drop the existing
+	//tick buffers, in order to interpolate and dispatch all events
+	//that have occurred since disconnecting. this effectively is
+	//the same as the presentation loop skipping over many
+	//simulation ticks
+	pub fn resume_disconnected_session(
+		old: Self,
+		new_client_snapshot: Vec<u8>,
+		#[wasm_bindgen(unchecked_param_type = "(tx: Uint8Array<ArrayBuffer>) => void")] write_input: Function,
+	) -> Self {
+		let mut new = PresentationController::new(new_client_snapshot, write_input);
+		new.next_tick_i = old.next_tick_i;
+		new.tick_buffers = old.tick_buffers;
+		new
+	}
+
 	//safety: this should be called by a wasm-bindgen-wrapped
 	//PresentationController owned by js memory in order to get
 	//a stable pointer
@@ -84,7 +100,9 @@ impl PresentationController {
 	//presentation loop is slightly behind simulation loop, so
 	//tick buffers are older snapshots of the simulation. the
 	//unfortunate downside is that there will always be at least
-	//1 frame delay before seeing the consequences
+	//1 frame delay before seeing the consequences. this will
+	//not return some until simulation thread has produced its
+	//first tick
 	pub fn presentation_tick(&mut self, dt: f32) -> Option<*const InterpolationOutput> {
 		//received input state: send to server
 		//(these are old input states that have
@@ -107,7 +125,7 @@ impl PresentationController {
 		self.sim.loop_singlethreaded();
 
 		//receive tick buffer from simulation thread
-		let next_tick = self.sim.output_receiver.take(Ordering::AcqRel);
+		let next_tick = self.sim.comms.sim_out.take(Ordering::AcqRel);
 		let received_new_tick = next_tick.is_some();
 
 		if received_new_tick {
@@ -127,6 +145,7 @@ impl PresentationController {
 			self.now = desired_time.clamp(prv_tick.time, cur_tick.time);
 			(self.now - prv_tick.time).as_secs_f32() / (cur_tick.time - prv_tick.time).as_secs_f32()
 		} else {
+			self.now = cur_tick.time;
 			0.0
 		};
 
@@ -170,17 +189,14 @@ impl PresentationController {
 		log_setup();
 		simulation_controller::replay_session(game::init(), postcard::from_bytes(&data).unwrap()).unwrap();
 	}
-
-	pub fn abort_simulation(&self) {
-		self.sim
-			.comms
-			.to_sim
-			.send(PresentationToSimCommand::Abort)
-			.unwrap();
-	}
 }
 
+static LOG_SETUP_COMPLETE: AtomicBool = AtomicBool::new(false);
 fn log_setup() {
+	if LOG_SETUP_COMPLETE.swap(true, Ordering::Relaxed) {
+		return;
+	}
+
 	panic::set_hook(Box::new(|info| {
 		console::log_2(
 			&JsValue::from("%c".to_string() + &info.to_string()),

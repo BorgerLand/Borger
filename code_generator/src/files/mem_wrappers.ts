@@ -90,6 +90,7 @@ ${struct.fields
 
 export type Output = ReturnType<typeof wrap_Output>;
 ${structs.sim
+	.filter((group) => presentationStructFilter(group[0]))
 	.map(function generateOutputTypes(group) {
 		const rootStruct = group[0];
 		const rootStructName = getOutputStructName(rootStruct.name);

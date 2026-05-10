@@ -23,7 +23,7 @@ try {
 } catch (oops) {
 	//the complex schema emits laughably illegible type errors,
 	//so just let tsc's error printing system do the job
-	if (String(oops).length > 5000) throw Error("Type error in state.ts (see output of TSC CHECK)");
+	if (String(oops).length > 5000) throw Error("Type error in state.ts (see output of TSC-CODEGEN)");
 	else throw oops;
 }
 

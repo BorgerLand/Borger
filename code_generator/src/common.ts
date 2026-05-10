@@ -18,7 +18,7 @@ export const CLIENT_TS_GENERATED_DIR = "../client/ts/src/generated";
 export const STATE_WARNING = `/*
 This file was flatulated out by the code generator.
 It is auto-generated, so any changes to the file will be overwritten.
-Edit /game/State.ts instead!
+Edit /src/state.ts instead!
 */`;
 
 export const VALID_TYPES = `use
