@@ -2,7 +2,7 @@ use crate::ClientKind;
 use crate::SimulationInitOptions;
 use crate::constructors::ConstructCustomStruct;
 use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::{AnyTradeoff, Impl};
+use crate::multiplayer_tradeoff::{AnyTradeOff, Impl};
 use crate::networked_types::primitive::usize32;
 use crate::simulation_state::{Input, InputAge, SimulationState};
 use crate::snapshot_serdes::NewClientHeader;
@@ -116,10 +116,10 @@ struct SimControllerInternals {
 	initial_calibration: bool,
 }
 
-pub struct GameContext<Tradeoff: AnyTradeoff> {
+pub struct GameContext<TradeOff: AnyTradeOff> {
 	pub state: SimulationState,
 	pub tick: TickInfo,
-	pub diff: DiffSerializer<Tradeoff>,
+	pub diff: DiffSerializer<TradeOff>,
 }
 
 #[derive(Default, Debug)]

@@ -1,7 +1,7 @@
 use crate::constructors::ConstructCollectionOrUtilityType;
 use crate::diff_des::DiffDeserializeState;
 use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::AnyTradeoff;
+use crate::multiplayer_tradeoff::AnyTradeOff;
 use crate::networked_types::primitive::{PrimitiveSerDes, usize32};
 use crate::snapshot_serdes::SnapshotState;
 use crate::untracked::UntrackedState;
@@ -192,14 +192,14 @@ impl<V: TrackedState> Deref for SlotMap<V> {
 }
 
 impl<V: TrackedState> SlotMap<V> {
-	pub fn add(&mut self, diff: &mut DiffSerializer<impl AnyTradeoff>) -> (usize32, &mut V) {
+	pub fn add(&mut self, diff: &mut DiffSerializer<impl AnyTradeOff>) -> (usize32, &mut V) {
 		self.add_with_client_owned(ClientKind::NA, diff)
 	}
 
 	pub(crate) fn add_with_client_owned(
 		&mut self,
 		client_kind: ClientKind,
-		diff: &mut DiffSerializer<impl AnyTradeoff>,
+		diff: &mut DiffSerializer<impl AnyTradeOff>,
 	) -> (usize32, &mut V) {
 		let op = DiffOperation::TrackSlotMapAdd;
 		let diff = diff.to_impl();
@@ -225,7 +225,7 @@ impl<V: TrackedState> SlotMap<V> {
 	//the simulation state must own all instances.
 	//unwrap to assert success
 	#[must_use]
-	pub fn remove(&mut self, id: usize32, diff: &mut DiffSerializer<impl AnyTradeoff>) -> Option<()> {
+	pub fn remove(&mut self, id: usize32, diff: &mut DiffSerializer<impl AnyTradeOff>) -> Option<()> {
 		let physical_index = *self.data.random_access.get(&id)?;
 		let removed_slot = self.data.remove(id).unwrap();
 
@@ -252,7 +252,7 @@ impl<V: TrackedState> SlotMap<V> {
 
 	//significantly more efficient in terms of bandwidth usage
 	//compared to iter+remove
-	pub fn clear(&mut self, diff: &mut DiffSerializer<impl AnyTradeoff>) -> usize32 {
+	pub fn clear(&mut self, diff: &mut DiffSerializer<impl AnyTradeOff>) -> usize32 {
 		let len = self.data.len();
 		if len == 0 {
 			return 0;

@@ -16,7 +16,7 @@ export function generateDiffSer(structs: AllFlattenedStructs) {
 use crate::simulation_state::*;
 use crate::diff_ser::DiffSerializer;
 use crate::networked_types::primitive::ser_sim_primitive;
-use crate::multiplayer_tradeoff::AnyTradeoff;
+use crate::multiplayer_tradeoff::AnyTradeOff;
 
 #[cfg(feature = "server")]
 use crate::NetVisibility;
@@ -78,7 +78,7 @@ ${primitiveFields
 	}`;
 
 		const setter = `${netVisibilityAttribute}
-	pub fn set_${name}(&mut self, value: ${fullType}, diff: &mut DiffSerializer<impl AnyTradeoff>) -> &mut Self
+	pub fn set_${name}(&mut self, value: ${fullType}, diff: &mut DiffSerializer<impl AnyTradeOff>) -> &mut Self
 	{
 		if value != self.${name}
 		{

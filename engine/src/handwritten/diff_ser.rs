@@ -1,5 +1,5 @@
 use crate::DiffOperation;
-use crate::multiplayer_tradeoff::{AnyTradeoff, Impl};
+use crate::multiplayer_tradeoff::{AnyTradeOff, Impl};
 use crate::networked_types::primitive::{PrimitiveSerDes, SliceSerDes, usize32};
 use crate::tick::TickType;
 use std::marker::PhantomData;
@@ -23,7 +23,7 @@ use {crate::NetVisibility, std::collections::HashMap};
 ///ctx.state.set_time(cur_time, diff);
 ///```
 #[derive(Default)]
-pub struct DiffSerializer<Tradeoff: AnyTradeoff> {
+pub struct DiffSerializer<TradeOff: AnyTradeOff> {
 	//write the PREVIOUS value of a state in order to
 	//undo+resimulate it later. will be read back to
 	//front (i=len to i=0). contains multiple ticks
@@ -50,7 +50,7 @@ pub struct DiffSerializer<Tradeoff: AnyTradeoff> {
 	//tx = instructions for redoing/replicating/
 	//replaying changes to simulation state on a
 	//different device on the network
-	phantom_menace: PhantomData<Tradeoff>,
+	phantom_menace: PhantomData<TradeOff>,
 }
 
 struct TxData {

@@ -1,5 +1,5 @@
 use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::AnyTradeoff;
+use crate::multiplayer_tradeoff::AnyTradeOff;
 use crate::networked_types::primitive::{PrimitiveSerDes, usize32};
 use crate::{DeserializeOopsy, DiffOperation};
 use crate::{constructors::ConstructCollectionOrUtilityType, snapshot_serdes::SnapshotState};
@@ -51,7 +51,7 @@ impl ConstructCollectionOrUtilityType for EventDispatcher {
 //---diff_ser---//
 
 impl EventDispatcher {
-	pub fn fire_and_forget(&mut self, diff: &mut DiffSerializer<impl AnyTradeoff>) {
+	pub fn fire_and_forget(&mut self, diff: &mut DiffSerializer<impl AnyTradeOff>) {
 		self.version = self.version.wrapping_add(1);
 
 		let op = DiffOperation::TrackEventDispatcher;

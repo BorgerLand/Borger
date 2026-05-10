@@ -9,7 +9,7 @@ use std::mem;
 ///eventually consistent, but this macro lets you decide when and where to execute logic
 ///in order to fine-tune game feel. This is possible because the engine executes each
 ///simulation tick multiple times across the server and all connected clients, requiring
-///game logic to be **deterministic** depending on the chosen tradeoff.
+///game logic to be **deterministic** depending on the chosen trade-off.
 ///
 ///multiplayer_tradeoff!() blocks can be nested inside each other, but only in order of
 ///increasing latency:
@@ -38,13 +38,13 @@ use std::mem;
 ///|**Example Use Cases**       |Processing client inputs (movement, shooting, etc.) should happen here in Immediate as much as possible for best game feel. Controls are by far the most latency-sensitive aspect of gameplay. Any physics interactions should also be immediate whenever possible: damage-on-collision mechanics, moving platforms, etc.    |Logic that affects entities seen by clients but are unable to be predicted by clients due to having some private state (NPC)                                                                                                                                 |Large/important game state change events that would look horrible if rolled back/mispredicted (game over, level change)                                                               |
 ///
 ///## Parameters
-///- `tradeoff` - The tradeoff level: `WaitForServer`, or `WaitForConsensus`
+///- `tradeoff` - The trade-off level: `WaitForServer`, or `WaitForConsensus`
 ///- `ctx` - The variable to rebind with the new context. Type can be either `&mut
 ///GameContext` or `&mut DiffSerializer`. You can either pass just a variable name (no &
 ///or .) or declare a new variable (eg. literally write out `let diff = &mut ctx.diff`)`
 ///- `tick` - Expression that evaluates to a `&TickInfo` (required for `WaitForConsensus`
 ///only)
-///- `code` - The code block to execute within the specified tradeoff context. Can be
+///- `code` - The code block to execute within the specified trade-off context. Can be
 ///an expression or a bracketed block
 ///
 ///## Game logic example:
@@ -251,19 +251,19 @@ pub struct WaitForConsensus; //to consensus
 #[derive(Default)]
 pub(crate) struct Impl; //default contextless state used internally
 
-pub trait AnyTradeoff {} //to consensus
-impl AnyTradeoff for Immediate {}
-impl AnyTradeoff for WaitForServer {}
-impl AnyTradeoff for WaitForConsensus {}
-impl AnyTradeoff for Impl {}
+pub trait AnyTradeOff {} //to consensus
+impl AnyTradeOff for Immediate {}
+impl AnyTradeOff for WaitForServer {}
+impl AnyTradeOff for WaitForConsensus {}
+impl AnyTradeOff for Impl {}
 
 //convenience: useful if an entity may be controlled either
 //by client or server (npc)
-pub trait ImmediateOrWaitForServer: AnyTradeoff {} //to server/consensus
+pub trait ImmediateOrWaitForServer: AnyTradeOff {} //to server/consensus
 impl ImmediateOrWaitForServer for Immediate {}
 impl ImmediateOrWaitForServer for WaitForServer {}
 
-//transmutation between different AnyTradeoff is safe memory-wise
+//transmutation between different AnyTradeOff is safe memory-wise
 //because the struct layout is not influenced by it (used by
 //phantom data only). however it is not safe multiplayer-wise and
 //so the game itself should not be calling these directly
@@ -278,7 +278,7 @@ macro_rules! multiplayer_tradeoff_transitions {
 		}
 
 		#[cfg(feature = "server")]
-		impl<Tradeoff: ImmediateOrWaitForServer> $type<Tradeoff> {
+		impl<TradeOff: ImmediateOrWaitForServer> $type<TradeOff> {
 			#[doc(hidden)]
 			pub unsafe fn _to_server_unchecked(&mut self) -> &mut $type<WaitForServer> {
 				unsafe { mem::transmute(self) }
@@ -286,7 +286,7 @@ macro_rules! multiplayer_tradeoff_transitions {
 		}
 
 		#[cfg(feature = "server")]
-		impl<Tradeoff: AnyTradeoff> $type<Tradeoff> {
+		impl<TradeOff: AnyTradeOff> $type<TradeOff> {
 			#[doc(hidden)]
 			pub unsafe fn _to_consensus_unchecked(&mut self) -> &mut $type<WaitForConsensus> {
 				unsafe { mem::transmute(self) }
@@ -313,7 +313,7 @@ impl DiffSerializer<Impl> {
 	}
 }
 
-impl<Tradeoff: AnyTradeoff> DiffSerializer<Tradeoff> {
+impl<TradeOff: AnyTradeOff> DiffSerializer<TradeOff> {
 	pub(crate) fn to_impl(&mut self) -> &mut DiffSerializer<Impl> {
 		unsafe { mem::transmute(self) }
 	}
