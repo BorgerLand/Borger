@@ -202,7 +202,7 @@ pub fn des_rx_state(
 				cur_path = root_path;
 			}
 
-			Err(DeserializeOopsy::NoMoreOps) => break, //done
+			Err(DeserializeOopsy::NoMoreDiffOps) => break, //done
 			Ok(DiffOperation::RollbackTickSeparator) => {
 				return Err(DeserializeOopsy::Corrupt);
 			}

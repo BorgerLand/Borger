@@ -110,5 +110,5 @@ pub enum DiffOperation {
 #[derive(Debug)]
 pub enum DeserializeOopsy {
 	Corrupt,
-	NoMoreOps,
+	NoMoreDiffOps,
 }

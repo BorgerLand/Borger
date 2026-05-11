@@ -204,7 +204,7 @@ impl PrimitiveSerDes for DiffOperation {
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		buffer
 			.next()
-			.ok_or(DeserializeOopsy::NoMoreOps)?
+			.ok_or(DeserializeOopsy::NoMoreDiffOps)?
 			.try_into()
 			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
