@@ -104,7 +104,7 @@ pub fn des_rollback(state: &mut State, buffer: &mut Vec<u8>) -> Result<(), Deser
 			Ok(DiffOperation::NavigateUp) => {
 				let nav_up_len = u8::des_rollback(buffer)?;
 				for _ in 0..nav_up_len {
-					cur_path = diff_path_stack.pop().ok_or(DeserializeOopsy::PathNotFound)?;
+					cur_path = diff_path_stack.pop().ok_or(DeserializeOopsy::Corrupt)?;
 				}
 			}
 			Ok(DiffOperation::NavigateDown) => {
@@ -112,15 +112,15 @@ pub fn des_rollback(state: &mut State, buffer: &mut Vec<u8>) -> Result<(), Deser
 				let mut nav_down: VecDeque<usize32> =
 					<[usize32]>::des_rollback(nav_down_len * 2, buffer)?.into();
 				while !nav_down.is_empty() {
-					let field_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
-					let element_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
+					let field_id = nav_down.pop_front().ok_or(DeserializeOopsy::Corrupt)?;
+					let element_id = nav_down.pop_front().ok_or(DeserializeOopsy::Corrupt)?;
 
 					diff_path_stack.push(cur_path);
 					cur_path = unsafe { cur_path.as_mut() }
 						.unwrap()
 						.get_slotmap(field_id)?
 						.get_des(element_id)
-						.ok_or(DeserializeOopsy::PathNotFound)?;
+						.ok_or(DeserializeOopsy::Corrupt)?;
 				}
 			}
 			Ok(DiffOperation::NavigateReset) => {
@@ -179,22 +179,22 @@ pub fn des_rx_state(
 			Ok(DiffOperation::NavigateUp) => {
 				let nav_up_len = u8::des_rx(buffer)?;
 				for _ in 0..nav_up_len {
-					cur_path = diff_path_stack.pop().ok_or(DeserializeOopsy::PathNotFound)?;
+					cur_path = diff_path_stack.pop().ok_or(DeserializeOopsy::Corrupt)?;
 				}
 			}
 			Ok(DiffOperation::NavigateDown) => {
 				let nav_down_len = u8::des_rx(buffer)? as usize32;
 				let mut nav_down: VecDeque<usize32> = <[usize32]>::des_rx(nav_down_len * 2, buffer)?.into();
 				while !nav_down.is_empty() {
-					let field_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
-					let element_id = nav_down.pop_front().ok_or(DeserializeOopsy::PathNotFound)?;
+					let field_id = nav_down.pop_front().ok_or(DeserializeOopsy::Corrupt)?;
+					let element_id = nav_down.pop_front().ok_or(DeserializeOopsy::Corrupt)?;
 
 					diff_path_stack.push(cur_path);
 					cur_path = unsafe { cur_path.as_mut() }
 						.unwrap()
 						.get_slotmap(field_id)?
 						.get_des(element_id)
-						.ok_or(DeserializeOopsy::PathNotFound)?;
+						.ok_or(DeserializeOopsy::Corrupt)?;
 				}
 			}
 			Ok(DiffOperation::NavigateReset) => {
@@ -202,9 +202,9 @@ pub fn des_rx_state(
 				cur_path = root_path;
 			}
 
-			Err(DeserializeOopsy::BufferUnderflow) => break, //done
+			Err(DeserializeOopsy::NoMoreOps) => break, //done
 			Ok(DiffOperation::RollbackTickSeparator) => {
-				return Err(DeserializeOopsy::CorruptDiffOperation);
+				return Err(DeserializeOopsy::Corrupt);
 			}
 			Err(oops) => return Err(oops),
 		};

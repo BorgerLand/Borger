@@ -109,13 +109,6 @@ pub enum DiffOperation {
 
 #[derive(Debug)]
 pub enum DeserializeOopsy {
-	BufferUnderflow,
-	CorruptBool,
-	CorruptDiffOperation,
-	CorruptTickType,
-	CorruptChar,
-	CorruptVarInt,
-	ObeseVarInt,
-	PathNotFound,
-	FieldNotFound,
+	Corrupt,
+	NoMoreOps,
 }

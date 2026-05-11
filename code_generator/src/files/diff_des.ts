@@ -59,7 +59,7 @@ ${structs.input
 	)
 	.join("\n\t\n")}
 			
-			_ => return Err(DeserializeOopsy::FieldNotFound),
+			_ => return Err(DeserializeOopsy::Corrupt),
 		}
 	}
 	
@@ -89,7 +89,7 @@ ${group
 	)
 	.join("\n\t\t\n")}
 			
-			_ => return Err(DeserializeOopsy::FieldNotFound),
+			_ => return Err(DeserializeOopsy::Corrupt),
 		};
 		
 		#[allow(unreachable_code)]
@@ -118,7 +118,7 @@ ${group
 	)
 	.join("\n\t\t\n")}
 			
-			_ => return Err(DeserializeOopsy::FieldNotFound),
+			_ => return Err(DeserializeOopsy::Corrupt),
 		};
 		
 		#[allow(unreachable_code)]
@@ -154,7 +154,7 @@ ${group
 	)
 	.join("\n\t\t\n")}
 			
-			_ => return Err(DeserializeOopsy::PathNotFound),
+			_ => return Err(DeserializeOopsy::Corrupt),
 		}
 	}`;
 		}

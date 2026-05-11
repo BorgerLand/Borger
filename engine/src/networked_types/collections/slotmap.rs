@@ -371,7 +371,7 @@ impl<V: TrackedState> SlotMapDynCompat for SlotMap<V> {
 		diff: &mut DiffSerializer<Impl>,
 	) -> Result<(), DeserializeOopsy> {
 		let id = usize32::des_rx(buffer)?;
-		self.remove(id, diff).ok_or(DeserializeOopsy::PathNotFound)
+		self.remove(id, diff).ok_or(DeserializeOopsy::Corrupt)
 	}
 
 	#[cfg(feature = "client")]

@@ -102,7 +102,7 @@ pub(crate) trait PrimitiveSerDes: Copy + 'static {
 		let read = size_of::<Self>();
 
 		if old_len < read {
-			return Err(DeserializeOopsy::BufferUnderflow);
+			return Err(DeserializeOopsy::Corrupt);
 		}
 
 		let new_len = old_len - read;
@@ -122,7 +122,7 @@ pub(crate) trait PrimitiveSerDes: Copy + 'static {
 			unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, size_of::<Self>()) };
 
 		for byte in bytes.iter_mut() {
-			*byte = buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)?;
+			*byte = buffer.next().ok_or(DeserializeOopsy::Corrupt)?;
 		}
 
 		Ok(unsafe { data.assume_init() })
@@ -144,11 +144,11 @@ impl PrimitiveSerDes for bool {
 	}
 
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		des_bool(buffer.pop().ok_or(DeserializeOopsy::BufferUnderflow)?)
+		des_bool(buffer.pop().ok_or(DeserializeOopsy::Corrupt)?)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		des_bool(buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)?)
+		des_bool(buffer.next().ok_or(DeserializeOopsy::Corrupt)?)
 	}
 }
 
@@ -156,7 +156,7 @@ fn des_bool(data: u8) -> Result<bool, DeserializeOopsy> {
 	match data {
 		0 => Ok(false),
 		1 => Ok(true),
-		_ => Err(DeserializeOopsy::CorruptBool),
+		_ => Err(DeserializeOopsy::Corrupt),
 	}
 }
 
@@ -166,11 +166,11 @@ impl PrimitiveSerDes for u8 {
 	}
 
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		buffer.pop().ok_or(DeserializeOopsy::BufferUnderflow)
+		buffer.pop().ok_or(DeserializeOopsy::Corrupt)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)
+		buffer.next().ok_or(DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -180,11 +180,11 @@ impl PrimitiveSerDes for i8 {
 	}
 
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		Ok(buffer.pop().ok_or(DeserializeOopsy::BufferUnderflow)? as i8)
+		Ok(buffer.pop().ok_or(DeserializeOopsy::Corrupt)? as i8)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		Ok(buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)? as i8)
+		Ok(buffer.next().ok_or(DeserializeOopsy::Corrupt)? as i8)
 	}
 }
 
@@ -196,17 +196,17 @@ impl PrimitiveSerDes for DiffOperation {
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
 		buffer
 			.pop()
-			.ok_or(DeserializeOopsy::BufferUnderflow)?
+			.ok_or(DeserializeOopsy::Corrupt)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::CorruptDiffOperation)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		buffer
 			.next()
-			.ok_or(DeserializeOopsy::BufferUnderflow)?
+			.ok_or(DeserializeOopsy::NoMoreOps)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::CorruptDiffOperation)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -218,17 +218,17 @@ impl PrimitiveSerDes for TickType {
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
 		buffer
 			.pop()
-			.ok_or(DeserializeOopsy::BufferUnderflow)?
+			.ok_or(DeserializeOopsy::Corrupt)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::CorruptTickType)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		buffer
 			.next()
-			.ok_or(DeserializeOopsy::BufferUnderflow)?
+			.ok_or(DeserializeOopsy::Corrupt)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::CorruptTickType)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -240,7 +240,7 @@ impl PrimitiveSerDes for u16 {
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_u(buffer)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::ObeseVarInt)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -252,7 +252,7 @@ impl PrimitiveSerDes for i16 {
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_i(buffer)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::ObeseVarInt)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -264,7 +264,7 @@ impl PrimitiveSerDes for u32 {
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_u(buffer)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::ObeseVarInt)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -276,7 +276,7 @@ impl PrimitiveSerDes for i32 {
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		des_varint_i(buffer)?
 			.try_into()
-			.map_err(|_| DeserializeOopsy::ObeseVarInt)
+			.map_err(|_| DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -335,7 +335,7 @@ fn des_varint_u(buffer: &mut impl Iterator<Item = u8>) -> Result<u64, Deserializ
 	if success {
 		Ok(result)
 	} else {
-		Err(DeserializeOopsy::CorruptVarInt)
+		Err(DeserializeOopsy::Corrupt)
 	}
 }
 
@@ -363,8 +363,8 @@ impl PrimitiveSerDes for char {
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		let as_u64 = des_varint_u(buffer)?;
-		let as_u32: u32 = as_u64.try_into().map_err(|_| DeserializeOopsy::ObeseVarInt)?;
-		let as_char: char = as_u32.try_into().map_err(|_| DeserializeOopsy::CorruptChar)?;
+		let as_u32: u32 = as_u64.try_into().map_err(|_| DeserializeOopsy::Corrupt)?;
+		let as_char: char = as_u32.try_into().map_err(|_| DeserializeOopsy::Corrupt)?;
 		Ok(as_char)
 	}
 }
@@ -433,7 +433,7 @@ impl SliceSerDes<bool> for [bool] {
 		let mut out = Vec::with_capacity(bool_len);
 
 		for _ in 0..byte_len {
-			let byte = buffer.next().ok_or(DeserializeOopsy::BufferUnderflow)?;
+			let byte = buffer.next().ok_or(DeserializeOopsy::Corrupt)?;
 			for i in 0..8 {
 				if out.len() == bool_len
 				//only extract bits up to the original length
