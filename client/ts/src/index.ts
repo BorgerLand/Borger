@@ -30,7 +30,7 @@ async function initWASM(singlethreaded: boolean) {
 	return { bindgen, module };
 }
 
-type PresentationLoop = (dt: number, input: MemWrappersG.Input, output: MemWrappersG.Output) => void;
+type PresentationLoop = (dt: number, ctx: MemWrappersG.GameContext) => void;
 
 export async function play(
 	initGameCB: (compat: Compat.State) => PresentationLoop | Promise<PresentationLoop>,
@@ -90,11 +90,14 @@ export async function play(
 			if (connectionSession.wrappers.memView.buffer !== memory)
 				connectionSession.wrappers.memView = new DataView(memory);
 
-			presentationLoop(
-				dt,
-				MemWrappersG.wrap_Input(connectionSession.wrappers, connectionSession.rsInput),
-				MemWrappersG.wrap_Output(connectionSession.wrappers, connectionSession.rsOutput),
-			); //game on
+			const input = MemWrappersG.wrap_Input(connectionSession.wrappers, connectionSession.rsInput);
+			const ctx = MemWrappersG.wrap_GameContext(
+				connectionSession.wrappers,
+				connectionSession.rsOutput,
+				input,
+			);
+
+			presentationLoop(dt, ctx); //game on
 			connectionSession.wrappers.curLifetime++;
 
 			requestAnimationFrame(animationFrame);

@@ -1,13 +1,13 @@
 use super::*;
 use crate::diff_des;
-use crate::simulation_state::InputHistoryEntry;
+use crate::simulation::InputHistoryEntry;
 use crate::tick::TickType;
 use crate::untracked::UntrackedState;
 
 #[cfg(feature = "server")]
 use {
 	crate::networked_types::primitive::{PrimitiveSerDes, usize32},
-	crate::simulation_state::{Input, SimulationState},
+	crate::simulation::{Input, State},
 };
 
 #[cfg(feature = "client")]
@@ -248,7 +248,7 @@ fn get_input(
 
 	#[cfg(feature = "server")] server_predict_late: fn(
 		/*prv*/ &Input,
-		/*state*/ &SimulationState,
+		/*state*/ &State,
 		/*client_id*/ usize32,
 		/*is_timed_out*/ bool,
 	) -> Input,

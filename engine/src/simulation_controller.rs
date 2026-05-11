@@ -4,7 +4,7 @@ use crate::constructors::ConstructCustomStruct;
 use crate::diff_ser::DiffSerializer;
 use crate::multiplayer_tradeoff::{AnyTradeOff, Impl};
 use crate::networked_types::primitive::usize32;
-use crate::simulation_state::{Input, InputAge, SimulationState};
+use crate::simulation::{Input, InputAge, State};
 use crate::snapshot_serdes::NewClientHeader;
 use crate::tick::{TickID, TickInfo};
 use crate::untracked::UntrackedState;
@@ -28,7 +28,8 @@ use {
 
 #[cfg(feature = "client")]
 use {
-	crate::presentation::SimulationOutput, crate::snapshot_serdes, atomicbox::AtomicOptionBox, std::sync::Arc,
+	crate::presentation::PresentationContext, crate::snapshot_serdes, atomicbox::AtomicOptionBox,
+	std::sync::Arc,
 };
 
 #[cfg(not(feature = "singlethreaded"))]
@@ -117,7 +118,7 @@ struct SimControllerInternals {
 }
 
 pub struct GameContext<TradeOff: AnyTradeOff> {
-	pub state: SimulationState,
+	pub state: State,
 	pub tick: TickInfo,
 	pub diff: DiffSerializer<TradeOff>,
 }
@@ -225,7 +226,7 @@ fn make_context(
 	o: &SimulationInitOptions,
 	#[cfg(feature = "client")] new_client_snapshot: Vec<u8>,
 ) -> MakeContext {
-	let mut state = SimulationState::construct(&Rc::default(), ClientKind::NA);
+	let mut state = State::construct(&Rc::default(), ClientKind::NA);
 	o.init_static_level_geom.map(|init_level| {
 		init_level(&mut state);
 		state.reset_untracked(); //in case init_static_level_geom did anything nefarious

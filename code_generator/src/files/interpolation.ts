@@ -27,7 +27,7 @@ use crate::interpolation::Interpolate;
 #[cfg(feature = "client")]
 use
 {
-	crate::simulation_state,
+	crate::simulation,
 	crate::presentation::{self, PresentTick},
 	crate::interpolation::InterpolateTicks,
 };
@@ -54,9 +54,9 @@ ${struct.fields
 		let interpolationType;
 		if (isGeneric(outerType))
 			//yes i know this is vile
-			interpolationType = `<<${outerType}<simulation_state::${innerType}> as PresentTick>::PresentationState as InterpolateTicks>::InterpolationState`;
+			interpolationType = `<<${outerType}<simulation::${innerType}> as PresentTick>::PresentationOutput as InterpolateTicks>::InterpolationOutput`;
 		else if (isUtility(outerType))
-			interpolationType = `<<${outerType} as PresentTick>::PresentationState as InterpolateTicks>::InterpolationState`;
+			interpolationType = `<<${outerType} as PresentTick>::PresentationOutput as InterpolateTicks>::InterpolationOutput`;
 		else interpolationType = fullType;
 
 		return `	pub ${name}: ${interpolationType},`;
@@ -78,10 +78,10 @@ ${generateInterpolateTicksImpl(true)}`
 					return `#[cfg(feature = "client")]
 impl InterpolateTicks${downgradeScope ? `<presentation::${downgradedName}>` : ""} for presentation::${presentationStructName}
 {
-	type InterpolationState = ${interpolationStructName};
-	fn interpolate_and_diff(_prv: Option<&${downgradeScope ? `presentation::${downgradedName}` : "Self"}>, _cur: &Self, _amount: f32, _received_new_tick: bool) -> Self::InterpolationState
+	type InterpolationOutput = ${interpolationStructName};
+	fn interpolate_and_diff(_prv: Option<&${downgradeScope ? `presentation::${downgradedName}` : "Self"}>, _cur: &Self, _amount: f32, _received_new_tick: bool) -> Self::InterpolationOutput
 	{
-		Self::InterpolationState
+		Self::InterpolationOutput
 		{
 ${struct.fields
 	.filter((field) => field.presentation)
@@ -164,5 +164,5 @@ function interpolatePrimitive(type: InterpolablePrimitiveType): string {
 }
 
 function getInterpolationStructName(simStructName: string) {
-	return simStructName === "SimulationState" ? "InterpolationState" : simStructName;
+	return simStructName === "State" ? "InterpolationOutput" : simStructName;
 }

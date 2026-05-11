@@ -14,7 +14,7 @@ export function generateSnapshotSerDes(simStructs: FlattenedStruct[][]) {
 		`${BORGER_GENERATED_DIR}/snapshot_serdes.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state::*;
+use crate::simulation::*;
 use crate::DeserializeOopsy;
 use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::snapshot_serdes::SnapshotState;
@@ -156,7 +156,7 @@ ${group
 		function canSnapshotPredictRemove(field: FlattenedField) {
 			return (
 				!(
-					rootStruct.collectionNestDepth === 0 || //skip SimulationState. can't delete the entire game
+					rootStruct.collectionNestDepth === 0 || //skip State. can't delete the entire game
 					(rootStruct.collectionNestDepth === 1 && rootStruct.path[1] === "clients") //removal of a client is unrollbackable
 				) &&
 				!field.isCustomStruct &&

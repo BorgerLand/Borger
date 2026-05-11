@@ -14,7 +14,7 @@ export function generateConstructors(simStructs: FlattenedStruct[][]) {
 		`${BORGER_GENERATED_DIR}/constructors.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state::*;
+use crate::simulation::*;
 use crate::constructors::{ConstructCustomStruct, ConstructCollectionOrUtilityType};
 use crate::ClientKind;
 use std::rc::Rc;

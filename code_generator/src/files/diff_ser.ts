@@ -13,7 +13,7 @@ export function generateDiffSer(structs: AllFlattenedStructs) {
 		`${BORGER_GENERATED_DIR}/diff_ser.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state::*;
+use crate::simulation::*;
 use crate::diff_ser::DiffSerializer;
 use crate::networked_types::primitive::ser_sim_primitive;
 use crate::multiplayer_tradeoff::AnyTradeOff;
@@ -50,7 +50,7 @@ ${structs.input
 	.join("\n\t\n")}
 }
 
-${structs.sim
+${structs.output
 	.map((group) =>
 		group
 			.map(function generateSimulationStruct(struct) {

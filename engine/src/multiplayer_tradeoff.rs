@@ -110,10 +110,10 @@ use std::mem;
 ///State schema example for the above game logic:
 ///
 ///(Note this has been cut down to illustrate only the shape of
-///the SimulationState object and how usage of netVisibility
-///affects the required multiplayer_tradeoff)
+///the State object and how usage of netVisibility affects
+///the required multiplayer_tradeoff)
 ///```typescript
-///import type { SimulationState } from "@borger/code_generator/state_schema.ts";
+///import type { State } from "@borger/code_generator/state_schema.ts";
 ///
 ///export default {
 ///	//represents a real person connected to a server
@@ -150,7 +150,7 @@ use std::mem;
 ///			input_owner: { netVisibility: "public", type: "enum", content: ["Client", "NPC"] },
 ///		},
 ///	},
-///} satisfies SimulationState;
+///} satisfies State;
 ///```
 #[macro_export]
 macro_rules! multiplayer_tradeoff

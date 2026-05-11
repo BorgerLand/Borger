@@ -1,4 +1,4 @@
-use crate::simulation_state::Client;
+use crate::simulation::Client;
 
 pub trait UntrackedState {
 	fn reset_untracked(&mut self);

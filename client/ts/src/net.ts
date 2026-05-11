@@ -197,7 +197,7 @@ async function* wtListenForState(stateStream: ReadableStreamDefaultReader) {
 	let excess = new Uint8Array();
 
 	while (true) {
-		//receive number of bytes in server's simulation state diff
+		//receive number of bytes in server's state diff
 		const stateSizeBytes = await wtReceivePacket(stateStream, SIZEOF_32BIT, excess);
 		const stateSize = new DataView(stateSizeBytes.packet.buffer).getUint32(0, true);
 		excess = stateSizeBytes.excess;

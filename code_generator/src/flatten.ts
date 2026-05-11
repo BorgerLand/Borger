@@ -12,11 +12,11 @@ import { isGeneric, nvEnum } from "@borger/code_generator/common.ts";
 //into a big list of structs
 export function flatten(
 	parentStruct: Struct,
-	parentPath: string[] = ["simulation_state"], //pathToStructName will change this to SimulationState
+	parentPath: string[] = ["state"],
 	parentField?: Field,
 	parentClientKind: ClientKind = "NA",
 	structsFlattened: AllFlattenedStructs = {
-		sim: [[]],
+		output: [[]],
 		input: [],
 	},
 	diffPathInfo: { path: DiffPath; depth: number; structGroupID: number; fieldID: number } = {
@@ -35,8 +35,8 @@ export function flatten(
 		collectionNestDepth: diffPathInfo.depth,
 	};
 
-	if (parentPath[0] === "simulation_state")
-		structsFlattened.sim[diffPathInfo.structGroupID].push(parentStructFlattened);
+	if (parentPath[0] === "state")
+		structsFlattened.output[diffPathInfo.structGroupID].push(parentStructFlattened);
 	else structsFlattened.input.push(parentStructFlattened);
 
 	for (const [childFieldName, childField] of Object.entries(parentStruct)) {
@@ -129,7 +129,7 @@ export function flatten(
 			}
 
 			if (skipRemoteVariant) continue; //avoid generating remote variant. only need 1 struct
-			if (childBaseTypeName === "Input") childPath = ["input_state"]; //swap from generating simulation state to generating input state
+			if (childBaseTypeName === "Input") childPath = ["input"]; //swap from generating (output) state to generating input state
 
 			let childStruct: Struct;
 			if (typeof childField.content === "object") {
@@ -165,7 +165,7 @@ export function flatten(
 					return {
 						path: [...diffPath, "x"],
 						depth: diffPathInfo.depth + 1,
-						structGroupID: structsFlattened.sim.push([]) - 1,
+						structGroupID: structsFlattened.output.push([]) - 1,
 						fieldID: 0,
 					};
 				}

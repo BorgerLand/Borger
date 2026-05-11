@@ -296,9 +296,8 @@ function validateRecursively({
 	}
 }
 
-const simulationStateSchema = structSchema
-	//the simulationStateSchema is the top level structSchema
-	//with a mandatory "clients" field
+//the stateSchema is the top level structSchema with a mandatory "clients" field
+const stateSchema = structSchema
 	.and(
 		z.object({
 			clients: clientsSlotMapSchema, //must contain client state
@@ -375,8 +374,8 @@ const simulationStateSchema = structSchema
 		}),
 	);
 
-export type SimulationState = z.infer<typeof simulationStateSchema>;
+export type State = z.infer<typeof stateSchema>;
 
 export function validate(state: unknown) {
-	return simulationStateSchema.parse(state);
+	return stateSchema.parse(state);
 }

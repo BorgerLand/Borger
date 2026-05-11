@@ -1,7 +1,7 @@
 use crate::networked_types::collections::slotmap::SlotMapDynCompat;
 use crate::networked_types::event_dispatcher::EventDispatcher;
 use crate::networked_types::primitive::{PrimitiveSerDes, SliceSerDes, usize32};
-use crate::simulation_state::{Client, SimulationState};
+use crate::simulation::{Client, State};
 use crate::{DeserializeOopsy, DiffOperation};
 use std::collections::VecDeque;
 
@@ -67,7 +67,7 @@ impl DiffDeserializeState for Client {
 }
 
 //revert predictions
-pub fn des_rollback(state: &mut SimulationState, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
+pub fn des_rollback(state: &mut State, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
 	//safety: the current iteration of the loop may
 	//only dereference the top element of the stack.
 	//each consecutive element has a shorter lifetime
@@ -139,7 +139,7 @@ pub fn des_rollback(state: &mut SimulationState, buffer: &mut Vec<u8>) -> Result
 //apply authoritative state changes from server
 #[cfg(feature = "client")]
 pub fn des_rx_state(
-	state: &mut SimulationState,
+	state: &mut State,
 	buffer: &mut vec::IntoIter<u8>,
 	diff: &mut DiffSerializer<Impl>,
 ) -> Result<(), DeserializeOopsy> {

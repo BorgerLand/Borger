@@ -10,22 +10,22 @@ import {
 
 //the way the generated file generally works is:
 //given a deserialized diff path and value, write
-//the value to the main simulation state object.
-//this file uses match statements to route the
-//value where it needs to go
+//the value to the main state object. this file
+//uses match statements to route the value where
+//it needs to go
 export function generateDiffDes(structs: AllFlattenedStructs) {
 	Bun.write(
 		`${BORGER_GENERATED_DIR}/diff_des.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state::*;
+use crate::simulation::*;
 use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::diff_des::DiffDeserializeState;
 use crate::DeserializeOopsy;
 use crate::networked_types::collections::slotmap::SlotMapDynCompat;
 
 #[cfg(feature = "server")]
-use crate::simulation_state::Input;
+use crate::simulation::Input;
 
 #[cfg(feature = "client")]
 use
@@ -66,7 +66,7 @@ ${structs.input
 	Ok(())
 }
 
-${structs.sim
+${structs.output
 	.map(function generateDeserializeState(group) {
 		const rootStruct = group[0];
 		return `impl DiffDeserializeState for ${rootStruct.name}

@@ -72,7 +72,7 @@ export type FlattenedField = {
 export type DiffPath = (string | number)[];
 
 export type AllFlattenedStructs = {
-	sim: FlattenedStruct[][]; //inner layer = structs that are grouped in the same diff path, outer layer = all
+	output: FlattenedStruct[][]; //inner layer = structs that are grouped in the same diff path, outer layer = all
 	input: FlattenedStruct[];
 };
 
@@ -95,12 +95,12 @@ export function isGeneric(outerType: string): outerType is GenericType {
 }
 
 /*
-baseGroupPath: ["simulation_state", "x", "y"]
-fullPath: ["simulation_state", "x", "y"]
+baseGroupPath: ["state", "x", "y"]
+fullPath: ["state", "x", "y"]
 returns: fieldName
 
-baseGroupPath: ["simulation_state"]
-fullPath: ["simulation_state", "x", "y"]
+baseGroupPath: ["state"]
+fullPath: ["state", "x", "y"]
 returns: x.y.fieldName
 */
 export function getNestedPath(baseGroupPath: string[], fullPath: string[], fieldName?: string) {

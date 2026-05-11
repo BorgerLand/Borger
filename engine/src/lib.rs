@@ -1,8 +1,8 @@
 use crate::diff_ser::DiffSerializer;
 use crate::multiplayer_tradeoff::{Immediate, WaitForConsensus};
 use crate::networked_types::primitive::usize32;
+use crate::simulation::{Input, State};
 use crate::simulation_controller::GameContext;
-use crate::simulation_state::{Input, SimulationState};
 use crate::tick::TickID;
 
 pub mod multiplayer_tradeoff;
@@ -34,7 +34,7 @@ mod handwritten {
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
 	pub(crate) mod interpolation;
-	pub(crate) mod simulation_state;
+	pub(crate) mod simulation;
 	pub(crate) mod snapshot_serdes;
 	pub(crate) mod untracked;
 
@@ -48,7 +48,7 @@ mod generated {
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
 	pub(crate) mod interpolation;
-	pub(crate) mod simulation_state;
+	pub(crate) mod simulation;
 	pub(crate) mod snapshot_serdes;
 	pub(crate) mod untracked;
 
@@ -56,14 +56,14 @@ mod generated {
 	pub(crate) mod presentation;
 }
 
-///Struct definitions of simulation state objects
+///Struct definitions of state objects
 #[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
-pub mod simulation_state {
-	pub use super::generated::simulation_state::*;
-	pub use super::handwritten::simulation_state::*;
+pub mod simulation {
+	pub use super::generated::simulation::*;
+	pub use super::handwritten::simulation::*;
 }
 
-///Constructors for simulation state objects
+///Constructors for state objects
 pub(crate) mod constructors {
 	pub use super::handwritten::constructors::*;
 }
@@ -94,13 +94,13 @@ pub(crate) mod diff_des {
 }
 
 ///Take a snapshot (ser/des) of all or part of the
-///simulation state. Used for sending server's
-///current state to a newly connected client. Also
-///used to predict the removal of a collection
-///element. This is a complicated+expensive task
-///because it requires creating a backup of the
-///entire struct being removed in order to be able
-///to roll back to before it was deleted
+///state. Used for sending server's current state
+///to a newly connected client. Also used to predict
+///the removal of a collection element. This is a
+///complicated+expensive task because it requires
+///creating a backup of the entire struct being
+///removed in order to be able to roll back to
+///before it was deleted
 pub(crate) mod snapshot_serdes {
 	pub use super::handwritten::snapshot_serdes::*;
 }
@@ -115,10 +115,10 @@ pub(crate) mod untracked {
 	pub use super::handwritten::untracked::*;
 }
 
-///Stripped down version of simulation state (only
-///fields with presentation enabled), cloned and
-///shipped to the presentation thread at the end of
-///each client sided tick
+///Stripped down version of state (only fields with
+///with presentation enabled), cloned and shipped to
+///the presentation thread at the end of each client
+///sided tick
 #[cfg(feature = "client")]
 pub mod presentation {
 	pub use super::generated::presentation::*;
@@ -140,8 +140,8 @@ pub mod prelude {
 	pub use crate::multiplayer_tradeoff; //macro
 	pub use crate::multiplayer_tradeoff::*;
 	pub use crate::networked_types::primitive::usize32;
+	pub use crate::simulation::*;
 	pub use crate::simulation_controller::GameContext;
-	pub use crate::simulation_state::*;
 	pub use crate::tick::{TickID, TickInfo};
 	pub use borger_procmac::server;
 	pub use log::{debug, error, info, warn};
@@ -149,7 +149,7 @@ pub mod prelude {
 
 pub struct SimulationInitOptions {
 	//pipeline
-	pub init_static_level_geom: Option<fn(/*state*/ &mut SimulationState)>,
+	pub init_static_level_geom: Option<fn(/*state*/ &mut State)>,
 	pub simulation_loop: fn(/*ctx*/ &mut GameContext<Immediate>),
 
 	//input operations
@@ -157,24 +157,23 @@ pub struct SimulationInitOptions {
 	pub input_validate: fn(/*sus*/ &Input) -> Input,
 	pub input_server_predict_late: fn(
 		/*prv*/ &Input,
-		/*state*/ &SimulationState,
+		/*state*/ &State,
 		/*client_id*/ usize32,
 		/*is_timed_out*/ bool,
 	) -> Input,
 	pub input_client_predict_late:
-		fn(/*prv*/ &Input, /*state*/ &SimulationState, /*client_id*/ usize32) -> Input,
+		fn(/*prv*/ &Input, /*state*/ &State, /*client_id*/ usize32) -> Input,
 
 	//server_events
-	pub on_server_start:
-		fn(/*state*/ &mut SimulationState, /*diff*/ &mut DiffSerializer<WaitForConsensus>), //goes without saying tick id is 0
+	pub on_server_start: fn(/*state*/ &mut State, /*diff*/ &mut DiffSerializer<WaitForConsensus>), //goes without saying tick id is 0
 	pub on_client_connect: fn(
-		/*state*/ &mut SimulationState,
+		/*state*/ &mut State,
 		/*client id*/ usize32,
 		/*tick id*/ TickID,
 		/*diff*/ &mut DiffSerializer<WaitForConsensus>,
 	),
 	pub on_client_disconnect: fn(
-		/*state*/ &mut SimulationState,
+		/*state*/ &mut State,
 		/*id*/ usize32,
 		/*tick id*/ TickID,
 		/*diff*/ &mut DiffSerializer<WaitForConsensus>,

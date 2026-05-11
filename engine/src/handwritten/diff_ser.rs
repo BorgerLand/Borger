@@ -46,10 +46,9 @@ pub struct DiffSerializer<TradeOff: AnyTradeOff> {
 	tx: TxData,
 
 	//think of it like rollback = instructions for
-	//undoing changes to simulation state, and
-	//tx = instructions for redoing/replicating/
-	//replaying changes to simulation state on a
-	//different device on the network
+	//undoing changes to state, and tx = instructions
+	//for redoing/replicating/replaying changes to
+	//state on a different device on the network
 	phantom_menace: PhantomData<TradeOff>,
 }
 
@@ -151,7 +150,7 @@ impl DiffSerializer<Impl> {
 	//get the finalized data to send over the wire.
 	//called per-webtransport connection
 	pub(crate) fn tx_end_tick(&mut self, #[cfg(feature = "server")] client_id: usize32) -> Option<Vec<u8>> {
-		//server is sending simulation state
+		//server is sending state
 		#[cfg(feature = "server")]
 		let (tx, enabled) = {
 			let tx = self.tx.get_mut(&client_id).unwrap();

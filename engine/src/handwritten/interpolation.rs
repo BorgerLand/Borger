@@ -14,13 +14,13 @@ pub trait Interpolate: Copy {
 //events, otherwise no change would be detected
 #[cfg(feature = "client")]
 pub trait InterpolateTicks<Prv = Self> {
-	type InterpolationState;
+	type InterpolationOutput;
 	fn interpolate_and_diff(
 		prv: Option<&Prv>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationState;
+	) -> Self::InterpolationOutput;
 }
 
 #[cfg(feature = "client")]
@@ -28,13 +28,13 @@ pub type Client = Scope<ClientOwned, ClientRemote>;
 
 #[cfg(feature = "client")]
 impl InterpolateTicks for presentation::Client {
-	type InterpolationState = Client;
+	type InterpolationOutput = Client;
 	fn interpolate_and_diff(
 		prv: Option<&Self>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationState {
+	) -> Self::InterpolationOutput {
 		match cur {
 			Self::Owned(cur) => Client::Owned(InterpolateTicks::interpolate_and_diff(
 				prv.map(|prv| prv.as_owned().unwrap()),
@@ -67,7 +67,7 @@ impl InterpolateTicks for presentation::Client {
 }
 
 #[cfg(feature = "client")]
-pub struct InterpolationOutput {
+pub struct InterpolationContext {
 	pub local_client_id: usize32,
-	pub state: InterpolationState,
+	pub output: InterpolationOutput,
 }

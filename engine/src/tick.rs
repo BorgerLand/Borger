@@ -40,9 +40,9 @@ pub struct TickInfo {
 	//all of these id's are incremental
 
 	//oldest tick that can still be rolled back and (as in, rewind
-	//simulation state to right before this tick happened). controls
-	//the amount of state history that must be stored for rollback.
-	//will only ever increase
+	//state to right before this tick happened). controls the amount
+	//of state history that must be stored for rollback. will only
+	//ever increase
 	pub(crate) id_consensus: TickID,
 
 	//same as id_consensus but includes pending unreconciled buffers

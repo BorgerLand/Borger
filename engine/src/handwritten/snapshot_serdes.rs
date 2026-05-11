@@ -1,8 +1,8 @@
 use crate::DeserializeOopsy;
 use crate::networked_types::primitive::PrimitiveSerDes;
 use crate::networked_types::primitive::usize32;
-use crate::simulation_state::Client;
-use crate::simulation_state::SimulationState;
+use crate::simulation::Client;
+use crate::simulation::State;
 use crate::tick::TickID;
 
 pub trait SnapshotState {
@@ -56,7 +56,7 @@ pub struct NewClientHeader {
 }
 
 #[cfg(feature = "server")]
-pub fn ser_new_client(state: &SimulationState, header: NewClientHeader) -> Vec<u8> {
+pub fn ser_new_client(state: &State, header: NewClientHeader) -> Vec<u8> {
 	let mut buffer_owned = Vec::new();
 	let buffer = &mut buffer_owned;
 
@@ -70,10 +70,7 @@ pub fn ser_new_client(state: &SimulationState, header: NewClientHeader) -> Vec<u
 
 //returns local client id
 #[cfg(feature = "client")]
-pub fn des_new_client(
-	state: &mut SimulationState,
-	buffer: Vec<u8>,
-) -> Result<NewClientHeader, DeserializeOopsy> {
+pub fn des_new_client(state: &mut State, buffer: Vec<u8>) -> Result<NewClientHeader, DeserializeOopsy> {
 	let buffer = &mut buffer.into_iter();
 
 	let header = NewClientHeader {

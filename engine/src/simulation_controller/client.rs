@@ -101,10 +101,10 @@ impl SimControllerInternals {
 		//that every simulation tick is rendered, depending on
 		//whether presentation tick is able to keep up with SIM_DT
 		self.comms.sim_out.store(
-			Some(Box::new(SimulationOutput {
+			Some(Box::new(PresentationContext {
 				time: self.ctx.tick.get_now(),
 				local_client_id: self.local_client_id,
-				state: self.ctx.state.clone_to_presentation(self.ctx.tick.id_cur),
+				output: self.ctx.state.clone_to_presentation(self.ctx.tick.id_cur),
 			})),
 			Ordering::AcqRel,
 		);

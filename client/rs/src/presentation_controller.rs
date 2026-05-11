@@ -1,7 +1,7 @@
-use borger::interpolation::{InterpolateTicks, InterpolationOutput};
-use borger::presentation::{PresentationState, SimulationOutput};
+use borger::interpolation::{InterpolateTicks, InterpolationContext};
+use borger::presentation::{PresentationContext, PresentationOutput};
+use borger::simulation::Input;
 use borger::simulation_controller::{self, SimControllerExternals};
-use borger::simulation_state::Input;
 use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
 use game::input;
 use js_sys::{Function, Uint8Array};
@@ -31,10 +31,10 @@ pub struct PresentationController {
 	//must wait on the simulation thread to init
 	//before they can be used (hence option type)
 	next_tick_i: bool,
-	tick_buffers: [Option<SimulationOutput>; 2],
+	tick_buffers: [Option<PresentationContext>; 2],
 
 	input: Input,
-	output: Option<InterpolationOutput>,
+	output: Option<InterpolationContext>,
 
 	#[cfg(feature = "session_replay")]
 	session_recording: Vec<SessionReplayAction>,
@@ -103,7 +103,7 @@ impl PresentationController {
 	//1 frame delay before seeing the consequences. this will
 	//not return some until simulation thread has produced its
 	//first tick
-	pub fn presentation_tick(&mut self, dt: f32) -> Option<*const InterpolationOutput> {
+	pub fn presentation_tick(&mut self, dt: f32) -> Option<*const InterpolationContext> {
 		//received input state: send to server
 		//(these are old input states that have
 		//been merged+validated+diff compressed,
@@ -151,11 +151,11 @@ impl PresentationController {
 
 		//need to store the result in some rust-owned memory to avoid
 		//dropping before js is able to borrow it
-		self.output = Some(InterpolationOutput {
+		self.output = Some(InterpolationContext {
 			local_client_id: cur_tick.local_client_id,
-			state: PresentationState::interpolate_and_diff(
-				prv_tick.map(|prv| &prv.state),
-				&cur_tick.state,
+			output: PresentationOutput::interpolate_and_diff(
+				prv_tick.map(|prv| &prv.output),
+				&cur_tick.output,
 				interp_amount,
 				received_new_tick,
 			),
@@ -168,7 +168,7 @@ impl PresentationController {
 			.send(PresentationToSimCommand::RawInput(mem::take(&mut self.input)))
 			.unwrap();
 
-		Some(self.output.as_ref().unwrap() as *const InterpolationOutput)
+		Some(self.output.as_ref().unwrap() as *const InterpolationContext)
 	}
 
 	pub fn listen_for_state(&self, state: &Uint8Array) {

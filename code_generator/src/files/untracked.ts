@@ -11,7 +11,7 @@ export function generateUntracked(simStructs: FlattenedStruct[][]) {
 		`${BORGER_GENERATED_DIR}/untracked.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state::*;
+use crate::simulation::*;
 use crate::untracked::UntrackedState;
 
 ${VALID_TYPES}

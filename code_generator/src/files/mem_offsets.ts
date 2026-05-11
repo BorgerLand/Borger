@@ -4,11 +4,11 @@ import {
 	getNestedPath,
 	type AllFlattenedStructs,
 } from "@borger/code_generator/common.ts";
-import { getOutputStructName } from "@borger/code_generator/files/mem_wrappers.ts";
+import { getOuterOutputStructName } from "@borger/code_generator/files/mem_wrappers.ts";
 import { presentationStructFilter } from "@borger/code_generator/files/presentation.ts";
 
 export function generateMemOffsets(structs: AllFlattenedStructs) {
-	const ioStructs = structs.sim.slice().reverse();
+	const ioStructs = structs.output.slice().reverse();
 	ioStructs.unshift(structs.input);
 
 	const slotMapInnerTypes: string[] = [];
@@ -17,7 +17,7 @@ export function generateMemOffsets(structs: AllFlattenedStructs) {
 		`${CLIENT_RS_GENERATED_DIR}/mem_offsets.rs`,
 		`${STATE_WARNING}
 
-use borger::simulation_state::Input;
+use borger::simulation::Input;
 use borger::interpolation::*;
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Reflect, Number};
@@ -25,7 +25,9 @@ use std::mem::offset_of;
 use borger::networked_types::collections::slotmap::InterpolationSlotMap;
 use borger::networked_types::primitive::usize32;
 
-type Output = InterpolationOutput;
+//what is exposed as "GameContext" in ts maps to an
+//InterpolationContext struct in rs
+type GameContext = InterpolationContext;
 
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -34,14 +36,14 @@ pub fn get_mem_offsets() -> JsValue
 ${ioStructs
 	.map(function generateStructGroups(group) {
 		const rootStruct = group[0];
-		const rootStructName = getOutputStructName(rootStruct.name);
+		const rootStructName = getOuterOutputStructName(rootStruct.name);
 
 		return `${group
 			.filter((struct) => presentationStructFilter(struct) || rootStruct.name === "Input")
 			.reverse()
 			.map(function generateStructs(struct) {
 				const outputStructPath = struct.path.slice();
-				if (rootStructName === "Output") outputStructPath.splice(1, 0, "state");
+				if (rootStructName === "GameContext") outputStructPath.splice(1, 0, "output");
 
 				return `	let struct_${struct.name} = Object::new();
 ${struct.fields
@@ -82,33 +84,33 @@ ${struct.fields
 		&Number::from(align_of::<ClientRemote>().max(1) as f64)
 	).unwrap();
 	
-	let struct_Output = Object::new();
+	let struct_GameContext = Object::new();
 	Reflect::set
 	(
-		&struct_Output,
-		&"state".into(),
-		&struct_SimulationState
+		&struct_GameContext,
+		&"output".into(),
+		&struct_State
 	).unwrap();
 	
 	Reflect::set
 	(
-		&struct_Output,
+		&struct_GameContext,
 		&"local_client_id".into(),
-		&Number::from(offset_of!(Output, local_client_id) as f64)
+		&Number::from(offset_of!(GameContext, local_client_id) as f64)
 	).unwrap();
 	
 	let structs = Object::new();
 	Reflect::set(&structs, &"Input".into(), &struct_Input).unwrap();
-${structs.sim
+${structs.output
 	.filter((group) => presentationStructFilter(group[0]))
 	.map(function generateStructs(group) {
-		const rootStructName = getOutputStructName(group[0].name);
+		const rootStructName = getOuterOutputStructName(group[0].name);
 		return `	Reflect::set(&structs, &"${rootStructName}".into(), &struct_${rootStructName}).unwrap();`;
 	})
 	.join("\n")}
 	Reflect::set(&structs, &"Client".into(), &struct_Client).unwrap();
 	
-	let slotmap = Object::new();${structs.sim
+	let slotmap = Object::new();${structs.output
 		.map((group) =>
 			group
 				.filter(presentationStructFilter)
@@ -182,10 +184,10 @@ ${structs.sim
 		)
 		.join("")}
 	
-	let output = Object::new();
-	Reflect::set(&output, &"struct".into(), &structs).unwrap();
-	Reflect::set(&output, &"slotmap".into(), &slotmap).unwrap();
-	output.into()
+	let offsets = Object::new();
+	Reflect::set(&offsets, &"struct".into(), &structs).unwrap();
+	Reflect::set(&offsets, &"slotmap".into(), &slotmap).unwrap();
+	offsets.into()
 }
 
 ${slotMapInnerTypes

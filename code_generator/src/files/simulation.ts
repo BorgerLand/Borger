@@ -6,12 +6,12 @@ import {
 	type AllFlattenedStructs,
 } from "@borger/code_generator/common.ts";
 
-export function generateSimulationState(structs: AllFlattenedStructs) {
+export function generateSimulation(structs: AllFlattenedStructs) {
 	Bun.write(
-		`${BORGER_GENERATED_DIR}/simulation_state.rs`,
+		`${BORGER_GENERATED_DIR}/simulation.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state::{Client, InputHistory};
+use crate::simulation::{Client, InputHistory};
 use std::rc::Rc;
 
 #[cfg(feature = "session_replay")]
@@ -35,7 +35,7 @@ ${struct.fields
 	})
 	.join("\n\n")}
 
-${structs.sim
+${structs.output
 	.map((group) =>
 		group
 			.map(function generateSimulationStruct(struct) {

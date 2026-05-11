@@ -5,7 +5,7 @@ import state from "../../../src/state.ts";
 import { validate } from "@borger/code_generator/state_schema.ts";
 import { flatten } from "@borger/code_generator/flatten.ts";
 
-import { generateSimulationState } from "@borger/code_generator/files/simulation_state.ts";
+import { generateSimulation } from "@borger/code_generator/files/simulation.ts";
 import { generateConstructors } from "@borger/code_generator/files/constructors.ts";
 import { generateSnapshotSerDes } from "@borger/code_generator/files/snapshot_serdes.ts";
 import { generateDiffSer } from "@borger/code_generator/files/diff_ser.ts";
@@ -28,14 +28,14 @@ try {
 }
 
 const structs = flatten(validState);
-generateSimulationState(structs);
-generateConstructors(structs.sim);
-generateSnapshotSerDes(structs.sim);
+generateSimulation(structs);
+generateConstructors(structs.output);
+generateSnapshotSerDes(structs.output);
 generateDiffSer(structs);
 generateDiffDes(structs);
-generateUntracked(structs.sim);
-generatePresentation(structs.sim);
-generateInterpolation(structs.sim);
+generateUntracked(structs.output);
+generatePresentation(structs.output);
+generateInterpolation(structs.output);
 generateMemOffsets(structs);
 generateMemWrappers(structs);
 

@@ -1,6 +1,6 @@
 use crate::ClientKind;
 use crate::networked_types::primitive::usize32;
-use crate::simulation_state::{Client, ClientOwned, ClientRemote};
+use crate::simulation::{Client, ClientOwned, ClientRemote};
 use std::rc::Rc;
 
 #[cfg(feature = "server")]

@@ -17,7 +17,7 @@ use crate::NetVisibility;
 #[cfg(feature = "client")]
 use {
 	crate::interpolation::InterpolateTicks, crate::multiplayer_tradeoff::Impl,
-	crate::presentation::PresentTick, crate::simulation_state::Client, crate::tick::TickID, std::any::TypeId,
+	crate::presentation::PresentTick, crate::simulation::Client, crate::tick::TickID, std::any::TypeId,
 	std::mem::MaybeUninit, std::ptr, std::vec,
 };
 
@@ -147,7 +147,7 @@ impl<V> RawSlotMap<V> {
 	}
 }
 
-//---simulation_state---//
+//---simulation---//
 
 #[derive(Debug)]
 pub struct SlotMap<V: TrackedState> {
@@ -222,8 +222,8 @@ impl<V: TrackedState> SlotMap<V> {
 
 	//can't return the removed value! it would provide
 	//a loophole for constructing new state objects.
-	//the simulation state must own all instances.
-	//unwrap to assert success
+	//the state must own all instances. unwrap to
+	//assert success
 	#[must_use]
 	pub fn remove(&mut self, id: usize32, diff: &mut DiffSerializer<impl AnyTradeOff>) -> Option<()> {
 		let physical_index = *self.data.random_access.get(&id)?;
@@ -477,8 +477,8 @@ impl<V> PresentTick for SlotMap<V>
 where
 	V: TrackedState + PresentTick,
 {
-	type PresentationState = RawSlotMap<V::PresentationState>;
-	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationState {
+	type PresentationOutput = RawSlotMap<V::PresentationOutput>;
+	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationOutput {
 		RawSlotMap {
 			slots: self
 				.data
@@ -510,15 +510,15 @@ pub struct InterpolationSlotMap<V> {
 
 #[cfg(feature = "client")]
 impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlotMap<V> {
-	type InterpolationState = InterpolationSlotMap<V::InterpolationState>;
+	type InterpolationOutput = InterpolationSlotMap<V::InterpolationOutput>;
 	fn interpolate_and_diff(
 		prv: Option<&RawSlotMap<Prv>>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationState {
+	) -> Self::InterpolationOutput {
 		let Some(prv) = prv else {
-			let slots: Vec<(u32, V::InterpolationState)> = cur
+			let slots: Vec<(u32, V::InterpolationOutput)> = cur
 				.slots
 				.iter()
 				.map(|slot| {
@@ -557,7 +557,7 @@ impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlo
 			};
 		};
 
-		let mut slots: Vec<MaybeUninit<(u32, V::InterpolationState)>> =
+		let mut slots: Vec<MaybeUninit<(u32, V::InterpolationOutput)>> =
 			(0..cur.slots.len()).map(|_a| MaybeUninit::uninit()).collect();
 
 		let mut removed = Vec::new();
@@ -605,7 +605,7 @@ impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlo
 		}
 
 		//safety: for loop guarantees every slot was written to
-		let slots: Vec<(u32, V::InterpolationState)> = unsafe { mem::transmute(slots) };
+		let slots: Vec<(u32, V::InterpolationOutput)> = unsafe { mem::transmute(slots) };
 		let slots_ptr = slots.as_ptr();
 		let removed_ptr = removed.as_ptr();
 		let removed_len = removed.len() as usize32;

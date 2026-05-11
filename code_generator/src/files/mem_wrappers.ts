@@ -88,23 +88,23 @@ ${struct.fields
 	return Input;
 }
 
-export type Output = ReturnType<typeof wrap_Output>;
-${structs.sim
+export type GameContext = ReturnType<typeof wrap_GameContext>;
+${structs.output
 	.filter((group) => presentationStructFilter(group[0]))
 	.map(function generateOutputTypes(group) {
 		const rootStruct = group[0];
-		const rootStructName = getOutputStructName(rootStruct.name);
+		const rootStructName = getOuterOutputStructName(rootStruct.name);
 
 		return `${group
 			.filter(presentationStructFilter)
 			.map(function generateOutputTypeDef({ name, path }) {
 				const outputStructPath = path.slice();
-				if (rootStructName === "Output") outputStructPath.splice(1, 0, "state");
-				return `export type ${getOutputStateStructName(name)} = ReturnType<typeof wrap_${rootStructName}>${name === rootStructName ? `` : `["${getNestedPath(rootStruct.path, outputStructPath).replaceAll(".", '"]["')}"]`}`;
+				if (rootStructName === "GameContext") outputStructPath.splice(1, 0, "output");
+				return `export type ${getInnerOutputStructName(name)} = ReturnType<typeof wrap_${rootStructName}>${name === rootStructName ? `` : `["${getNestedPath(rootStruct.path, outputStructPath).replaceAll(".", '"]["')}"]`}`;
 			})
 			.join("\n")}
 
-${rootStructName === "Output" ? "export " : ""}function wrap_${rootStructName}(state: MemWrappers.State, ptr: number)
+${rootStructName === "GameContext" ? "export " : ""}function wrap_${rootStructName}(state: MemWrappers.State, ptr: number${rootStructName === "GameContext" ? ", input: Input" : ""})
 {
 	const offsets = state.offsets.struct.${rootStructName};
 	
@@ -113,9 +113,9 @@ ${group
 	.reverse()
 	.map(function generateOutputStruct(struct) {
 		const outputStructPath = struct.path.slice();
-		if (rootStructName === "Output") outputStructPath.splice(1, 0, "state");
+		if (rootStructName === "GameContext") outputStructPath.splice(1, 0, "output");
 
-		return `	const ${getOutputStateStructName(struct.name)} =
+		return `	const ${getInnerOutputStructName(struct.name)} =
 	{
 ${struct.fields
 	.filter((field) => field.presentation)
@@ -142,13 +142,14 @@ ${struct.fields
 	})
 	.join("\n\n")}
 	${
-		rootStructName === "Output"
+		rootStructName === "GameContext"
 			? `
-	const Output =
+	const GameContext =
 	{
 		local_client_id: state.memView.getUint32(ptr + offsets.local_client_id, true),
 		
-		state: OutputState,
+		input,
+		output: Output,
 	};
 	`
 			: ``
@@ -279,10 +280,10 @@ function setSimplePrimitive(type: SimplePrimitiveType, offset: string): string {
 	}
 }
 
-export function getOutputStructName(simStructName: string) {
-	return simStructName === "SimulationState" ? "Output" : simStructName;
+export function getOuterOutputStructName(simStructName: string) {
+	return simStructName === "State" ? "GameContext" : simStructName;
 }
 
-function getOutputStateStructName(simStructName: string) {
-	return simStructName === "SimulationState" ? "OutputState" : simStructName;
+function getInnerOutputStructName(simStructName: string) {
+	return simStructName === "State" ? "Output" : simStructName;
 }

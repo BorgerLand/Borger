@@ -12,6 +12,8 @@ use crate::NetVisibility;
 #[cfg(feature = "client")]
 use {crate::interpolation::InterpolateTicks, crate::presentation::PresentTick, crate::tick::TickID};
 
+//---simulation---//
+
 ///Event dispatcher for non-critical, unrollbackable game feel
 ///events: camera/shakes, footsteps, particle effects, etc. Do
 ///not rely on this to work 100% of the time. For example, a
@@ -115,14 +117,14 @@ pub(crate) struct PresentationEventDispatcher(u8);
 
 #[cfg(feature = "client")]
 impl PresentTick for EventDispatcher {
-	type PresentationState = PresentationEventDispatcher;
+	type PresentationOutput = PresentationEventDispatcher;
 
-	fn clone_to_presentation(&self, _: TickID) -> Self::PresentationState {
+	fn clone_to_presentation(&self, _: TickID) -> Self::PresentationOutput {
 		PresentationEventDispatcher(self.version)
 	}
 }
 
-//---interpolation_state---//
+//---interpolation---//
 
 #[cfg(feature = "client")]
 #[repr(transparent)]
@@ -130,13 +132,13 @@ pub struct InterpolationEventDispatcher(bool);
 
 #[cfg(feature = "client")]
 impl InterpolateTicks for PresentationEventDispatcher {
-	type InterpolationState = InterpolationEventDispatcher;
+	type InterpolationOutput = InterpolationEventDispatcher;
 	fn interpolate_and_diff(
 		prv: Option<&Self>,
 		cur: &Self,
 		_: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationState {
+	) -> Self::InterpolationOutput {
 		let Some(&PresentationEventDispatcher(prv)) = prv else {
 			return InterpolationEventDispatcher(false);
 		};

@@ -13,7 +13,7 @@ export function generatePresentation(simStructs: FlattenedStruct[][]) {
 		`${BORGER_GENERATED_DIR}/presentation.rs`,
 		`${STATE_WARNING}
 
-use crate::simulation_state;
+use crate::simulation;
 use crate::presentation::PresentTick;
 use crate::tick::TickID;
 
@@ -29,15 +29,15 @@ ${simStructs
 				const presentationStructName = getPresentationStructName(struct.name);
 
 				return `#[allow(non_camel_case_types)]
-${presentationStructName === "PresentationState" ? "pub" : "pub(crate)"} struct ${presentationStructName}
+${presentationStructName === "PresentationOutput" ? "pub" : "pub(crate)"} struct ${presentationStructName}
 {
 ${struct.fields
 	.filter((field) => field.presentation)
 	.map(function generatePresentationStructFields({ name, outerType, fullType, innerType }) {
 		let presentationType;
 		if (isGeneric(outerType))
-			presentationType = `<${outerType}<simulation_state::${innerType}> as PresentTick>::PresentationState`;
-		else if (isUtility(outerType)) presentationType = `<${outerType} as PresentTick>::PresentationState`;
+			presentationType = `<${outerType}<simulation::${innerType}> as PresentTick>::PresentationOutput`;
+		else if (isUtility(outerType)) presentationType = `<${outerType} as PresentTick>::PresentationOutput`;
 		else presentationType = fullType;
 
 		return `	pub(crate) ${name}: ${presentationType},`;
@@ -45,12 +45,12 @@ ${struct.fields
 	.join("\n\n")}
 }
 
-impl PresentTick for simulation_state::${struct.name}
+impl PresentTick for simulation::${struct.name}
 {
-	type PresentationState = ${presentationStructName};
-	fn clone_to_presentation(&self, _tick: TickID) -> Self::PresentationState
+	type PresentationOutput = ${presentationStructName};
+	fn clone_to_presentation(&self, _tick: TickID) -> Self::PresentationOutput
 	{
-		Self::PresentationState
+		Self::PresentationOutput
 		{
 ${struct.fields
 	.filter((field) => field.presentation)
@@ -74,7 +74,7 @@ ${struct.fields
 }
 
 export function getPresentationStructName(simStructName: string) {
-	return simStructName === "SimulationState" ? "PresentationState" : simStructName;
+	return simStructName === "State" ? "PresentationOutput" : simStructName;
 }
 
 export function presentationStructFilter(struct: FlattenedStruct) {
