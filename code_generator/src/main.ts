@@ -4,7 +4,11 @@ import state from "../../../src/state.ts";
 
 import { validate } from "@borger/code_generator/state_schema.ts";
 import { flatten } from "@borger/code_generator/flatten.ts";
-import { BORGER_GENERATED_DIR } from "@borger/code_generator/common.ts";
+import {
+	BORGER_GENERATED_DIR,
+	CLIENT_RS_GENERATED_DIR,
+	CLIENT_TS_GENERATED_DIR,
+} from "@borger/code_generator/common.ts";
 import { mkdirSync } from "fs";
 
 import { generateSimulation } from "@borger/code_generator/files/simulation.ts";
@@ -34,6 +38,8 @@ try {
 
 const structs = flatten(validState);
 mkdirSync(BORGER_GENERATED_DIR, { recursive: true });
+mkdirSync(CLIENT_RS_GENERATED_DIR, { recursive: true });
+mkdirSync(CLIENT_TS_GENERATED_DIR, { recursive: true });
 generateSimulation(structs);
 generateConstructors(structs.output);
 generateSnapshotSerDes(structs.output);
