@@ -7,9 +7,10 @@ import {
 	isUtility,
 	type FlattenedStruct,
 } from "@borger/code_generator/common.ts";
+import { writeFileSync } from "fs";
 
 export function generatePresentation(simStructs: FlattenedStruct[][]) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/presentation.rs`,
 		`${STATE_WARNING}
 

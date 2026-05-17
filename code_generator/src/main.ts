@@ -23,8 +23,10 @@ try {
 } catch (oops) {
 	//the complex schema emits laughably illegible type errors,
 	//so just let tsc's error printing system do the job
-	if (String(oops).length > 5000) throw Error("Type error in state.ts (see output of TSC-CODEGEN)");
-	else throw oops;
+	if (String(oops).length > 5000)
+		throw Error("Type error in state.ts (see output of TSC-CODEGEN)", { cause: oops });
+
+	throw oops;
 }
 
 const structs = flatten(validState);

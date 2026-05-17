@@ -7,9 +7,10 @@ import {
 	getNestedPath,
 	nvEnum,
 } from "@borger/code_generator/common.ts";
+import { writeFileSync } from "fs";
 
 export function generateDiffSer(structs: AllFlattenedStructs) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/diff_ser.rs`,
 		`${STATE_WARNING}
 

@@ -3,7 +3,7 @@
 	"include": ["../**/*.config.ts", "code_generator/src/main.ts"],
 	"compilerOptions": {
 		"lib": ["ESNext"],
-		"types": ["bun"],
+		"types": ["node"],
 		"paths": {
 			"@borger/code_generator/*": ["./code_generator/src/*"]
 		}

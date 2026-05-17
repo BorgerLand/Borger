@@ -5,9 +5,10 @@ import {
 	isPrimitive,
 	type AllFlattenedStructs,
 } from "@borger/code_generator/common.ts";
+import { writeFileSync } from "fs";
 
 export function generateSimulation(structs: AllFlattenedStructs) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/simulation.rs`,
 		`${STATE_WARNING}
 

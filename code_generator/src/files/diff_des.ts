@@ -7,6 +7,7 @@ import {
 	VALID_TYPES,
 	type FlattenedField,
 } from "@borger/code_generator/common.ts";
+import { writeFileSync } from "fs";
 
 //the way the generated file generally works is:
 //given a deserialized diff path and value, write
@@ -14,7 +15,7 @@ import {
 //uses match statements to route the value where
 //it needs to go
 export function generateDiffDes(structs: AllFlattenedStructs) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/diff_des.rs`,
 		`${STATE_WARNING}
 

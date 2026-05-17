@@ -5,9 +5,10 @@ import {
 	type FlattenedStruct,
 	isCollection,
 } from "@borger/code_generator/common.ts";
+import { writeFileSync } from "fs";
 
 export function generateUntracked(simStructs: FlattenedStruct[][]) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/untracked.rs`,
 		`${STATE_WARNING}
 

@@ -6,11 +6,12 @@ import {
 	getNestedPath,
 	type FlattenedField,
 } from "@borger/code_generator/common.ts";
+import { writeFileSync } from "fs";
 
 //new client: all public data should be serialized
 //predict remove: all locally accessible data should be serialized. "all" has different meanings depending on server/client
 export function generateSnapshotSerDes(simStructs: FlattenedStruct[][]) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/snapshot_serdes.rs`,
 		`${STATE_WARNING}
 

@@ -8,9 +8,10 @@ import {
 	isCollection,
 	nvEnum,
 } from "@borger/code_generator/common.ts";
+import { writeFileSync } from "fs";
 
 export function generateConstructors(simStructs: FlattenedStruct[][]) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/constructors.rs`,
 		`${STATE_WARNING}
 

@@ -6,6 +6,7 @@ import {
 } from "@borger/code_generator/common.ts";
 import { getOuterOutputStructName } from "@borger/code_generator/files/mem_wrappers.ts";
 import { presentationStructFilter } from "@borger/code_generator/files/presentation.ts";
+import { writeFileSync } from "fs";
 
 export function generateMemOffsets(structs: AllFlattenedStructs) {
 	const ioStructs = structs.output.slice().reverse();
@@ -13,7 +14,7 @@ export function generateMemOffsets(structs: AllFlattenedStructs) {
 
 	const slotMapInnerTypes: string[] = [];
 
-	Bun.write(
+	writeFileSync(
 		`${CLIENT_RS_GENERATED_DIR}/mem_offsets.rs`,
 		`${STATE_WARNING}
 

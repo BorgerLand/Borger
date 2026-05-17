@@ -16,9 +16,10 @@ import {
 	getPresentationStructName,
 	presentationStructFilter,
 } from "@borger/code_generator/files/presentation.ts";
+import { writeFileSync } from "fs";
 
 export function generateInterpolation(simStructs: FlattenedStruct[][]) {
-	Bun.write(
+	writeFileSync(
 		`${BORGER_GENERATED_DIR}/interpolation.rs`,
 		`${STATE_WARNING}
 

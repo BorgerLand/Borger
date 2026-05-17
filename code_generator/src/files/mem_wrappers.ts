@@ -12,11 +12,12 @@ import {
 	type SimplePrimitiveType,
 } from "@borger/code_generator/state_schema.ts";
 import { presentationStructFilter } from "@borger/code_generator/files/presentation.ts";
+import { writeFileSync } from "fs";
 
 export function generateMemWrappers(structs: AllFlattenedStructs) {
 	const rootInputStruct = structs.input[0];
 
-	Bun.write(
+	writeFileSync(
 		`${CLIENT_TS_GENERATED_DIR}/mem_wrappers.ts`,
 		`${STATE_WARNING}
 
