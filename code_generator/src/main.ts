@@ -6,7 +6,6 @@ import { validate } from "@borger/code_generator/state_schema.ts";
 import { flatten } from "@borger/code_generator/flatten.ts";
 import { BORGER_GENERATED_DIR } from "@borger/code_generator/common.ts";
 import { mkdirSync } from "fs";
-import { dirname } from "path";
 
 import { generateSimulation } from "@borger/code_generator/files/simulation.ts";
 import { generateConstructors } from "@borger/code_generator/files/constructors.ts";
@@ -34,7 +33,7 @@ try {
 }
 
 const structs = flatten(validState);
-mkdirSync(dirname(BORGER_GENERATED_DIR), { recursive: true });
+mkdirSync(BORGER_GENERATED_DIR, { recursive: true });
 generateSimulation(structs);
 generateConstructors(structs.output);
 generateSnapshotSerDes(structs.output);
