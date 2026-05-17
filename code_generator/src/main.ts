@@ -4,6 +4,9 @@ import state from "../../../src/state.ts";
 
 import { validate } from "@borger/code_generator/state_schema.ts";
 import { flatten } from "@borger/code_generator/flatten.ts";
+import { BORGER_GENERATED_DIR } from "@borger/code_generator/common.ts";
+import { mkdirSync } from "fs";
+import { dirname } from "path";
 
 import { generateSimulation } from "@borger/code_generator/files/simulation.ts";
 import { generateConstructors } from "@borger/code_generator/files/constructors.ts";
@@ -15,6 +18,7 @@ import { generatePresentation } from "@borger/code_generator/files/presentation.
 import { generateInterpolation } from "@borger/code_generator/files/interpolation.ts";
 import { generateMemOffsets } from "@borger/code_generator/files/mem_offsets.ts";
 import { generateMemWrappers } from "@borger/code_generator/files/mem_wrappers.ts";
+
 console.time("Great success");
 
 let validState;
@@ -30,6 +34,7 @@ try {
 }
 
 const structs = flatten(validState);
+mkdirSync(dirname(BORGER_GENERATED_DIR), { recursive: true });
 generateSimulation(structs);
 generateConstructors(structs.output);
 generateSnapshotSerDes(structs.output);
