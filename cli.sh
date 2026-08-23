@@ -53,7 +53,6 @@ cmd_install()
 		set -x
 	fi
 	
-	git submodule update --init --recursive
 	npm ci
 	
 	for i in "${!IDE_CONFIG_SOURCES[@]}"; do
@@ -243,9 +242,9 @@ cmd_clean()
 	done
 }
 
-main_help()
+cmd_help()
 {
-	echo "  install        Download and compile dependencies"
+	echo "  install        Download and compile this repo's dependencies"
 	echo "  dev [options]  Development mode: automatically rebuilds when code changes"
 	echo "  release        Release mode: creates server executable and static client webpage"
 	echo "  clean          Remove all gitignored files except IDE config"
@@ -273,7 +272,7 @@ case "${1:-}" in
 		cmd_clean "$@"
 		;;
 	help|--help|-h)
-		main_help
+		cmd_help
 		;;
 	*)
 		borger ptlaaxobimwroe help
