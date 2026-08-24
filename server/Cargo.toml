@@ -14,11 +14,13 @@ singlethreaded = []
 [dependencies]
 borger = { path = "../engine" }
 game = { path = "../.." }
+
 log.workspace = true
-tokio.workspace = true
-wtransport.workspace = true
-simple_logger.workspace = true
-clap.workspace = true
-tokio-tungstenite.workspace = true
-tokio-rustls.workspace = true
-futures-util.workspace = true
+
+tokio = { version = "*", default-features = false, features = ["rt"] }
+wtransport = { version = "*", default-features = false, features = ["ring", "self-signed"] }
+simple_logger = { version = "*", default-features = false, features = ["colors"] }
+clap = { version = "*", default-features = false, features = ["std", "derive", "color", "error-context", "help", "suggestions", "usage"] }
+tokio-tungstenite = { version = "*", default-features = false, features = ["rustls-tls-webpki-roots"] }
+tokio-rustls = { version = "*", default-features = false }
+futures-util = { version = "*", default-features = false }

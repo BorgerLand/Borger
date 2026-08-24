@@ -11,16 +11,18 @@ singlethreaded = ["client"] #singlethreaded server is not a thing
 
 [dependencies]
 borger_procmac = { path = "../procmac" }
+
 log.workspace = true
 glam.workspace = true
-wasm_thread.workspace = true
-web-time.workspace = true
-num_enum.workspace = true
 rapier3d.workspace = true
 
+web-time = { version = "*", default-features = false }
+num_enum = { version = "*", default-features = false }
+wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33
+
 #server only
-tokio = { workspace = true, optional = true }
+tokio = { version = "*", optional = true, default-features = false }
 
 #client only
-atomicbox = { workspace = true, optional = true }
-serde = { workspace = true, optional = true }
+atomicbox = { version = "*", optional = true, default-features = false }
+serde = { version = "*", optional = true, default-features = false, features = ["std", "derive"] }
