@@ -12,6 +12,11 @@ IDE_CONFIG_SOURCES=(".vscode/launch.json.example" ".vscode/settings.json.example
 IDE_CONFIG_TARGETS=(".vscode/launch.json"         ".vscode/settings.json")
 YES_RE="^([yY][eE][sS]|[yY])$"
 
+SERVER_BUILD_ARGS="--profile server-dev --features server"
+SERVER_CMD="./server --devcert ../../assets/devcert.json"
+CLIENT_DIR="borger/client/rs"
+CLIENT_PKG="$CLIENT_DIR/pkg"
+
 pre_launch_checks()
 {
 	if pgrep -f "RUN-CODEGEN" >/dev/null 2>&1; then
@@ -21,6 +26,44 @@ pre_launch_checks()
 	
 	NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
 	\. "$NVM_DIR/nvm.sh" --no-use
+}
+
+toolchain_check()
+{
+	local rust_said rust node borger_date borger_info
+	local rust_re='rustc ([^ ]+) \([0-9a-f]+ ([0-9-]+)\)'
+
+	nvm use > /dev/null
+
+	node="${NVM_BIN:-}"
+	node="${node%/bin}"
+	node="${node##*/}"
+	node="${node#v}"
+
+	rust_said=$(rustup --version 2>&1) || rust_said=""
+
+	if [[ "$rust_said" =~ $rust_re ]]; then
+		rust="${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+	fi
+
+	borger_date=$(git -C borger log -1 --format=%cd --date=short)
+	if [[ -n "$(git -C borger status --porcelain --untracked-files=all)" ]]; then
+		borger_info="${borger_date} (modified)"
+	else
+		borger_info="${borger_date} $(git -C borger rev-parse --short HEAD)"
+	fi
+
+	echo "Toolchain  -  Borger ${borger_info}  -  Rust ${rust:-unknown}  -  Node.js ${node:-unknown} "
+
+	run_codegen
+}
+
+run_codegen()
+{
+	cd borger/code_generator
+	npx tsc
+	npx tsx src/main.ts
+	cd ../..
 }
 
 cmd_postinit()
@@ -62,11 +105,9 @@ cmd_install()
 	done
 	
 	#build it for the first time so that dev doesn't kick off even more setting up
-	cd borger/code_generator
-	npx tsc
-	npx tsx src/main.ts
-	cd ../server
-	cargo build --profile server-dev --features server
+	run_codegen
+	cd borger/server
+	cargo build $SERVER_BUILD_ARGS
 	cd ../client/rs
 	wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features client --config 'include=[".cargo/config.mt.toml"]'
 	
@@ -87,6 +128,7 @@ dev_help()
 	echo "  --help, -h, help"
 }
 
+. "$(dirname "${BASH_SOURCE[0]}")/statusbar.sh"
 cmd_dev()
 {
 	pre_launch_checks
@@ -115,17 +157,19 @@ cmd_dev()
 		esac
 	done
 	
-	nvm use
-	cd borger/code_generator
-	npx tsc
-	npx tsx src/main.ts
-	cd ../..
+	toolchain_check
 	
-	npx concurrently \
-		--names "RUN-CODEGEN,TSC-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE" \
-		-c      "bgGreen.bold,bgYellow.bold,bgBlue.bold,bgWhite.bold,bgRed.bold" \
-		"cd borger/code_generator && npx tsx watch --clear-screen=false src/main.ts" \
-		"cd borger/code_generator && npx tsc --watch --preserveWatchOutput" \
+	if sb_is_supported; then
+		trap 'sb_close' EXIT
+		sb_open
+	fi
+	
+	local -a DEV_CMD=(
+		npx concurrently
+		--names "RUN-CODEGEN,TSC-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE"
+		-c      "bgGreen.bold,bgYellow.bold,bgBlue.bold,bgWhite.bold,bgRed.bold"
+		"cd borger/code_generator && npx tsx watch --clear-screen=false src/main.ts"
+		"cd borger/code_generator && npx tsc --watch --preserveWatchOutput"
 		"cd borger/server    && cargo watch --why --no-vcs-ignores \
 			-w '../../borger/engine' \
 			-w '../../borger/server' \
@@ -134,10 +178,10 @@ cmd_dev()
 			-w '../../Cargo.toml' \
 			-w '../../Cargo.lock' \
 			-w '../../rust-toolchain.toml' \
-			-s 'cargo        build                                               --profile server-dev --features server \
+			-s '       cargo build $SERVER_BUILD_ARGS \
 				&& cd ../../target/server-dev \
-				&& while true; do RUST_BACKTRACE=full ./server --devcert ../../assets/devcert.json; sleep 1; done'" \
-		"cd borger/client/rs && cargo watch --why --no-vcs-ignores \
+				&& while true; do RUST_BACKTRACE=full $SERVER_CMD; sleep 1; done'"
+		"cd $CLIENT_DIR && cargo watch --why --no-vcs-ignores \
 			-w '../../../borger/engine' \
 			-w '../../../borger/client/rs/src' \
 			-w '../../../borger/client/rs/Cargo.toml' \
@@ -149,17 +193,24 @@ cmd_dev()
 			-w '../../../rust-toolchain.toml' \
 			-s \"rm -f pkg/client_rs_mt_bg.wasm \
 				&& wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
-				--config 'include=[\\\".cargo/config.mt.toml\\\"]'\"" \
+				--config 'include=[\\\".cargo/config.mt.toml\\\"]'\""
 		"npx vite $VITE_HOST"
+	)
+	
+	if sb_is_supported; then
+		FORCE_COLOR=1 "${DEV_CMD[@]}" 2>&1 | sb_loop
+	else
+		"${DEV_CMD[@]}"
+	fi
 }
 
 cmd_release()
 {
 	pre_launch_checks
-	nvm use
+	toolchain_check
 	
-	if [ -d "release" ] || [ -d "borger/client/rs/pkg" ]; then
-		echo "WARNING: The existing /release and /borger/client/rs/pkg folders need to be removed to proceed."
+	if [ -d "release" ] || [ -d "$CLIENT_PKG" ]; then
+		echo "WARNING: The existing /release and /$CLIENT_PKG folders need to be removed to proceed."
 		echo "Are you sure you want to obliterate? (y/n)"
 		
 		read -r response
@@ -168,22 +219,19 @@ cmd_release()
 		fi
 		
 		set -x
-		rm -rf release borger/client/rs/pkg
+		rm -rf release "$CLIENT_PKG"
 	else
 		set -x
 	fi
 	
-	cd borger/code_generator
-	npx tsc
-	npx tsx src/main.ts
-	cd ../client/rs
+	cd borger/client/rs
 	wasm-pack build --out-name client_rs_mt --profile client-release --target=web --features client --config 'include=[".cargo/config.mt.toml"]'
 	wasm-pack build --out-name client_rs_st --profile client-release --target=web --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
 	cd ../../..
 	npx vite build
-	npx rolldown --minify borger/client/rs/pkg/client_rs*.js -d release/client/assets
-	mv borger/client/rs/pkg/*.wasm release/client/assets
-	rm -rf release/client/devcert.json borger/client/rs/pkg #leaving stale builds in pkg confuses wasm-opt sometimes
+	npx rolldown --minify "$CLIENT_PKG"/client_rs*.js -d release/client/assets
+	mv "$CLIENT_PKG"/*.wasm release/client/assets
+	rm -rf release/client/devcert.json "$CLIENT_PKG" #leaving stale builds in pkg confuses wasm-opt sometimes
 	cd borger/server
 	cargo build --profile server-release --features server
 	cd  ../..

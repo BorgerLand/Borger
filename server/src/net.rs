@@ -76,7 +76,7 @@ pub async fn init(new_connection_sender: SyncSender<AsyncSender<SimToClientComma
 	let (ws_certs_tx, ws_certs_rx) = watch::channel(ws_build(&identity));
 
 	info!(
-		"\x1b[102;30m{}, WebTransport UDP port {}{}, WebSocket TCP port {}{}: it's alive.\x1b[0m",
+		"{} listening: WebTransport UDP port {}{}, WebSocket TCP port {}{}",
 		SERVER_TITLE,
 		wt_actual_port,
 		if flags.webtransport_port == 0 {

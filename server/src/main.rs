@@ -1,5 +1,10 @@
 #[cfg(feature = "server")]
-use {borger::simulation_controller, clap::Parser, log::LevelFilter, simple_logger::SimpleLogger};
+use {
+	borger::simulation_controller::{self, SimThreading},
+	clap::Parser,
+	log::LevelFilter,
+	simple_logger::SimpleLogger,
+};
 
 #[cfg(feature = "server")]
 pub mod flags;
@@ -19,8 +24,6 @@ const LOG_LEVEL: LevelFilter = LevelFilter::Debug;
 pub async fn main() {
 	#[cfg(feature = "server")]
 	{
-		use borger::simulation_controller::SimThreading;
-
 		SimpleLogger::new().with_level(LOG_LEVEL).init().unwrap();
 
 		let flags = flags::Flags::parse();
