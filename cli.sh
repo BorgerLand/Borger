@@ -30,7 +30,7 @@ cmd_postinit()
 	
 	set -x
 	
-	rm eslint.config.ts prettier.config.ts rustfmt.toml
+	rm -r .github eslint.config.ts prettier.config.ts rustfmt.toml
 	npm uninstall @eslint/js eslint-config-prettier eslint-plugin-prettier prettier typescript-eslint
 	git remote remove origin
 	git checkout --orphan blank-history
