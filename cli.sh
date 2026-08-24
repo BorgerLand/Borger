@@ -50,9 +50,9 @@ cmd_install()
 	if [[ "$run_pre_launch" == "true" ]]; then
 		pre_launch_checks
 		nvm install
-		set -x
 	fi
 	
+	set -x
 	npm ci
 	
 	for i in "${!IDE_CONFIG_SOURCES[@]}"; do
