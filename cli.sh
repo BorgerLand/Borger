@@ -43,7 +43,7 @@ toolchain_check()
 	rust_said=$(rustup --version 2>&1) || rust_said=""
 
 	if [[ "$rust_said" =~ $rust_re ]]; then
-		rust="${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+		rust="${BASH_REMATCH[2]} ${BASH_REMATCH[1]}"
 	fi
 
 	borger_date=$(git -C borger log -1 --format=%cd --date=short)
