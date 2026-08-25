@@ -419,8 +419,9 @@ pub fn replay_session(o: SimulationInitOptions, actions: Vec<SessionReplayAction
 	};
 
 	let mut externals = init_singlethreaded(o, new_client_snapshot);
+	#[cfg_attr(feature = "singlethreaded", allow(irrefutable_let_patterns))]
 	let SimThreading::Singlethreaded(sim) = &mut externals.internals else {
-		return Err(());
+		unreachable!()
 	};
 
 	//ok to unwrap scheduled_tick() in here. no risk of disconnection
