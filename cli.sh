@@ -128,7 +128,7 @@ dev_help()
 	echo "  --help, -h, help"
 }
 
-. "$(dirname "${BASH_SOURCE[0]}")/statusbar.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/cli_dev_status_bar.sh"
 cmd_dev()
 {
 	pre_launch_checks
