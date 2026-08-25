@@ -4,10 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-server = ["borger/server", "game/server"]
+server = ["borger/server", "game/server_internal_only_dont_use"]
 
 #do not use. this is for nicer rust-analyzer support only
-client = ["borger/client", "game/client"]
+client = ["borger/client", "game/client_internal_only_dont_use"]
 session_replay = []
 singlethreaded = []
 

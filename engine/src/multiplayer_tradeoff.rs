@@ -158,7 +158,7 @@ macro_rules! multiplayer_tradeoff
 	//WaitForServer - adds server feature flag
 	(WaitForServer, $ctx:ident, $code:stmt) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let $ctx = unsafe { $ctx._to_server_unchecked() };
 			$code
@@ -166,7 +166,7 @@ macro_rules! multiplayer_tradeoff
 	};
 	(WaitForServer, let $rebind:ident = $ctx:expr, $code:stmt) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let $rebind = $ctx; //evaluate safely first
 			let $rebind = unsafe { $rebind._to_server_unchecked() };
@@ -175,7 +175,7 @@ macro_rules! multiplayer_tradeoff
 	};
 	(WaitForServer, $ctx:ident, { $($code:tt)* }) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let $ctx = unsafe { $ctx._to_server_unchecked() };
 			$($code)*
@@ -183,7 +183,7 @@ macro_rules! multiplayer_tradeoff
 	};
 	(WaitForServer, let $rebind:ident = $ctx:expr, { $($code:tt)* }) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let $rebind = $ctx; //evaluate safely first
 			let $rebind = unsafe { $rebind._to_server_unchecked() };
@@ -194,7 +194,7 @@ macro_rules! multiplayer_tradeoff
 	//WaitForConsensus - adds server feature flag+wraps in has_consensus() if statement
 	(WaitForConsensus, $ctx:ident, $tick:expr, $code:stmt) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
 			if unsafe { _tick._has_consensus_tradeoff() }
@@ -206,7 +206,7 @@ macro_rules! multiplayer_tradeoff
 	};
 	(WaitForConsensus, let $rebind:ident = $ctx:expr, $tick:expr, $code:stmt) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
 			if unsafe { _tick._has_consensus_tradeoff() }
@@ -219,7 +219,7 @@ macro_rules! multiplayer_tradeoff
 	};
 	(WaitForConsensus, $ctx:ident, $tick:expr, { $($code:tt)* }) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
 			if unsafe { _tick._has_consensus_tradeoff() }
@@ -231,7 +231,7 @@ macro_rules! multiplayer_tradeoff
 	};
 	(WaitForConsensus, let $rebind:ident = $ctx:expr, $tick:expr, { $($code:tt)* }) =>
 	{
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		{
 			let _tick: &borger::tick::TickInfo = $tick;
 			if unsafe { _tick._has_consensus_tradeoff() }
@@ -270,13 +270,6 @@ impl ImmediateOrWaitForServer for WaitForServer {}
 
 macro_rules! multiplayer_tradeoff_transitions {
 	($type:ident) => {
-		impl $type<Immediate> {
-			#[doc(hidden)]
-			pub unsafe fn _to_immediate_unchecked(&mut self) -> &mut Self {
-				self
-			}
-		}
-
 		#[cfg(feature = "server")]
 		impl<TradeOff: ImmediateOrWaitForServer> $type<TradeOff> {
 			#[doc(hidden)]

@@ -19,13 +19,13 @@ pub fn server(_: TokenStream, item: TokenStream) -> TokenStream {
 
 	quote::quote! {
 		//server impl: this is a no-op
-		#[cfg(feature = "server")]
+		#[cfg(feature = "server_internal_only_dont_use")]
 		#(#attrs)*
 		#vis #sig #block
 
 		//client impl: guts the function body but keeps the
 		//declaration so that it can still be referenced
-		#[cfg(feature = "client")]
+		#[cfg(feature = "client_internal_only_dont_use")]
 		#[allow(dead_code, unused)]
 		#(#attrs)*
 		#vis #sig {
