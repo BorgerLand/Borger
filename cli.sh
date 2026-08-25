@@ -46,11 +46,12 @@ toolchain_check()
 		rust="${BASH_REMATCH[2]} ${BASH_REMATCH[1]}"
 	fi
 
+	borger_commit=$(git -C borger rev-parse --short HEAD)
 	borger_date=$(git -C borger log -1 --format=%cd --date=short)
 	if [[ -n "$(git -C borger status --porcelain --untracked-files=all)" ]]; then
-		borger_info="${borger_date} (modified)"
+		borger_info="${borger_commit} (modified)"
 	else
-		borger_info="${borger_date} $(git -C borger rev-parse --short HEAD)"
+		borger_info="${borger_commit} ${borger_date}"
 	fi
 
 	echo "Toolchain  -  Borger ${borger_info}  -  Rust ${rust:-unknown}  -  Node.js ${node:-unknown} "
@@ -124,6 +125,7 @@ dev_help()
 	echo ""
 	echo "Options:"
 	echo "  --session-replay  Enable client-sided session recording+dumping+replaying"
+	echo "  --singlethreaded  Build the client in singlethreaded mode, simulating a game portal's restrictive HTTP server (Poki, CrazyGames, etc.)"
 	echo "  --host            Allow other devices to connect to this device's dev server"
 	echo "  --help, -h, help"
 }
@@ -131,15 +133,23 @@ dev_help()
 . "$(dirname "${BASH_SOURCE[0]}")/cli_dev_status_bar.sh"
 cmd_dev()
 {
-	pre_launch_checks
-	
 	local CLIENT_FEATURES="client"
+	local CLIENT_VARIANT="mt"
+	local VITE_ENV=""
 	local VITE_HOST=""
-	
+
 	while [[ $# -gt 0 ]]; do
 		case $1 in
 			--session-replay)
 				CLIENT_FEATURES="$CLIENT_FEATURES,session_replay"
+				shift
+				;;
+			--singlethreaded)
+				#the wasm and the headers have to agree: this build has no shared memory
+				#to hand out, and the multithreaded one cannot load without it
+				CLIENT_FEATURES="$CLIENT_FEATURES,singlethreaded"
+				CLIENT_VARIANT="st"
+				VITE_ENV="BORGER_SINGLETHREADED=1"
 				shift
 				;;
 			--host)
@@ -157,6 +167,7 @@ cmd_dev()
 		esac
 	done
 	
+	pre_launch_checks
 	toolchain_check
 	
 	if sb_is_supported; then
@@ -191,10 +202,10 @@ cmd_dev()
 			-w '../../../Cargo.toml' \
 			-w '../../../Cargo.lock' \
 			-w '../../../rust-toolchain.toml' \
-			-s \"rm -f pkg/client_rs_mt_bg.wasm \
-				&& wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
-				--config 'include=[\\\".cargo/config.mt.toml\\\"]'\""
-		"npx vite $VITE_HOST"
+			-s \"rm -f pkg/*.wasm \
+				&& wasm-pack build --out-name client_rs_$CLIENT_VARIANT --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
+				--config 'include=[\\\".cargo/config.$CLIENT_VARIANT.toml\\\"]'\""
+		"$VITE_ENV npx vite $VITE_HOST"
 	)
 	
 	if sb_is_supported; then

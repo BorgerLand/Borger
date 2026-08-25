@@ -246,16 +246,20 @@ sb_now()
 	fi
 }
 
-#hundredths of a second into something worth reading at a glance
+#hundredths of a second, worded the way console_log.ts words the client's own load
+#time: never anything but seconds, and the hundredths printed as javascript would
+#print the number, which is to say with the trailing zeros dropped
 sb_duration()
 {
-	local secs=$(( $2 / 100 )) rest=$(( $2 % 100 ))
+	local secs=$(( $2 / 100 )) rest=$(( $2 % 100 )) frac=""
 
-	if (( secs >= 60 )); then
-		printf -v "$1" '%dm %02d.%02ds' "$(( secs / 60 ))" "$(( secs % 60 ))" "$rest"
-	else
-		printf -v "$1" '%d.%02ds' "$secs" "$rest"
+	if (( rest % 10 != 0 )); then
+		printf -v frac '.%02d' "$rest"
+	elif (( rest != 0 )); then
+		printf -v frac '.%d' "$(( rest / 10 ))"
 	fi
+
+	printf -v "$1" '%d%s seconds' "$secs" "$frac"
 }
 
 #everything the bar knows that did not come from looking at the process table, rolled
@@ -348,7 +352,7 @@ sb_compose()
 			url="$SB_URL"
 
 			if [ -n "$SB_BUILD_FOR" ]; then
-				stamp="(built in $SB_BUILD_FOR)"
+				stamp="Build time: $SB_BUILD_FOR"
 			fi
 			;;
 		*) sgr="$SB_DOWN_SGR" ;;
@@ -369,10 +373,12 @@ sb_compose()
 	#everything from here goes on after the width maths, or the escapes would count as
 	#visible columns and the bar would come out short.
 	#
-	#the bar is already bold, so \e[3m on top of it is bold italic, and \e[23m drops the
-	#italic again without touching the bold
+	#the label keeps the bold the whole bar is already drawn in, and the duration trades
+	#it for italic: 22 drops the bold, 3 adds the italic, and 23 and 1 put the pair back
+	#the way the rest of the bar expects to find them
 	if [ -n "$stamp" ]; then
-		text="${text/"$stamp"/$'\e[3m'"$stamp"$'\e[23m'}"
+		local styled="${stamp/"$SB_BUILD_FOR"/$'\e[22m\e[3m'"$SB_BUILD_FOR"$'\e[23m\e[1m'}"
+		text="${text/"$stamp"/$styled}"
 	fi
 
 	#a field that disagrees with the bar as a whole keeps its own colour, so half the pair

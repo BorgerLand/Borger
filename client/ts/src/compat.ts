@@ -85,7 +85,7 @@ function testSharedArrayBuffer(): Result {
 	if (!crossOriginIsolated)
 		//eslint-disable-next-line no-console
 		console.warn(
-			"HTTP server's cross-origin isolation headers are improperly configured. Performance may suffer.",
+			"HTTP server's cross-origin isolation headers are improperly configured. Multithreading is disabled and performance may suffer.",
 		);
 
 	return { name: "SharedArrayBuffer", supported: "SharedArrayBuffer" in window, hasFallback: true };
