@@ -6,6 +6,15 @@ use {
 	simple_logger::SimpleLogger,
 };
 
+#[cfg(all(feature = "server", feature = "client"))]
+compile_error!("Compiling both server+client into the same binary is dumb and broken.");
+#[cfg(all(feature = "server", feature = "session_replay"))]
+compile_error!("Feature flag `session_replay` in the server build is not yet implemented .");
+#[cfg(all(feature = "server", feature = "singlethreaded"))]
+compile_error!(
+	"Feature flag `singlethreaded` in the server build is redundant. The server is inherently singlethreaded due to lack of a separate presentation thread."
+);
+
 #[cfg(feature = "server")]
 pub mod flags;
 #[cfg(feature = "server")]
