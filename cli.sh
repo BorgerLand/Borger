@@ -30,6 +30,11 @@ pre_launch_checks()
 
 toolchain_check()
 {
+	if [[ ! -d node_modules ]]; then
+		echo "Not so fast. Please run \`borger install\` first." >&2
+		exit 1
+	fi
+	
 	local rust_said rust node borger_date borger_info
 	local rust_re='rustc ([^ ]+) \([0-9a-f]+ ([0-9-]+)\)'
 
@@ -119,7 +124,7 @@ cmd_install()
 	echo "  borger dev"
 }
 
-dev_help()
+cmd_dev_help()
 {
 	echo "Usage: borger dev [options]"
 	echo ""
@@ -157,11 +162,11 @@ cmd_dev()
 				shift
 				;;
 			help|--help|-h)
-				dev_help
+				cmd_dev_help
 				exit 0
 				;;
 			*)
-				dev_help
+				cmd_dev_help
 				exit 1
 				;;
 		esac
