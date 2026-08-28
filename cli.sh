@@ -31,7 +31,7 @@ pre_launch_checks()
 toolchain_check()
 {
 	if [[ ! -d node_modules ]]; then
-		echo "Not so fast. Please run \`borger install\` first." >&2
+		echo "ERROR: Not so fast. Please run \`borger install\` first." >&2
 		exit 1
 	fi
 	
