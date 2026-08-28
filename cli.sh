@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "${1:-}" != "ptlaaxobimwroe" ]; then
-	echo "ERROR: Please use the borger CLI tool instead of invoking this script directly."
+	echo "ERROR: Please use the borger CLI tool instead of invoking this script directly." >&2
 	exit 1
 fi
 
@@ -20,7 +20,7 @@ CLIENT_PKG="$CLIENT_DIR/pkg"
 pre_launch_checks()
 {
 	if pgrep -f "RUN-CODEGEN" >/dev/null 2>&1; then
-		echo "ERROR: Please close borger dev to avoid accidentally triggering concurrent builds."
+		echo "ERROR: Please close borger dev to avoid accidentally triggering concurrent builds." >&2
 		exit 1
 	fi
 	
