@@ -2,7 +2,7 @@
 #this is 100% ai generated. macos probably can't run it
 
 #the borger dev status bar, sourced by cli.sh. it only reads from its caller, never the
-#other way round: SERVER_BUILD_ARGS and SERVER_CMD are what it pgreps for. cli.sh calls
+#other way round: SERVER_BUILD_DEV_ARGS and SERVER_CMD are what it pgreps for. cli.sh calls
 #sb_is_supported, sb_open, sb_loop and sb_close, and nothing else in here is anyone
 #else's business.
 #
@@ -90,7 +90,7 @@ sb_is_server_building()
 	
 	#a process actually named cargo that is building the server profile
 	by_name=$(pgrep -x cargo 2>/dev/null) || return 1
-	by_args=$(pgrep -f -- "$SERVER_BUILD_ARGS" 2>/dev/null) || return 1
+	by_args=$(pgrep -f -- "$SERVER_BUILD_DEV_ARGS" 2>/dev/null) || return 1
 	by_args=" ${by_args//$'\n'/ } "
 
 	for pid in $by_name; do

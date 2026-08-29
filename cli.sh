@@ -12,7 +12,7 @@ IDE_CONFIG_SOURCES=(".vscode/launch.json.example" ".vscode/settings.json.example
 IDE_CONFIG_TARGETS=(".vscode/launch.json"         ".vscode/settings.json")
 YES_RE="^([yY][eE][sS]|[yY])$"
 
-SERVER_BUILD_ARGS="--profile server-dev --features server"
+SERVER_BUILD_DEV_ARGS="--profile server-dev --features server"
 SERVER_CMD="./server --devcert ../../assets/devcert.json"
 CLIENT_DIR="borger/client/rs"
 CLIENT_PKG="$CLIENT_DIR/pkg"
@@ -66,10 +66,22 @@ toolchain_check()
 
 run_codegen()
 {
+	echo "Running code generator..."
 	cd borger/code_generator
 	npx tsc
 	npx tsx src/main.ts
 	cd ../..
+}
+
+escape_sorrows()
+{
+	local escaped
+	escaped=$(printf '%q ' "$@")
+	escaped=${escaped//\\/\\\\}
+	escaped=${escaped//\"/\\\"}
+	escaped=${escaped//\$/\\\$}
+	escaped=${escaped//\`/\\\`}
+	printf %s "$escaped"
 }
 
 cmd_postinit()
@@ -113,7 +125,7 @@ cmd_install()
 	#build it for the first time so that dev doesn't kick off even more setting up
 	run_codegen
 	cd borger/server
-	cargo build $SERVER_BUILD_ARGS
+	cargo build $SERVER_BUILD_DEV_ARGS
 	cd ../client/rs
 	wasm-pack build --out-name client_rs_mt --no-opt --target=web --profile client-dev --features client --config 'include=[".cargo/config.mt.toml"]'
 	
@@ -129,6 +141,7 @@ cmd_dev_help()
 	echo "Usage: borger dev [options]"
 	echo ""
 	echo "Options:"
+	echo "  --check           Check for compiler errors across all build artifacts and then exit"
 	echo "  --session-replay  Enable client-sided session recording+dumping+replaying"
 	echo "  --singlethreaded  Build the client in singlethreaded mode, simulating a game portal's restrictive HTTP server (Poki, CrazyGames, etc.)"
 	echo "  --host            Allow other devices to connect to this device's dev server"
@@ -142,9 +155,14 @@ cmd_dev()
 	local CLIENT_VARIANT="mt"
 	local VITE_ENV=""
 	local VITE_HOST=""
-
+	local CHECK_ONLY=false
+	
 	while [[ $# -gt 0 ]]; do
 		case $1 in
+			--check)
+				CHECK_ONLY=true
+				shift
+				;;
 			--session-replay)
 				CLIENT_FEATURES="$CLIENT_FEATURES,session_replay"
 				shift
@@ -175,6 +193,18 @@ cmd_dev()
 	pre_launch_checks
 	toolchain_check
 	
+	local CLIENT_CMD="wasm-pack build --out-name client_rs_$CLIENT_VARIANT --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES --config include=[\".cargo/config.$CLIENT_VARIANT.toml\"]"
+	
+	if [[ "$CHECK_ONLY" == true ]]; then
+		set -x
+		npx tsc -p tsconfig.presentation.json
+		cd borger/server
+		cargo build $SERVER_BUILD_DEV_ARGS
+		cd "../../$CLIENT_DIR"
+		$CLIENT_CMD
+		return
+	fi
+	
 	if sb_is_supported; then
 		trap 'sb_close' EXIT
 		sb_open
@@ -194,7 +224,7 @@ cmd_dev()
 			-w '../../Cargo.toml' \
 			-w '../../Cargo.lock' \
 			-w '../../rust-toolchain.toml' \
-			-s '       cargo build $SERVER_BUILD_ARGS \
+			-s '       cargo build $SERVER_BUILD_DEV_ARGS \
 				&& cd ../../target/server-dev \
 				&& while true; do RUST_BACKTRACE=full $SERVER_CMD; sleep 1; done'"
 		"cd $CLIENT_DIR && cargo watch --why --no-vcs-ignores \
@@ -208,8 +238,7 @@ cmd_dev()
 			-w '../../../Cargo.lock' \
 			-w '../../../rust-toolchain.toml' \
 			-s \"rm -f pkg/*.wasm \
-				&& wasm-pack build --out-name client_rs_$CLIENT_VARIANT --no-opt --target=web --profile client-dev --features $CLIENT_FEATURES \
-				--config 'include=[\\\".cargo/config.$CLIENT_VARIANT.toml\\\"]'\""
+				&& $(escape_sorrows $CLIENT_CMD)\""
 		"$VITE_ENV npx vite $VITE_HOST"
 	)
 	
@@ -241,8 +270,8 @@ cmd_release()
 	fi
 	
 	cd borger/client/rs
-	wasm-pack build --out-name client_rs_mt --profile client-release --target=web --features client --config 'include=[".cargo/config.mt.toml"]'
-	wasm-pack build --out-name client_rs_st --profile client-release --target=web --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
+	wasm-pack build --out-name client_rs_mt --target=web --profile client-release --features client --config 'include=[".cargo/config.mt.toml"]'
+	wasm-pack build --out-name client_rs_st --target=web --profile client-release --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
 	cd ../../..
 	npx vite build
 	npx rolldown --minify "$CLIENT_PKG"/client_rs*.js -d release/client/assets
