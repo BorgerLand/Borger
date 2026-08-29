@@ -10,15 +10,27 @@
 #honest answer to whether it is up. the client is watched through its watcher's own
 #log lines, because that is one clock rather than two: its wasm hits the disk a beat
 #before the line saying so, and anything reading both sees states that never coexisted
+#
+#the code generator sits above both of them as a hard gate: it writes the rust and the
+#typescript they build, so a run of it that came back non-zero means neither of them is
+#building anything trustworthy, whatever their own watchers say. tsx watch never says how
+#a run ended, so the generator says it itself, in the two lines main.ts prints: the timer
+#it stops on the way out of a good run, and the one its exit handler writes to stderr
 
-#every scrap of log text the bar keys off, in one place because none of it is ours to
+#every scrap of log text the bar keys off, in one place because most of it is not ours to
 #choose: the first three are cargo watch's wording, Local is vite's banner, and the tags
-#are the pane names cli.sh hands to concurrently. if one of them stops matching, this is
-#the list to check against whatever the tool prints now
+#are the pane names cli.sh hands to concurrently. the two codegen lines are the exception,
+#being main.ts's own words, so a rewording there is a rewording here: one is what a failed
+#run says on its way out, the other the timer a good one stops, which is the only thing it
+#says at all. if one of them stops matching, this is the list to check against whatever
+#the tool prints now
 SB_LOG_RUNNING="[Running "
 SB_LOG_COMPILE_FAIL="could not compile"
 SB_LOG_FINISHED="Finished running"
 SB_LOG_LOCAL="Local"
+SB_LOG_CODEGEN_FAIL="Code generation failed"
+SB_LOG_CODEGEN_OK="Great success"
+SB_TAG_RUN_CODEGEN="RUN-CODEGEN"
 SB_TAG_SERVER_RUST="SERVER-RUST"
 SB_TAG_CLIENT_RUST="CLIENT-RUST"
 SB_TAG_CLIENT_VITE="CLIENT-VITE"
@@ -38,6 +50,7 @@ SB_SHOWN=0
 SB_LAST=-1
 SB_SEEN=0
 SB_SERVER_FAILED=0
+SB_CODEGEN_FAILED=0
 SB_CLIENT_STATE="building"
 SB_TS_FAILED=0
 SB_TS_GRACE=0
@@ -173,6 +186,11 @@ sb_build_result()
 sb_scan()
 {
 	case "$1" in
+		#the generator's own sign off, one line or the other per run, so the flag is simply
+		#whatever the last run said. a run in flight says neither and leaves the previous
+		#verdict standing: nothing downstream is fixed until a clean run says it is
+		*"$SB_TAG_RUN_CODEGEN"*"$SB_LOG_CODEGEN_FAIL"*) SB_CODEGEN_FAILED=1 ;;
+		*"$SB_TAG_RUN_CODEGEN"*"$SB_LOG_CODEGEN_OK"*)   SB_CODEGEN_FAILED=0 ;;
 		*"$SB_TAG_SERVER_RUST"*)
 			sb_build_result SB_SERVER_FAILED "$1"
 			;;
@@ -267,8 +285,9 @@ sb_duration()
 #moved something repaints straight away instead of waiting out the poll
 sb_state_id()
 {
-	printf -v "$1" '%s|%s|%s|%s|%s' \
-		"$SB_SERVER_FAILED" "$SB_CLIENT_STATE" "$SB_TS_FAILED" "$SB_TS_GRACE" "$SB_URL"
+	printf -v "$1" '%s|%s|%s|%s|%s|%s' \
+		"$SB_SERVER_FAILED" "$SB_CODEGEN_FAILED" "$SB_CLIENT_STATE" "$SB_TS_FAILED" \
+		"$SB_TS_GRACE" "$SB_URL"
 }
 
 #work out what the bar should say and bake it, colors and padding and all, into one
@@ -309,6 +328,17 @@ sb_compose()
 		client="failed"
 	else
 		client="ready"
+	fi
+
+	#and the gate over the pair of them. every rust and typescript file the generator
+	#writes is one they compile, so a run of it that ended non-zero means whatever they
+	#are building, or have already built, came from sources that are stale or half
+	#written. that outranks anything their own watchers have to say in either direction,
+	#including a build that just went green off the last good generation, and it stands
+	#until a later run comes back clean
+	if (( SB_CODEGEN_FAILED )); then
+		server="failed"
+		client="failed"
 	fi
 
 	#three phases, keyed off the states about to be printed rather than the raw flags so

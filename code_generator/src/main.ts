@@ -1,5 +1,9 @@
 /* eslint-disable no-console */
 
+process.on("exit", function (code) {
+	if (code !== 0) writeSync(2, `Code generation failed\n`);
+});
+
 import state from "../../../src/state.ts";
 
 import { validate } from "@borger/code_generator/state_schema.ts";
@@ -9,7 +13,7 @@ import {
 	CLIENT_RS_GENERATED_DIR,
 	CLIENT_TS_GENERATED_DIR,
 } from "@borger/code_generator/common.ts";
-import { mkdirSync } from "fs";
+import { mkdirSync, writeSync } from "fs";
 
 import { generateSimulation } from "@borger/code_generator/files/simulation.ts";
 import { generateConstructors } from "@borger/code_generator/files/constructors.ts";
@@ -30,8 +34,8 @@ try {
 } catch (oops) {
 	//the complex schema emits laughably illegible type errors,
 	//so just let tsc's error printing system do the job
-	if (String(oops).length > 5000)
-		throw Error("Type error in state.ts (see output of TSC-CODEGEN)", { cause: oops });
+	//eslint-disable-next-line preserve-caught-error
+	if (String(oops).length > 5000) throw Error("Type error in state.ts (see output of TSC-CODEGEN)");
 
 	throw oops;
 }
