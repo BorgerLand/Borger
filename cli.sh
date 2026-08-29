@@ -14,8 +14,7 @@ YES_RE="^([yY][eE][sS]|[yY])$"
 
 SERVER_BUILD_DEV_ARGS="--profile server-dev --features server"
 SERVER_CMD="./server --devcert ../../assets/devcert.json"
-CLIENT_DIR="borger/client/rs"
-CLIENT_PKG="$CLIENT_DIR/pkg"
+CLIENT_PKG="borger/client/rs/pkg"
 
 pre_launch_checks()
 {
@@ -197,11 +196,12 @@ cmd_dev()
 	
 	if [[ "$CHECK_ONLY" == true ]]; then
 		set -x
-		npx tsc -p tsconfig.presentation.json
 		cd borger/server
 		cargo build $SERVER_BUILD_DEV_ARGS
-		cd "../../$CLIENT_DIR"
+		cd "../client/rs"
 		$CLIENT_CMD
+		cd ../../..
+		npx tsc -p tsconfig.presentation.json
 		return
 	fi
 	
@@ -227,7 +227,7 @@ cmd_dev()
 			-s '       cargo build $SERVER_BUILD_DEV_ARGS \
 				&& cd ../../target/server-dev \
 				&& while true; do RUST_BACKTRACE=full $SERVER_CMD; sleep 1; done'"
-		"cd $CLIENT_DIR && cargo watch --why --no-vcs-ignores \
+		"cd borger/client/rs && cargo watch --why --no-vcs-ignores \
 			-w '../../../borger/engine' \
 			-w '../../../borger/client/rs/src' \
 			-w '../../../borger/client/rs/Cargo.toml' \
