@@ -1,23 +1,8 @@
-use crate::DeserializeOopsy;
-use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::networked_types::primitive::usize32;
 use crate::simulation::Client;
 use crate::simulation::State;
-use crate::tick::TickID;
-
-pub trait SnapshotState {
-	#[cfg(feature = "server")]
-	fn ser_tx_new_client(&self, client_id: usize32, buffer: &mut Vec<u8>);
-	#[cfg(feature = "client")]
-	fn des_rx_new_client(
-		&mut self,
-		client_id: usize32,
-		buffer: &mut impl Iterator<Item = u8>,
-	) -> Result<(), DeserializeOopsy>;
-
-	fn ser_rollback_predict_remove(&self, buffer: &mut Vec<u8>); //<-- this one needs to be rewritten in "reverse" compared to other 3
-	fn des_rollback_predict_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy>;
-}
+use borger_plugin_sdk::TickID;
+use borger_plugin_sdk::primitive::{DeserializeOopsy, PrimitiveSerDes, usize32};
+use borger_plugin_sdk::traits::SnapshotState;
 
 impl SnapshotState for Client {
 	#[cfg(feature = "server")]

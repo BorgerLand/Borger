@@ -1,35 +1,10 @@
-use num_enum::{IntoPrimitive, TryFromPrimitive};
+use borger_plugin_sdk::TickID;
 use std::fmt::{Debug, Error, Formatter};
 use std::time::Duration;
 use web_time::Instant;
 
 #[cfg(feature = "server")]
-use {crate::networked_types::primitive::usize32, crate::thread_comms::SimToClientChannel};
-
-//fun fact: tick id as u32 at a rate of 30hz gives a maximum of
-//~4.5 years of gameplay before overflow. not good enough i say.
-//the u64 loses some precision when casting to f64 later on but
-//should still give a lot more than 4.5 years.
-pub type TickID = u64;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
-#[repr(u8)]
-pub(crate) enum TickType {
-	///If server events are triggered, a "server events" tick is
-	///actually only the first half of a complete tick.
-	///Non-deterministic in nature
-	ServerEvents,
-
-	///Consensus tick is final. All inputs have been received
-	///from all clients (or timeout occurred while waiting).
-	///It will never be simulated again
-	Consensus,
-
-	///Predicted tick has not received inputs from all clients yet.
-	///It is guaranteed to simulate again when either the late input
-	///arrives or the laggy client disconnects
-	Predicted,
-}
+use {crate::thread_comms::SimToClientChannel, borger_plugin_sdk::primitive::usize32};
 
 pub struct TickInfo {
 	//this value is not network synchronized in any way and so

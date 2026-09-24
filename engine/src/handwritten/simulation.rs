@@ -1,4 +1,4 @@
-use crate::Scope;
+use crate::scope::Scope;
 use crate::simulation::Input;
 use crate::simulation::{ClientOwned, ClientRemote};
 

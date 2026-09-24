@@ -1,64 +1,43 @@
-import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
-	VALID_TYPES,
-	isGeneric,
-	isPrimitive,
-	isUtility,
-	type FlattenedStruct,
-} from "@borger/code_generator/common.ts";
-import {
-	interpolablePrimitiveTypeSchema,
-	type InterpolablePrimitiveType,
-	type PrimitiveType,
-} from "@borger/code_generator/state_schema.ts";
+import { ENGINE_GENERATED_DIR, stateWarningBlock, VALID_TYPES } from "@borger/code_generator/common.ts";
+import { interpolablePrimitiveTypeSchema, type PrimitiveType } from "@borger/code_generator/state_schema.ts";
 import {
 	getPresentationStructName,
 	presentationStructFilter,
 } from "@borger/code_generator/files/presentation.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
-export function generateInterpolation(simStructs: FlattenedStruct[][]) {
+export function generateInterpolation(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/interpolation.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/interpolation.rs`,
+		`${stateWarningBlock()}
 
-use crate::interpolation::Interpolate;
-
-#[cfg(feature = "client")]
-use
-{
-	crate::simulation,
-	crate::presentation::{self, PresentTick},
-	crate::interpolation::InterpolateTicks,
-};
-
-#[cfg(feature = "client")]
-use crate::presentation::Client;
+use crate::simulation;
+use crate::presentation;
+use borger_plugin_sdk::traits::{PresentTick, Interpolate, InterpolateTicks};
 
 ${VALID_TYPES}
 
-${simStructs
+${flattened.output
 	.map((group) =>
 		group
 			.filter(presentationStructFilter)
 			.map(function generateInterpolationStruct(struct) {
 				const interpolationStructName = getInterpolationStructName(struct.name);
 
-				return `#[cfg(feature = "client")]
-#[allow(non_camel_case_types, private_interfaces)]
+				return `#[allow(non_camel_case_types, private_interfaces)]
 pub struct ${interpolationStructName}
 {
 ${struct.fields
 	.filter((field) => field.presentation)
-	.map(function generateInterpolationStructFields({ name, outerType, fullType, innerType }) {
+	.map(function generateInterpolationStructFields({ name, outerType, typeKind, innerType }) {
+		//yes i know this is vile
 		let interpolationType;
-		if (isGeneric(outerType))
-			//yes i know this is vile
+		if (typeKind === "collection")
 			interpolationType = `<<${outerType}<simulation::${innerType}> as PresentTick>::PresentationOutput as InterpolateTicks>::InterpolationOutput`;
-		else if (isUtility(outerType))
+		else if (typeKind === "plugin")
 			interpolationType = `<<${outerType} as PresentTick>::PresentationOutput as InterpolateTicks>::InterpolationOutput`;
-		else interpolationType = fullType;
+		else interpolationType = outerType;
 
 		return `	pub ${name}: ${interpolationType},`;
 	})
@@ -76,8 +55,7 @@ ${generateInterpolateTicksImpl(true)}`
 				function generateInterpolateTicksImpl(downgradeScope: boolean) {
 					const presentationStructName = getPresentationStructName(struct.name);
 					const downgradedName = presentationStructName.replace(/Remote$/, "Owned"); //only valid if downgradeScope true
-					return `#[cfg(feature = "client")]
-impl InterpolateTicks${downgradeScope ? `<presentation::${downgradedName}>` : ""} for presentation::${presentationStructName}
+					return `impl InterpolateTicks${downgradeScope ? `<presentation::${downgradedName}>` : ""} for presentation::${presentationStructName}
 {
 	type InterpolationOutput = ${interpolationStructName};
 	fn interpolate_and_diff(_prv: Option<&${downgradeScope ? `presentation::${downgradedName}` : "Self"}>, _cur: &Self, _amount: f32, _received_new_tick: bool) -> Self::InterpolationOutput
@@ -86,9 +64,9 @@ impl InterpolateTicks${downgradeScope ? `<presentation::${downgradedName}>` : ""
 		{
 ${struct.fields
 	.filter((field) => field.presentation)
-	.map(function generateInterpolationImpl({ name, outerType, presentation }) {
+	.map(function generateInterpolationImpl({ name, outerType, presentation, typeKind }) {
 		let interpolationGetter;
-		if (!isPrimitive(outerType))
+		if (typeKind !== "primitive")
 			interpolationGetter = `InterpolateTicks::interpolate_and_diff
 			(
 				_prv.map(|prv| &prv.${name}),
@@ -98,7 +76,7 @@ ${struct.fields
 			)`;
 		else if (
 			presentation === "clone" ||
-			!(interpolablePrimitiveTypeSchema.options as PrimitiveType[]).includes(outerType)
+			!(interpolablePrimitiveTypeSchema.options as PrimitiveType[]).includes(outerType as PrimitiveType)
 		)
 			interpolationGetter = `_cur.${name}`;
 		else
@@ -122,46 +100,8 @@ ${struct.fields
 			.join("\n\n"),
 	)
 	.join("\n\n")}
-
-${interpolablePrimitiveTypeSchema.options
-	.map(
-		(name) =>
-			`impl Interpolate for ${name}
-{
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self
-	{
-		${interpolatePrimitive(name)}
-	}
-}`,
-	)
-	.join("\n\n")}
 `,
 	);
-}
-
-const f64 = "let amount = amount as f64;\n\t\t";
-const scalar = "prv * (1.0 - amount) + cur * amount";
-const vec = "prv.lerp(cur, amount)";
-const quat = "prv.slerp(cur, amount)";
-function interpolatePrimitive(type: InterpolablePrimitiveType): string {
-	switch (type) {
-		case "f32":
-			return scalar;
-		case "f64":
-			return f64 + scalar;
-		case "Vec2":
-			return vec;
-		case "DVec2":
-			return f64 + vec;
-		case "Vec3":
-			return vec;
-		case "DVec3":
-			return f64 + vec;
-		case "Quat":
-			return quat;
-		case "DQuat":
-			return f64 + quat;
-	}
 }
 
 function getInterpolationStructName(simStructName: string) {

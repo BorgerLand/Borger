@@ -1,13 +1,6 @@
-use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::Impl;
-use crate::tick::TickType;
-use crate::{DeserializeOopsy, DiffOperation};
+use crate::traits::Interpolate;
 use glam::{DQuat, DVec2, DVec3, Quat, Vec2, Vec3};
 use std::mem::MaybeUninit;
-use std::rc::Rc;
-
-#[cfg(feature = "server")]
-use crate::NetVisibility;
 
 //the server frequently needs to send usize data to
 //the client. unfortunately the server is usually
@@ -25,6 +18,9 @@ pub type isize32 = i32;
 #[cfg(target_pointer_width = "64")]
 const PTR_ERR: &str = "Server must abort because it is using more memory than a client can reference. The server is 64-bit, but the client is 32-bit (wasm32)";
 
+#[derive(Debug)]
+pub struct DeserializeOopsy;
+
 #[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub fn usize_to_32(v: usize) -> usize32 {
 	#[cfg(target_pointer_width = "32")]
@@ -34,64 +30,10 @@ pub fn usize_to_32(v: usize) -> usize32 {
 	return usize32::try_from(v).expect(PTR_ERR);
 }
 
-//note field_id is technically part of the path but
-//is passed as a separate parameter for optimization
-//purposes (avoid having a vec for every single
-//field, avoid changing path when writing to
-//multiple fields on the same struct).
-//
-//rollback_prv_value: represents data that will be
-//rolled back. the state's previous value will be
-//written
-//
-//tx_new_value: represents data that will be sent
-//over the wire. the state's new value will be
-//written. the visibility and path arguments will
-//determine who it's sent to
-pub(crate) fn ser_sim_primitive<T: PrimitiveSerDes>(
-	diff: &mut DiffSerializer<Impl>,
-	path: &Rc<Vec<usize32>>,
-	field_id: usize32,
-	rollback_prv_value: T,
-
-	#[cfg(feature = "server")] visibility: NetVisibility,
-	#[cfg(feature = "server")] tx_new_value: T,
-) {
-	let op = DiffOperation::TrackPrimitive;
-
-	if let Some(buffer) = diff.ser_rollback_begin(path) {
-		rollback_prv_value.ser_rollback(buffer);
-		field_id.ser_rollback(buffer);
-		op.ser_rollback(buffer);
-	}
-
-	#[cfg(feature = "server")]
-	for buffer in diff.ser_tx_begin(path, visibility) {
-		op.ser_tx(buffer);
-		field_id.ser_tx(buffer);
-		tx_new_value.ser_tx(buffer);
-	}
-}
-
-//slimmed down version of ser_sim_primitive specifically for
-//clients writing to their input states, which only have
-///primitive types, can only do DiffOperation::TrackPrimitive,
-//and never roll back
-#[cfg(feature = "client")]
-pub(crate) fn ser_input_primitive<T: PrimitiveSerDes>(
-	diff: &mut DiffSerializer<Impl>,
-	field_id: usize32,
-	tx_new_value: T,
-) {
-	let buffer = diff.ser_tx_begin();
-	field_id.ser_tx(buffer);
-	tx_new_value.ser_tx(buffer);
-}
-
 //implementors list taken from state_schema.ts/primitiveTypeSchema
 //rollback - read with pop_back. rollback data stays local so compression is not as necessary
 //tx = read with pop_front. some primitives have special compression strategies to reduce bandwidth
-pub(crate) trait PrimitiveSerDes: Copy + 'static {
+pub trait PrimitiveSerDes: Copy + 'static {
 	fn ser_rollback(self, buffer: &mut Vec<u8>) {
 		//no compression. copy bytes directly into the buffer
 		buffer.extend(ser_raw_bytes(&self));
@@ -102,7 +44,7 @@ pub(crate) trait PrimitiveSerDes: Copy + 'static {
 		let read = size_of::<Self>();
 
 		if old_len < read {
-			return Err(DeserializeOopsy::Corrupt);
+			return Err(DeserializeOopsy);
 		}
 
 		let new_len = old_len - read;
@@ -122,7 +64,7 @@ pub(crate) trait PrimitiveSerDes: Copy + 'static {
 			unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, size_of::<Self>()) };
 
 		for byte in bytes.iter_mut() {
-			*byte = buffer.next().ok_or(DeserializeOopsy::Corrupt)?;
+			*byte = buffer.next().ok_or(DeserializeOopsy)?;
 		}
 
 		Ok(unsafe { data.assume_init() })
@@ -144,11 +86,11 @@ impl PrimitiveSerDes for bool {
 	}
 
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		des_bool(buffer.pop().ok_or(DeserializeOopsy::Corrupt)?)
+		des_bool(buffer.pop().ok_or(DeserializeOopsy)?)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		des_bool(buffer.next().ok_or(DeserializeOopsy::Corrupt)?)
+		des_bool(buffer.next().ok_or(DeserializeOopsy)?)
 	}
 }
 
@@ -156,7 +98,7 @@ fn des_bool(data: u8) -> Result<bool, DeserializeOopsy> {
 	match data {
 		0 => Ok(false),
 		1 => Ok(true),
-		_ => Err(DeserializeOopsy::Corrupt),
+		_ => Err(DeserializeOopsy),
 	}
 }
 
@@ -166,11 +108,11 @@ impl PrimitiveSerDes for u8 {
 	}
 
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		buffer.pop().ok_or(DeserializeOopsy::Corrupt)
+		buffer.pop().ok_or(DeserializeOopsy)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		buffer.next().ok_or(DeserializeOopsy::Corrupt)
+		buffer.next().ok_or(DeserializeOopsy)
 	}
 }
 
@@ -180,55 +122,11 @@ impl PrimitiveSerDes for i8 {
 	}
 
 	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		Ok(buffer.pop().ok_or(DeserializeOopsy::Corrupt)? as i8)
+		Ok(buffer.pop().ok_or(DeserializeOopsy)? as i8)
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		Ok(buffer.next().ok_or(DeserializeOopsy::Corrupt)? as i8)
-	}
-}
-
-impl PrimitiveSerDes for DiffOperation {
-	fn ser_rollback(self, buffer: &mut Vec<u8>) {
-		buffer.push(self.into());
-	}
-
-	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		buffer
-			.pop()
-			.ok_or(DeserializeOopsy::Corrupt)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
-	}
-
-	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		buffer
-			.next()
-			.ok_or(DeserializeOopsy::NoMoreDiffOps)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
-	}
-}
-
-impl PrimitiveSerDes for TickType {
-	fn ser_rollback(self, buffer: &mut Vec<u8>) {
-		buffer.push(self.into());
-	}
-
-	fn des_rollback(buffer: &mut Vec<u8>) -> Result<Self, DeserializeOopsy> {
-		buffer
-			.pop()
-			.ok_or(DeserializeOopsy::Corrupt)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
-	}
-
-	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		buffer
-			.next()
-			.ok_or(DeserializeOopsy::Corrupt)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
+		Ok(buffer.next().ok_or(DeserializeOopsy)? as i8)
 	}
 }
 
@@ -238,9 +136,7 @@ impl PrimitiveSerDes for u16 {
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		des_varint_u(buffer)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
+		des_varint_u(buffer)?.try_into().map_err(|_| DeserializeOopsy)
 	}
 }
 
@@ -250,9 +146,7 @@ impl PrimitiveSerDes for i16 {
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		des_varint_i(buffer)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
+		des_varint_i(buffer)?.try_into().map_err(|_| DeserializeOopsy)
 	}
 }
 
@@ -262,9 +156,7 @@ impl PrimitiveSerDes for u32 {
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		des_varint_u(buffer)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
+		des_varint_u(buffer)?.try_into().map_err(|_| DeserializeOopsy)
 	}
 }
 
@@ -274,9 +166,7 @@ impl PrimitiveSerDes for i32 {
 	}
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
-		des_varint_i(buffer)?
-			.try_into()
-			.map_err(|_| DeserializeOopsy::Corrupt)
+		des_varint_i(buffer)?.try_into().map_err(|_| DeserializeOopsy)
 	}
 }
 
@@ -335,7 +225,7 @@ fn des_varint_u(buffer: &mut impl Iterator<Item = u8>) -> Result<u64, Deserializ
 	if success {
 		Ok(result)
 	} else {
-		Err(DeserializeOopsy::Corrupt)
+		Err(DeserializeOopsy)
 	}
 }
 
@@ -363,8 +253,8 @@ impl PrimitiveSerDes for char {
 
 	fn des_rx(buffer: &mut impl Iterator<Item = u8>) -> Result<Self, DeserializeOopsy> {
 		let as_u64 = des_varint_u(buffer)?;
-		let as_u32: u32 = as_u64.try_into().map_err(|_| DeserializeOopsy::Corrupt)?;
-		let as_char: char = as_u32.try_into().map_err(|_| DeserializeOopsy::Corrupt)?;
+		let as_u32: u32 = as_u64.try_into().map_err(|_| DeserializeOopsy)?;
+		let as_char: char = as_u32.try_into().map_err(|_| DeserializeOopsy)?;
 		Ok(as_char)
 	}
 }
@@ -377,7 +267,7 @@ impl PrimitiveSerDes for Quat {}
 impl PrimitiveSerDes for DQuat {}
 
 //it is the caller's responsibility to ser/des the slice length
-pub(crate) trait SliceSerDes<T: PrimitiveSerDes>: AsRef<[T]> {
+pub trait SliceSerDes<T: PrimitiveSerDes>: AsRef<[T]> {
 	fn ser_rollback(&self, buffer: &mut Vec<u8>) {
 		for &data in self.as_ref().iter().rev() {
 			data.ser_rollback(buffer);
@@ -433,7 +323,7 @@ impl SliceSerDes<bool> for [bool] {
 		let mut out = Vec::with_capacity(bool_len);
 
 		for _ in 0..byte_len {
-			let byte = buffer.next().ok_or(DeserializeOopsy::Corrupt)?;
+			let byte = buffer.next().ok_or(DeserializeOopsy)?;
 			for i in 0..8 {
 				if out.len() == bool_len
 				//only extract bits up to the original length
@@ -467,3 +357,55 @@ impl SliceSerDes<Vec3> for [Vec3] {}
 impl SliceSerDes<DVec3> for [DVec3] {}
 impl SliceSerDes<Quat> for [Quat] {}
 impl SliceSerDes<DQuat> for [DQuat] {}
+
+impl Interpolate for f32 {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		prv * (1.0 - amount) + cur * amount
+	}
+}
+
+impl Interpolate for f64 {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		let amount = amount as f64;
+		prv * (1.0 - amount) + cur * amount
+	}
+}
+
+impl Interpolate for Vec2 {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		prv.lerp(cur, amount)
+	}
+}
+
+impl Interpolate for DVec2 {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		let amount = amount as f64;
+		prv.lerp(cur, amount)
+	}
+}
+
+impl Interpolate for Vec3 {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		prv.lerp(cur, amount)
+	}
+}
+
+impl Interpolate for DVec3 {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		let amount = amount as f64;
+		prv.lerp(cur, amount)
+	}
+}
+
+impl Interpolate for Quat {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		prv.slerp(cur, amount)
+	}
+}
+
+impl Interpolate for DQuat {
+	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
+		let amount = amount as f64;
+		prv.slerp(cur, amount)
+	}
+}

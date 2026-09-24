@@ -1,30 +1,26 @@
-import {
-	CLIENT_RS_GENERATED_DIR,
-	STATE_WARNING,
-	getNestedPath,
-	type AllFlattenedStructs,
-} from "@borger/code_generator/common.ts";
+import { CLIENT_RS_GENERATED_DIR, stateWarningBlock, getNestedPath } from "@borger/code_generator/common.ts";
 import { getOuterOutputStructName } from "@borger/code_generator/files/mem_wrappers.ts";
 import { presentationStructFilter } from "@borger/code_generator/files/presentation.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
-export function generateMemOffsets(structs: AllFlattenedStructs) {
-	const ioStructs = structs.output.slice().reverse();
-	ioStructs.unshift(structs.input);
+export function generateMemOffsets(flattened: FlattenedOutput) {
+	const ioStructs = flattened.output.slice().reverse();
+	ioStructs.unshift(flattened.input);
 
 	const slotMapInnerTypes: string[] = [];
 
 	writeFileSync(
 		`${CLIENT_RS_GENERATED_DIR}/mem_offsets.rs`,
-		`${STATE_WARNING}
+		`${stateWarningBlock()}
 
 use borger::simulation::Input;
 use borger::interpolation::*;
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Reflect, Number};
 use std::mem::offset_of;
-use borger::networked_types::collections::slotmap::InterpolationSlotMap;
-use borger::networked_types::primitive::usize32;
+use borger::slotmap::InterpolationSlotMap;
+use borger_plugin_sdk::primitive::usize32;
 
 //what is exposed as "GameContext" in ts maps to an
 //InterpolationContext struct in rs
@@ -50,14 +46,14 @@ ${ioStructs
 ${struct.fields
 	.filter((field) => field.presentation || rootStruct.name === "Input")
 	.map(
-		({ name, fullType, isCustomStruct }) =>
+		({ name, outerType, typeKind }) =>
 			`	Reflect::set
 	(
 		&struct_${struct.name},
 		&"${name}".into(),
 		${(function generateFieldOffsets() {
-			if (isCustomStruct) {
-				return `&struct_${fullType}`;
+			if (typeKind === "struct") {
+				return `&struct_${outerType}`;
 			} else {
 				return `&Number::from(offset_of!(${rootStructName}, ${getNestedPath(rootStruct.path, outputStructPath, name)}) as f64)`;
 			}
@@ -102,7 +98,7 @@ ${struct.fields
 	
 	let structs = Object::new();
 	Reflect::set(&structs, &"Input".into(), &struct_Input).unwrap();
-${structs.output
+${flattened.output
 	.filter((group) => presentationStructFilter(group[0]))
 	.map(function generateStructs(group) {
 		const rootStructName = getOuterOutputStructName(group[0].name);
@@ -111,19 +107,22 @@ ${structs.output
 	.join("\n")}
 	Reflect::set(&structs, &"Client".into(), &struct_Client).unwrap();
 	
-	let slotmap = Object::new();${structs.output
+	let plugins = Object::new();
+	
+	let SlotMap = Object::new();
+	Reflect::set(&plugins, &"SlotMap".into(), &SlotMap).unwrap();${flattened.output
 		.map((group) =>
 			group
 				.filter(presentationStructFilter)
 				.map((struct) =>
 					struct.fields
 						.filter(({ outerType, presentation }) => outerType === "SlotMap" && presentation)
-						.map(function ({ innerType }) {
-							slotMapInnerTypes.push(innerType);
+						.map(function generateSlotMapOffsets({ innerType }) {
+							slotMapInnerTypes.push(innerType!);
 							return `
 	
 	let slotmap_${innerType} = Object::new();
-	Reflect::set(&slotmap, &"${innerType}".into(), &slotmap_${innerType}).unwrap();
+	Reflect::set(&SlotMap, &"${innerType}".into(), &slotmap_${innerType}).unwrap();
 	Reflect::set
 	(
 		&slotmap_${innerType},
@@ -183,11 +182,23 @@ ${structs.output
 				)
 				.join(""),
 		)
+		.join("")}${flattened.plugins
+		.filter((plugin) => plugin.rsMemOffsets)
+		.map(
+			(plugin) => `
+	
+	let ${plugin.name} = Object::new();
+	Reflect::set(&plugins, &"${plugin.name}".into(), &${plugin.name}).unwrap();
+${plugin
+	.rsMemOffsets!.split("\n")
+	.map((line) => `	${line}`)
+	.join("\n")}`,
+		)
 		.join("")}
 	
 	let offsets = Object::new();
-	Reflect::set(&offsets, &"struct".into(), &structs).unwrap();
-	Reflect::set(&offsets, &"slotmap".into(), &slotmap).unwrap();
+	Reflect::set(&offsets, &"structs".into(), &structs).unwrap();
+	Reflect::set(&offsets, &"plugins".into(), &plugins).unwrap();
 	offsets.into()
 }
 

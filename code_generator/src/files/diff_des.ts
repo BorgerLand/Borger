@@ -1,29 +1,25 @@
 import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
-	isPrimitive,
+	ENGINE_GENERATED_DIR,
+	stateWarningBlock,
 	getNestedPath,
-	type AllFlattenedStructs,
 	VALID_TYPES,
-	type FlattenedField,
 } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 //the way the generated file generally works is:
 //given a deserialized diff path and value, write
 //the value to the main state object. this file
 //uses match statements to route the value where
 //it needs to go
-export function generateDiffDes(structs: AllFlattenedStructs) {
+export function generateDiffDes(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/diff_des.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/diff_des.rs`,
+		`${stateWarningBlock()}
 
 use crate::simulation::*;
-use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::diff_des::DiffDeserializeState;
-use crate::DeserializeOopsy;
-use crate::networked_types::collections::slotmap::SlotMapDynCompat;
+use borger_plugin_sdk::primitive::{PrimitiveSerDes, DeserializeOopsy};
+use borger_plugin_sdk::traits::{DiffDeserializeCustomStruct, DiffDeserializePlugin};
 
 #[cfg(feature = "server")]
 use crate::simulation::Input;
@@ -32,7 +28,7 @@ use crate::simulation::Input;
 use
 {
 	crate::diff_ser::DiffSerializer,
-	crate::multiplayer_tradeoff::Impl,
+	borger_plugin_sdk::multiplayer_tradeoff::Impl,
 	std::vec,
 };
 
@@ -47,30 +43,32 @@ pub fn des_rx_input(input: &mut Input, mut ser_rx_buffer: impl ExactSizeIterator
 		let field_id = usize32::des_rx(buffer)?;
 		match field_id
 		{
-${structs.input
+${flattened.input
 	.map((struct) =>
 		struct.fields
-			.filter(({ outerType, netVisibility }) => isPrimitive(outerType) && netVisibility !== "untracked")
-			.map(function generateStructField({ name, fieldID, fullType }) {
-				const fieldPath = getNestedPath(structs.input[0].path, struct.path, name);
+			.filter(
+				({ netVisibility, typeKind }) => typeKind === "primitive" && netVisibility !== "untracked",
+			)
+			.map(function generateStructField({ name, fieldID, outerType }) {
+				const fieldPath = getNestedPath(flattened.input[0].path, struct.path, name);
 
-				return `			${fieldID} => input.${fieldPath} = ${fullType}::des_rx(buffer)?,`;
+				return `			${fieldID} => input.${fieldPath} = ${outerType}::des_rx(buffer)?,`;
 			})
 			.join("\n\t\n"),
 	)
 	.join("\n\t\n")}
 			
-			_ => return Err(DeserializeOopsy::Corrupt),
+			_ => return Err(DeserializeOopsy),
 		}
 	}
 	
 	Ok(())
 }
 
-${structs.output
+${flattened.output
 	.map(function generateDeserializeState(group) {
 		const rootStruct = group[0];
-		return `impl DiffDeserializeState for ${rootStruct.name}
+		return `impl DiffDeserializeCustomStruct for ${rootStruct.name}
 {
 	fn set_field_rollback(&mut self, field_id: usize32, _buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy>
 	{
@@ -79,7 +77,9 @@ ${structs.output
 ${group
 	.map((struct) =>
 		struct.fields
-			.filter(({ outerType, netVisibility }) => isPrimitive(outerType) && netVisibility !== "untracked")
+			.filter(
+				({ netVisibility, typeKind }) => typeKind === "primitive" && netVisibility !== "untracked",
+			)
 			.map(function generateSetFieldRollback({ name, netVisibilityAttribute, fieldID }) {
 				const field = getNestedPath(rootStruct.path, struct.path, name);
 
@@ -90,7 +90,7 @@ ${group
 	)
 	.join("\n\t\t\n")}
 			
-			_ => return Err(DeserializeOopsy::Corrupt),
+			_ => return Err(DeserializeOopsy),
 		};
 		
 		#[allow(unreachable_code)]
@@ -106,45 +106,34 @@ ${group
 	.map((struct) =>
 		struct.fields
 			.filter(
-				({ outerType, netVisibility }) =>
-					isPrimitive(outerType) && netVisibility !== "private" && netVisibility !== "untracked",
+				({ netVisibility, typeKind }) =>
+					typeKind === "primitive" && netVisibility !== "private" && netVisibility !== "untracked",
 			)
 			.map(function generateSetFieldRx({ name, netVisibilityAttribute, fieldID, outerType }) {
 				const field = getNestedPath(rootStruct.path, struct.path, `set_${name}`);
 
 				return `			${netVisibilityAttribute}
-			${fieldID} => { self.${field}(${outerType}::des_rx(_buffer)?, _diff.to_impl()); },`;
+			${fieldID} => { self.${field}(${outerType}::des_rx(_buffer)?, _diff); },`;
 			})
 			.join("\n\t\t\n"),
 	)
 	.join("\n\t\t\n")}
 			
-			_ => return Err(DeserializeOopsy::Corrupt),
+			_ => return Err(DeserializeOopsy),
 		};
 		
 		#[allow(unreachable_code)]
 		Ok(())
 	}
 	
-	${generateGetCollectionOrUtility("get_slotmap", "dyn SlotMapDynCompat", (field) => field.outerType === "SlotMap")}
-	
-	${generateGetCollectionOrUtility("get_event_dispatcher", "EventDispatcher", (field) => field.outerType === "EventDispatcher")}
-}`;
-
-		//need to call this for every collection and utility type
-		function generateGetCollectionOrUtility(
-			getterName: string,
-			returnType: string,
-			structFilter: (field: FlattenedField) => boolean,
-		) {
-			return `fn ${getterName}(&mut self, field_id: usize32) -> Result<&mut ${returnType}, DeserializeOopsy>
+	fn get_plugin(&mut self, field_id: usize32) -> Result<&mut dyn DiffDeserializePlugin, DeserializeOopsy>
 	{
 		match field_id
 		{
 ${group
 	.map((struct) =>
 		struct.fields
-			.filter(structFilter)
+			.filter((field) => field.typeKind === "collection" || field.typeKind === "plugin")
 			.map(function generateGetter({ name, netVisibilityAttribute, fieldID }) {
 				const field = getNestedPath(rootStruct.path, struct.path, name);
 
@@ -155,10 +144,10 @@ ${group
 	)
 	.join("\n\t\t\n")}
 			
-			_ => return Err(DeserializeOopsy::Corrupt),
+			_ => return Err(DeserializeOopsy),
 		}
-	}`;
-		}
+	}
+}`;
 	})
 	.join("\n\n")}
 `,

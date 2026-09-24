@@ -1,28 +1,19 @@
-import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
-	VALID_TYPES,
-	isGeneric,
-	isPrimitive,
-	isUtility,
-	type FlattenedStruct,
-} from "@borger/code_generator/common.ts";
+import { ENGINE_GENERATED_DIR, stateWarningBlock, VALID_TYPES } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput, FlattenedStruct } from "@borger/code_generator/flatten.ts";
 
-export function generatePresentation(simStructs: FlattenedStruct[][]) {
+export function generatePresentation(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/presentation.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/presentation.rs`,
+		`${stateWarningBlock()}
 
 use crate::simulation;
-use crate::presentation::PresentTick;
-use crate::tick::TickID;
-
-use crate::presentation::Client;
+use borger_plugin_sdk::TickID;
+use borger_plugin_sdk::traits::PresentTick;
 
 ${VALID_TYPES}
 
-${simStructs
+${flattened.output
 	.map((group) =>
 		group
 			.filter(presentationStructFilter)
@@ -30,16 +21,17 @@ ${simStructs
 				const presentationStructName = getPresentationStructName(struct.name);
 
 				return `#[allow(non_camel_case_types)]
-${presentationStructName === "PresentationOutput" ? "pub" : "pub(crate)"} struct ${presentationStructName}
+pub struct ${presentationStructName}
 {
 ${struct.fields
 	.filter((field) => field.presentation)
-	.map(function generatePresentationStructFields({ name, outerType, fullType, innerType }) {
+	.map(function generatePresentationStructFields({ name, outerType, innerType, typeKind }) {
 		let presentationType;
-		if (isGeneric(outerType))
+		if (typeKind === "collection")
 			presentationType = `<${outerType}<simulation::${innerType}> as PresentTick>::PresentationOutput`;
-		else if (isUtility(outerType)) presentationType = `<${outerType} as PresentTick>::PresentationOutput`;
-		else presentationType = fullType;
+		else if (typeKind === "plugin")
+			presentationType = `<${outerType} as PresentTick>::PresentationOutput`;
+		else presentationType = outerType;
 
 		return `	pub(crate) ${name}: ${presentationType},`;
 	})
@@ -55,9 +47,9 @@ impl PresentTick for simulation::${struct.name}
 		{
 ${struct.fields
 	.filter((field) => field.presentation)
-	.map(function generatePresentationImpl({ name, outerType }) {
+	.map(function generatePresentationImpl({ name, typeKind }) {
 		let presentationGetter;
-		if (isPrimitive(outerType)) presentationGetter = "";
+		if (typeKind === "primitive") presentationGetter = "";
 		else presentationGetter = ".clone_to_presentation(_tick)";
 
 		return `			${name}: self.${name}${presentationGetter},`;

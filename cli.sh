@@ -66,10 +66,8 @@ toolchain_check()
 run_codegen()
 {
 	echo "Running code generator..."
-	cd borger/code_generator
-	npx tsc
-	npx tsx src/main.ts
-	cd ../..
+	npx tsc -p tsconfig.node.json
+	npx tsx src/state.ts
 }
 
 escape_sorrows()
@@ -212,14 +210,15 @@ cmd_dev()
 	
 	local -a DEV_CMD=(
 		npx concurrently
-		--names "RUN-CODEGEN,TSC-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE"
-		-c      "bgGreen.bold,bgYellow.bold,bgBlue.bold,bgWhite.bold,bgRed.bold"
-		"cd borger/code_generator && npx tsx watch --clear-screen=false src/main.ts"
-		"cd borger/code_generator && npx tsc --watch --preserveWatchOutput"
+		--names "TSC-CODEGEN,RUN-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE"
+		-c      "bgYellow.bold,bgGreen.bold,bgBlue.bold,bgWhite.bold,bgRed.bold"
+		"npx tsc -p tsconfig.node.json --watch --preserveWatchOutput"
+		"npx tsx watch --clear-screen=false src/state.ts"
 		"cd borger/server    && cargo watch --why --no-vcs-ignores \
+			-w '../../borger/procmac' \
+			-w '../../borger/plugins' \
 			-w '../../borger/engine' \
 			-w '../../borger/server' \
-			-w '../../borger/procmac' \
 			-w '../../src/simulation' \
 			-w '../../Cargo.toml' \
 			-w '../../Cargo.lock' \
@@ -228,11 +227,12 @@ cmd_dev()
 				&& cd ../../target/server-dev \
 				&& while true; do RUST_BACKTRACE=full $SERVER_CMD; sleep 1; done'"
 		"cd borger/client/rs && cargo watch --why --no-vcs-ignores \
+			-w '../../../borger/procmac' \
+			-w '../../../borger/plugins' \
 			-w '../../../borger/engine' \
 			-w '../../../borger/client/rs/src' \
 			-w '../../../borger/client/rs/Cargo.toml' \
 			-w '../../../borger/client/rs/.cargo' \
-			-w '../../../borger/procmac' \
 			-w '../../../src/simulation' \
 			-w '../../../Cargo.toml' \
 			-w '../../../Cargo.lock' \

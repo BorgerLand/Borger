@@ -6,7 +6,7 @@ export function init(wasmBindgen: WASMBindgen) {
 	return {
 		wasmBindgen,
 		offsets: wasmBindgen.get_mem_offsets(),
-		memView: new DataView<ArrayBufferLike>(new ArrayBuffer()),
+		memView: new DataView(new ArrayBuffer()),
 		curLifetime: Number.MIN_SAFE_INTEGER,
 	};
 }

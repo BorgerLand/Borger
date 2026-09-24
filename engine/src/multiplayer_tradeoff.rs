@@ -1,5 +1,6 @@
-use crate::diff_ser::DiffSerializer;
 use crate::simulation_controller::GameContext;
+use borger_plugin_sdk::multiplayer_tradeoff::{Immediate, Impl};
+use borger_plugin_sdk::multiplayer_tradeoff_transitions;
 use std::mem;
 
 ///Although all game logic code is meant to be interpreted as server authoritative and
@@ -244,70 +245,11 @@ macro_rules! multiplayer_tradeoff
 	};
 }
 
-pub struct Immediate; //to immediate/server/consensus
-pub struct WaitForServer; //to server/consensus
-pub struct WaitForConsensus; //to consensus
-
-#[derive(Default)]
-pub(crate) struct Impl; //default contextless state used internally
-
-pub trait AnyTradeOff {} //to consensus
-impl AnyTradeOff for Immediate {}
-impl AnyTradeOff for WaitForServer {}
-impl AnyTradeOff for WaitForConsensus {}
-impl AnyTradeOff for Impl {}
-
-//convenience: useful if an entity may be controlled either
-//by client or server (npc)
-pub trait ImmediateOrWaitForServer: AnyTradeOff {} //to server/consensus
-impl ImmediateOrWaitForServer for Immediate {}
-impl ImmediateOrWaitForServer for WaitForServer {}
-
-//transmutation between different AnyTradeOff is safe memory-wise
-//because the struct layout is not influenced by it (used by
-//phantom data only). however it is not safe multiplayer-wise and
-//so the game itself should not be calling these directly
-
-macro_rules! multiplayer_tradeoff_transitions {
-	($type:ident) => {
-		#[cfg(feature = "server")]
-		impl<TradeOff: ImmediateOrWaitForServer> $type<TradeOff> {
-			#[doc(hidden)]
-			pub unsafe fn _to_server_unchecked(&mut self) -> &mut $type<WaitForServer> {
-				unsafe { mem::transmute(self) }
-			}
-		}
-
-		#[cfg(feature = "server")]
-		impl<TradeOff: AnyTradeOff> $type<TradeOff> {
-			#[doc(hidden)]
-			pub unsafe fn _to_consensus_unchecked(&mut self) -> &mut $type<WaitForConsensus> {
-				unsafe { mem::transmute(self) }
-			}
-		}
-	};
-}
-
 multiplayer_tradeoff_transitions!(GameContext);
-multiplayer_tradeoff_transitions!(DiffSerializer);
 
 //internal only
-
 impl GameContext<Impl> {
 	pub(crate) fn to_immediate(&mut self) -> &mut GameContext<Immediate> {
-		unsafe { mem::transmute(self) }
-	}
-}
-
-#[cfg(feature = "server")]
-impl DiffSerializer<Impl> {
-	pub(crate) fn to_consensus(&mut self) -> &mut DiffSerializer<WaitForConsensus> {
-		unsafe { mem::transmute(self) }
-	}
-}
-
-impl<TradeOff: AnyTradeOff> DiffSerializer<TradeOff> {
-	pub(crate) fn to_impl(&mut self) -> &mut DiffSerializer<Impl> {
 		unsafe { mem::transmute(self) }
 	}
 }

@@ -1,32 +1,30 @@
 import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
+	ENGINE_GENERATED_DIR,
+	stateWarningBlock,
 	VALID_TYPES,
-	isPrimitive,
-	type AllFlattenedStructs,
 	getNestedPath,
 	nvEnum,
 } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
-export function generateDiffSer(structs: AllFlattenedStructs) {
+export function generateDiffSer(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/diff_ser.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/diff_ser.rs`,
+		`${stateWarningBlock()}
 
 use crate::simulation::*;
-use crate::diff_ser::DiffSerializer;
-use crate::networked_types::primitive::ser_sim_primitive;
-use crate::multiplayer_tradeoff::AnyTradeOff;
+use crate::diff_ser::{DiffSerializer, ser_sim_primitive};
+use borger_plugin_sdk::multiplayer_tradeoff::{AnyTradeOff, DiffSerializerToImpl};
 
 #[cfg(feature = "server")]
-use crate::NetVisibility;
+use borger_plugin_sdk::NetVisibility;
 
 #[cfg(feature = "client")]
 use
 {
-	crate::networked_types::primitive::ser_input_primitive,
-	crate::multiplayer_tradeoff::Impl,
+	crate::diff_ser::ser_input_primitive,
+	borger_plugin_sdk::multiplayer_tradeoff::Impl,
 };
 
 ${VALID_TYPES}
@@ -34,12 +32,12 @@ ${VALID_TYPES}
 #[cfg(feature = "client")]
 pub fn ser_tx_input_diff(old: &Input, new: &Input, diff: &mut DiffSerializer<Impl>)
 {
-${structs.input
+${flattened.input
 	.map((struct) =>
 		struct.fields
-			.filter((field) => isPrimitive(field.outerType))
+			.filter((field) => field.typeKind === "primitive")
 			.map(function generateStructField({ name, fieldID }) {
-				const fieldPath = getNestedPath(structs.input[0].path, struct.path, name);
+				const fieldPath = getNestedPath(flattened.input[0].path, struct.path, name);
 
 				return `	if new.${fieldPath} != old.${fieldPath}
 	{
@@ -51,13 +49,14 @@ ${structs.input
 	.join("\n\t\n")}
 }
 
-${structs.output
+${flattened.output
 	.map((group) =>
 		group
 			.map(function generateSimulationStruct(struct) {
 				//primitive fields need setter/getter
 				const primitiveFields = struct.fields.filter(
-					(field) => isPrimitive(field.outerType) && field.netVisibility !== "untracked",
+					({ typeKind, netVisibility }) =>
+						typeKind === "primitive" && netVisibility !== "untracked",
 				);
 
 				return `impl ${struct.name}
@@ -67,19 +66,19 @@ ${primitiveFields
 		name,
 		netVisibility,
 		netVisibilityAttribute,
-		fullType,
+		outerType,
 		fieldID,
 	}) {
 		const getter =
 			`	${netVisibilityAttribute}
 ` +
-			`	pub fn get_${name}(&self) -> ${fullType}
+			`	pub fn get_${name}(&self) -> ${outerType}
 	{
 		self.${name}
 	}`;
 
 		const setter = `${netVisibilityAttribute}
-	pub fn set_${name}(&mut self, value: ${fullType}, diff: &mut DiffSerializer<impl AnyTradeOff>) -> &mut Self
+	pub fn set_${name}(&mut self, value: ${outerType}, diff: &mut DiffSerializer<impl AnyTradeOff>) -> &mut Self
 	{
 		if value != self.${name}
 		{

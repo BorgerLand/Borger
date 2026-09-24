@@ -1,0 +1,14 @@
+[package]
+name = "borger_event_dispatcher"
+version = "0.0.0"
+edition = "2024"
+
+[features]
+server = []
+client = []
+
+[dependencies]
+#note that a plugin lives inside the node_modules folder, and
+#you will have to traverse up .. depending on the nodePackageName
+borger_procmac = { path = "../../../borger/procmac" }
+borger_plugin_sdk = { path = "../../../borger/plugins/sdk/rs" }

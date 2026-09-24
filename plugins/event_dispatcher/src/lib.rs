@@ -1,16 +1,23 @@
-use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::AnyTradeOff;
-use crate::networked_types::primitive::{PrimitiveSerDes, usize32};
-use crate::{DeserializeOopsy, DiffOperation};
-use crate::{constructors::ConstructCollectionOrUtilityType, snapshot_serdes::SnapshotState};
-use std::fmt::Debug;
+use borger_plugin_sdk::diff_ser::DiffSerializer;
+use borger_plugin_sdk::multiplayer_tradeoff::{AnyTradeOff, DiffSerializerToImpl};
+use borger_plugin_sdk::primitive::{DeserializeOopsy, PrimitiveSerDes, usize32};
+use borger_plugin_sdk::traits::{
+	ConstructPlugin, DiffDeserializeCustomStruct, DiffDeserializePlugin, SnapshotState,
+};
+use borger_procmac::diff_operation_enum;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
-use crate::NetVisibility;
+use borger_plugin_sdk::NetVisibility;
 
 #[cfg(feature = "client")]
-use {crate::interpolation::InterpolateTicks, crate::presentation::PresentTick, crate::tick::TickID};
+use {
+	borger_plugin_sdk::TickID,
+	borger_plugin_sdk::multiplayer_tradeoff::Impl,
+	borger_plugin_sdk::traits::{InterpolateTicks, PresentTick},
+};
+
+diff_operation_enum!("EventDispatcher");
 
 //---simulation---//
 
@@ -31,7 +38,7 @@ pub struct EventDispatcher {
 
 //---constructors---//
 
-impl ConstructCollectionOrUtilityType for EventDispatcher {
+impl ConstructPlugin for EventDispatcher {
 	fn construct(
 		path: &Rc<Vec<usize32>>,
 		_field_id: usize32,
@@ -56,7 +63,7 @@ impl EventDispatcher {
 	pub fn fire_and_forget(&mut self, diff: &mut DiffSerializer<impl AnyTradeOff>) {
 		self.version = self.version.wrapping_add(1);
 
-		let op = DiffOperation::TrackEventDispatcher;
+		let op = DiffOperation::EventDispatcher;
 		let diff = diff.to_impl();
 
 		if let Some(buffer) = diff.ser_rollback_begin(&self.diff_path) {
@@ -74,14 +81,35 @@ impl EventDispatcher {
 
 //---diff_des---//
 
-impl EventDispatcher {
-	pub(crate) fn rollback(&mut self) {
-		self.version = self.version.wrapping_sub(1);
+impl DiffDeserializePlugin for EventDispatcher {
+	fn navigate_down(&mut self, _: usize32) -> Option<&mut dyn DiffDeserializeCustomStruct> {
+		None
+	}
+
+	fn des_rollback(&mut self, diff_op: u8, _: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
+		match DiffOperation::try_from(diff_op).map_err(|_| DeserializeOopsy)? {
+			DiffOperation::EventDispatcher => {
+				self.version = self.version.wrapping_sub(1);
+			}
+		};
+
+		Ok(())
 	}
 
 	#[cfg(feature = "client")]
-	pub(crate) fn rx(&mut self) {
-		self.version = self.version.wrapping_add(1);
+	fn des_rx(
+		&mut self,
+		diff_op: u8,
+		_: &mut std::vec::IntoIter<u8>,
+		_: &mut DiffSerializer<Impl>,
+	) -> Result<(), DeserializeOopsy> {
+		match DiffOperation::try_from(diff_op).map_err(|_| DeserializeOopsy)? {
+			DiffOperation::EventDispatcher => {
+				self.version = self.version.wrapping_add(1);
+			}
+		};
+
+		Ok(())
 	}
 }
 
@@ -113,7 +141,7 @@ impl SnapshotState for EventDispatcher {
 //---presentation_state---//
 
 #[cfg(feature = "client")]
-pub(crate) struct PresentationEventDispatcher(u8);
+pub struct PresentationEventDispatcher(u8);
 
 #[cfg(feature = "client")]
 impl PresentTick for EventDispatcher {

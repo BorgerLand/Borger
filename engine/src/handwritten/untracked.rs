@@ -1,14 +1,5 @@
 use crate::simulation::Client;
-
-pub trait UntrackedState {
-	fn reset_untracked(&mut self);
-}
-
-impl<T: Default> UntrackedState for T {
-	fn reset_untracked(&mut self) {
-		*self = Self::default();
-	}
-}
+use borger_plugin_sdk::traits::UntrackedState;
 
 impl UntrackedState for Client {
 	fn reset_untracked(&mut self) {

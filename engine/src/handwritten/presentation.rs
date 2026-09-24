@@ -1,9 +1,9 @@
-use crate::Scope;
-use crate::interpolation::InterpolateTicks;
-use crate::networked_types::primitive::usize32;
 use crate::presentation::*;
+use crate::scope::Scope;
 use crate::simulation;
-use crate::tick::TickID;
+use borger_plugin_sdk::TickID;
+use borger_plugin_sdk::primitive::usize32;
+use borger_plugin_sdk::traits::PresentTick;
 use web_time::Instant;
 
 pub struct PresentationContext {
@@ -12,12 +12,8 @@ pub struct PresentationContext {
 	pub output: PresentationOutput,
 }
 
-pub(crate) trait PresentTick {
-	type PresentationOutput: InterpolateTicks;
-	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationOutput;
-}
-
 pub(crate) type Client = Scope<ClientOwned, ClientRemote>;
+
 impl PresentTick for simulation::Client {
 	type PresentationOutput = Client;
 	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationOutput {

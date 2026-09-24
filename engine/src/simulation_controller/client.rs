@@ -1,9 +1,9 @@
 use super::*;
 use crate::diff_des;
 use crate::diff_ser::ser_tx_input_diff;
-use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::presentation::PresentTick;
-use crate::tick::TickType;
+use borger_plugin_sdk::TickType;
+use borger_plugin_sdk::primitive::PrimitiveSerDes;
+use borger_plugin_sdk::traits::PresentTick;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::TryRecvError;
 

@@ -1,16 +1,11 @@
-import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
-	VALID_TYPES,
-	isPrimitive,
-	type AllFlattenedStructs,
-} from "@borger/code_generator/common.ts";
+import { ENGINE_GENERATED_DIR, stateWarningBlock, VALID_TYPES } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
-export function generateSimulation(structs: AllFlattenedStructs) {
+export function generateSimulation(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/simulation.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/simulation.rs`,
+		`${stateWarningBlock()}
 
 use crate::simulation::{Client, InputHistory};
 use std::rc::Rc;
@@ -20,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 ${VALID_TYPES}
 
-${structs.input
+${flattened.input
 	.map(function generateInputStruct(struct) {
 		return `#[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "session_replay", derive(Deserialize, Serialize))]
@@ -28,15 +23,15 @@ ${structs.input
 pub struct ${struct.name}
 {
 ${struct.fields
-	.map(function generateInputStructField({ name, fullType, fieldID }) {
-		return `	pub ${name}: ${fullType}, //diff path [${fieldID}]`;
+	.map(function generateInputStructField({ name, outerType, fieldID }) {
+		return `	pub ${name}: ${outerType}, //diff path [${fieldID}]`;
 	})
 	.join("\n\t\n")}
 }`;
 	})
 	.join("\n\n")}
 
-${structs.output
+${flattened.output
 	.map((group) =>
 		group
 			.map(function generateSimulationStruct(struct) {
@@ -49,20 +44,22 @@ pub struct ${struct.name}
 		.map(function generateSimulationStructField({
 			name,
 			netVisibilityAttribute,
-			fullType,
 			outerType,
+			innerType,
 			netVisibility,
+			typeKind,
 		}) {
 			let fieldVisibilityQualifier; //completely unrelated to netVisibility
-			if (isPrimitive(outerType) && netVisibility !== "untracked")
+			if (typeKind === "primitive" && netVisibility !== "untracked")
 				fieldVisibilityQualifier = "pub(crate) ";
-			else fieldVisibilityQualifier = "pub "; //structs+collections+utilities
+			else fieldVisibilityQualifier = "pub "; //structs+collections+plugins
 
-			let actualType;
-			if (fullType === "Input") actualType = "InputHistory";
-			else actualType = fullType;
+			let fullType;
+			if (typeKind === "collection") fullType = `${outerType}<${innerType}>`;
+			else if (outerType === "Input") fullType = "InputHistory";
+			else fullType = outerType;
 
-			const field = `${fieldVisibilityQualifier}${name}: ${actualType},`;
+			const field = `${fieldVisibilityQualifier}${name}: ${fullType},`;
 			return `
 	
 	${netVisibilityAttribute}

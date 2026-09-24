@@ -1,3 +1,5 @@
+engine/Cargo.toml
 engine/src/generated
 client/rs/src/generated
 client/ts/src/generated
+node_modules

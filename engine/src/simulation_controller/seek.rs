@@ -1,13 +1,13 @@
 use super::*;
 use crate::diff_des;
 use crate::simulation::InputHistoryEntry;
-use crate::tick::TickType;
-use crate::untracked::UntrackedState;
+use borger_plugin_sdk::TickType;
+use borger_plugin_sdk::traits::UntrackedState;
 
 #[cfg(feature = "server")]
 use {
-	crate::networked_types::primitive::{PrimitiveSerDes, usize32},
 	crate::simulation::{Input, State},
+	borger_plugin_sdk::primitive::{PrimitiveSerDes, usize32},
 };
 
 #[cfg(feature = "client")]
@@ -38,12 +38,12 @@ impl SimControllerInternals {
 		}
 
 		while self.ctx.tick.id_cur > to {
-			diff_des::des_rollback(&mut self.ctx.state, &mut self.ctx.diff.rollback_buffer).unwrap();
+			diff_des::des_rollback(&mut self.ctx.state, &mut self.ctx.diff.get_rollback_buffer()).unwrap();
 			self.ctx.tick.id_cur -= 1;
 		}
 
 		if self.ctx.tick.id_cur == self.ctx.tick.id_consensus {
-			debug_assert!(self.ctx.diff.rollback_buffer.is_empty());
+			debug_assert!(self.ctx.diff.get_rollback_buffer().is_empty());
 		}
 
 		amount

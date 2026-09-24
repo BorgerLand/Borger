@@ -1,27 +1,34 @@
-use crate::constructors::ConstructCollectionOrUtilityType;
-use crate::diff_des::DiffDeserializeState;
-use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::AnyTradeOff;
-use crate::networked_types::primitive::{PrimitiveSerDes, usize32};
-use crate::snapshot_serdes::SnapshotState;
-use crate::untracked::UntrackedState;
-use crate::{ClientKind, DeserializeOopsy, DiffOperation, TrackedState};
+use borger_plugin_sdk::diff_ser::DiffSerializer;
+use borger_plugin_sdk::multiplayer_tradeoff::{AnyTradeOff, DiffSerializerToImpl};
+use borger_plugin_sdk::primitive::{DeserializeOopsy, PrimitiveSerDes, usize32};
+use borger_plugin_sdk::traits::{
+	ConstructPlugin, CustomStruct, DiffDeserializeCustomStruct, DiffDeserializePlugin, SnapshotState,
+	UntrackedState,
+};
+use borger_plugin_sdk::{ClientKind, diff_operation_enum};
 use std::collections::HashMap;
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
-use crate::NetVisibility;
+use borger_plugin_sdk::NetVisibility;
 
 #[cfg(feature = "client")]
 use {
-	crate::interpolation::InterpolateTicks, crate::multiplayer_tradeoff::Impl,
-	crate::presentation::PresentTick, crate::simulation::Client, crate::tick::TickID, std::any::TypeId,
-	std::mem::MaybeUninit, std::ptr, std::vec,
+	crate::simulation::Client,
+	borger_plugin_sdk::TickID,
+	borger_plugin_sdk::multiplayer_tradeoff::Impl,
+	borger_plugin_sdk::traits::{InterpolateTicks, PresentTick},
+	std::any::TypeId,
+	std::mem::MaybeUninit,
+	std::ptr,
+	std::vec,
 };
 
-//like a hashmap, except the key is an internally generated, unique, numeric id.
+diff_operation_enum!("SlotMap");
+
+//like a hashmap, except the key is an internally generated, unique, incremental id.
 //currently does not do any sort of generational tracking
 //guarantees:
 //- values are stored in contiguous memory for fast iteration
@@ -150,7 +157,7 @@ impl<V> RawSlotMap<V> {
 //---simulation---//
 
 #[derive(Debug)]
-pub struct SlotMap<V: TrackedState> {
+pub struct SlotMap<V: CustomStruct> {
 	diff_path: Rc<Vec<usize32>>,
 	field_id: usize32,
 
@@ -162,7 +169,7 @@ pub struct SlotMap<V: TrackedState> {
 
 //---constructors---//
 
-impl<V: TrackedState> ConstructCollectionOrUtilityType for SlotMap<V> {
+impl<V: CustomStruct> ConstructPlugin for SlotMap<V> {
 	fn construct(
 		path: &Rc<Vec<usize32>>,
 		field_id: usize32,
@@ -183,7 +190,7 @@ impl<V: TrackedState> ConstructCollectionOrUtilityType for SlotMap<V> {
 
 //---diff_ser---//
 
-impl<V: TrackedState> Deref for SlotMap<V> {
+impl<V: CustomStruct> Deref for SlotMap<V> {
 	type Target = RawSlotMap<V>;
 
 	fn deref(&self) -> &Self::Target {
@@ -191,7 +198,7 @@ impl<V: TrackedState> Deref for SlotMap<V> {
 	}
 }
 
-impl<V: TrackedState> SlotMap<V> {
+impl<V: CustomStruct> SlotMap<V> {
 	pub fn add(&mut self, diff: &mut DiffSerializer<impl AnyTradeOff>) -> (usize32, &mut V) {
 		self.add_with_client_owned(ClientKind::NA, diff)
 	}
@@ -201,7 +208,7 @@ impl<V: TrackedState> SlotMap<V> {
 		client_kind: ClientKind,
 		diff: &mut DiffSerializer<impl AnyTradeOff>,
 	) -> (usize32, &mut V) {
-		let op = DiffOperation::TrackSlotMapAdd;
+		let op = DiffOperation::SlotMapAdd;
 		let diff = diff.to_impl();
 
 		if let Some(buffer) = diff.ser_rollback_begin(&self.diff_path) {
@@ -229,7 +236,7 @@ impl<V: TrackedState> SlotMap<V> {
 		let physical_index = *self.data.random_access.get(&id)?;
 		let removed_slot = self.data.remove(id).unwrap();
 
-		let op = DiffOperation::TrackSlotMapRemove;
+		let op = DiffOperation::SlotMapRemove;
 		let diff = diff.to_impl();
 
 		if let Some(buffer) = diff.ser_rollback_begin(&self.diff_path) {
@@ -258,7 +265,7 @@ impl<V: TrackedState> SlotMap<V> {
 			return 0;
 		}
 
-		let op = DiffOperation::TrackSlotMapClear;
+		let op = DiffOperation::SlotMapClear;
 		let diff = diff.to_impl();
 
 		if let Some(buffer) = diff.ser_rollback_begin(&self.diff_path) {
@@ -292,97 +299,82 @@ impl<V: TrackedState> SlotMap<V> {
 
 //---diff_des---//
 
-//wrapper to eliminate slotmap's generics and allow
-//DiffDeserializeState trait to be dyn compatible
-pub(crate) trait SlotMapDynCompat {
-	fn get_des(&mut self, id: usize32) -> Option<&mut dyn DiffDeserializeState>;
-
-	fn rollback_add(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy>;
-	fn rollback_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy>;
-	fn rollback_clear(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy>;
-
-	#[cfg(feature = "client")]
-	fn rx_add(&mut self, diff: &mut DiffSerializer<Impl>);
-	#[cfg(feature = "client")]
-	fn rx_remove(
-		&mut self,
-		buffer: &mut vec::IntoIter<u8>,
-		diff: &mut DiffSerializer<Impl>,
-	) -> Result<(), DeserializeOopsy>;
-	#[cfg(feature = "client")]
-	fn rx_clear(&mut self, diff: &mut DiffSerializer<Impl>);
-}
-
-impl<V: TrackedState> SlotMapDynCompat for SlotMap<V> {
-	fn get_des(&mut self, id: usize32) -> Option<&mut dyn DiffDeserializeState> {
-		self.get_mut(id).map(|v| v as &mut dyn DiffDeserializeState)
+impl<V: CustomStruct> DiffDeserializePlugin for SlotMap<V> {
+	fn navigate_down(&mut self, element_id: usize32) -> Option<&mut dyn DiffDeserializeCustomStruct> {
+		self.get_mut(element_id)
+			.map(|v| v as &mut dyn DiffDeserializeCustomStruct)
 	}
 
-	fn rollback_add(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
-		self.data.next_id = usize32::des_rollback(buffer)?;
-		let id = self.data.slots.pop().unwrap().0;
-		self.data.random_access.remove(&id).unwrap();
-		Ok(())
-	}
+	fn des_rollback(&mut self, diff_op: u8, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
+		match DiffOperation::try_from(diff_op).map_err(|_| DeserializeOopsy)? {
+			DiffOperation::SlotMapAdd => {
+				self.data.next_id = usize32::des_rollback(buffer)?;
+				let id = self.data.slots.pop().unwrap().0;
+				self.data.random_access.remove(&id).unwrap();
+			}
+			DiffOperation::SlotMapRemove => {
+				let id = usize32::des_rollback(buffer)?;
+				let physical_index = usize32::des_rollback(buffer)?;
 
-	fn rollback_remove(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
-		let id = usize32::des_rollback(buffer)?;
-		let physical_index = usize32::des_rollback(buffer)?;
+				//since client deletion is unpredictable and will
+				//never roll back, client_kind can be anything
+				//here. all other constructors ignore the arg
+				let mut value = V::construct(
+					&build_slot_path(id, &self.diff_path, self.field_id),
+					ClientKind::NA,
+				);
+				value.des_rollback_predict_remove(buffer)?;
 
-		//since client deletion is unpredictable and will
-		//never roll back, client_kind can be anything
-		//here. all other constructors ignore the arg
-		let mut value = V::construct(
-			&build_slot_path(id, &self.diff_path, self.field_id),
-			ClientKind::NA,
-		);
-		value.des_rollback_predict_remove(buffer)?;
+				let reincarnated_slot = (id, value);
+				if physical_index == self.data.len() {
+					//insert as last slot
+					self.data.slots.push(reincarnated_slot);
+				} else {
+					//insert in the middle + move the current resident
+					//of this slot back to the end
+					let end_slot =
+						mem::replace(&mut self.data.slots[physical_index as usize], reincarnated_slot);
+					*self.data.random_access.get_mut(&end_slot.0).unwrap() = self.data.len();
+					self.data.slots.push(end_slot);
+				}
 
-		let reincarnated_slot = (id, value);
-		if physical_index == self.data.len() {
-			//insert as last slot
-			self.data.slots.push(reincarnated_slot);
-		} else {
-			//insert in the middle + move the current resident
-			//of this slot back to the end
-			let end_slot = mem::replace(&mut self.data.slots[physical_index as usize], reincarnated_slot);
-			*self.data.random_access.get_mut(&end_slot.0).unwrap() = self.data.len();
-			self.data.slots.push(end_slot);
-		}
-
-		self.data.random_access.insert(id, physical_index);
+				self.data.random_access.insert(id, physical_index);
+			}
+			DiffOperation::SlotMapClear => {
+				self.des_rollback_predict_remove(buffer)?;
+			}
+		};
 
 		Ok(())
 	}
 
-	fn rollback_clear(&mut self, buffer: &mut Vec<u8>) -> Result<(), DeserializeOopsy> {
-		self.des_rollback_predict_remove(buffer)
-	}
-
 	#[cfg(feature = "client")]
-	fn rx_add(&mut self, diff: &mut DiffSerializer<Impl>) {
-		self.add(diff);
-	}
-
-	#[cfg(feature = "client")]
-	fn rx_remove(
+	fn des_rx(
 		&mut self,
+		diff_op: u8,
 		buffer: &mut vec::IntoIter<u8>,
 		diff: &mut DiffSerializer<Impl>,
 	) -> Result<(), DeserializeOopsy> {
-		let id = usize32::des_rx(buffer)?;
-		self.remove(id, diff).ok_or(DeserializeOopsy::Corrupt)
-	}
+		match DiffOperation::try_from(diff_op).map_err(|_| DeserializeOopsy)? {
+			DiffOperation::SlotMapAdd => {
+				self.add(diff);
+			}
+			DiffOperation::SlotMapRemove => {
+				let id = usize32::des_rx(buffer)?;
+				self.remove(id, diff).ok_or(DeserializeOopsy)?;
+			}
+			DiffOperation::SlotMapClear => {
+				self.clear(diff);
+			}
+		};
 
-	#[cfg(feature = "client")]
-	fn rx_clear(&mut self, diff: &mut DiffSerializer<Impl>) {
-		self.clear(diff);
+		Ok(())
 	}
 }
 
 //---snapshot---//
 
-impl<V: TrackedState> SnapshotState for SlotMap<V> {
+impl<V: CustomStruct> SnapshotState for SlotMap<V> {
 	#[cfg(feature = "server")]
 	fn ser_tx_new_client(&self, client_id: usize32, buffer: &mut Vec<u8>) {
 		self.data.next_id.ser_tx(buffer);
@@ -462,7 +454,7 @@ impl<V: TrackedState> SnapshotState for SlotMap<V> {
 }
 
 //---untracked---//
-impl<V: TrackedState> UntrackedState for SlotMap<V> {
+impl<V: CustomStruct> UntrackedState for SlotMap<V> {
 	fn reset_untracked(&mut self) {
 		for slot in self.values_mut() {
 			slot.reset_untracked();
@@ -475,7 +467,7 @@ impl<V: TrackedState> UntrackedState for SlotMap<V> {
 #[cfg(feature = "client")]
 impl<V> PresentTick for SlotMap<V>
 where
-	V: TrackedState + PresentTick,
+	V: CustomStruct + PresentTick,
 {
 	type PresentationOutput = RawSlotMap<V::PresentationOutput>;
 	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationOutput {

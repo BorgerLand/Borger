@@ -1,0 +1,13 @@
+[package]
+name = "borger_plugin_sdk"
+version.workspace = true
+edition.workspace = true
+
+[features]
+server = []
+client = []
+
+[dependencies]
+borger_procmac = { path = "../../../procmac" }
+
+glam.workspace = true

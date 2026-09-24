@@ -1,8 +1,7 @@
 use crate::SERVER_TITLE;
 use crate::flags::Flags;
-use borger::networked_types::primitive::usize_to_32;
-use borger::networked_types::primitive::usize32;
 use borger::thread_comms::{ClientToSimCommand, SimToClientCommand};
+use borger_plugin_sdk::primitive::{usize_to_32, usize32};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};

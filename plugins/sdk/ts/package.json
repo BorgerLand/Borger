@@ -1,0 +1,7 @@
+{
+	"name": "@borger/plugin_sdk",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	}
+}

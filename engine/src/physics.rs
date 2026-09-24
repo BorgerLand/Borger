@@ -1,5 +1,5 @@
 use crate::tick::TickInfo;
-use crate::untracked::UntrackedState;
+use borger_plugin_sdk::traits::UntrackedState;
 use glam::Vec3;
 use rapier3d::prelude::*;
 use std::fmt::{Debug, Error, Formatter};

@@ -4,14 +4,15 @@ version.workspace = true
 edition.workspace = true
 
 [features]
-server = ["borger/server", "game/server_internal_only_dont_use"]
+server = ["borger_plugin_sdk/server", "borger/server", "game/server_internal_only_dont_use"]
 
 #do not use. this is for nicer rust-analyzer support only
-client = ["borger/client", "game/client_internal_only_dont_use"]
+client = ["borger_plugin_sdk/client", "borger/client", "game/client_internal_only_dont_use"]
 session_replay = []
 singlethreaded = []
 
 [dependencies]
+borger_plugin_sdk = { path = "../plugins/sdk/rs" }
 borger = { path = "../engine" }
 game = { path = "../.." }
 

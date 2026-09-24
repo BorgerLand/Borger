@@ -1,32 +1,11 @@
-#[cfg(feature = "client")]
-use {
-	crate::Scope, crate::interpolation::*, crate::networked_types::primitive::usize32, crate::presentation,
-};
+use crate::interpolation::*;
+use crate::presentation;
+use crate::scope::Scope;
+use borger_plugin_sdk::primitive::usize32;
+use borger_plugin_sdk::traits::InterpolateTicks;
 
-///Classic lerp/slerp helper for various simple math primitives
-pub trait Interpolate: Copy {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self;
-}
-
-//trait exists to fire events when some change occurs between
-//ticks (eg. for slotmaps, adding+removing slots). prv has to
-//be an option in order to fire initial collection add/remove
-//events, otherwise no change would be detected
-#[cfg(feature = "client")]
-pub trait InterpolateTicks<Prv = Self> {
-	type InterpolationOutput;
-	fn interpolate_and_diff(
-		prv: Option<&Prv>,
-		cur: &Self,
-		amount: f32,
-		received_new_tick: bool,
-	) -> Self::InterpolationOutput;
-}
-
-#[cfg(feature = "client")]
 pub type Client = Scope<ClientOwned, ClientRemote>;
 
-#[cfg(feature = "client")]
 impl InterpolateTicks for presentation::Client {
 	type InterpolationOutput = Client;
 	fn interpolate_and_diff(
@@ -66,7 +45,6 @@ impl InterpolateTicks for presentation::Client {
 	}
 }
 
-#[cfg(feature = "client")]
 pub struct InterpolationContext {
 	pub local_client_id: usize32,
 	pub output: InterpolationOutput,

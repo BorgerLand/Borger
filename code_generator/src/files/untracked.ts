@@ -1,23 +1,18 @@
-import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
-	VALID_TYPES,
-	type FlattenedStruct,
-	isCollection,
-} from "@borger/code_generator/common.ts";
+import { ENGINE_GENERATED_DIR, stateWarningBlock, VALID_TYPES } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
-export function generateUntracked(simStructs: FlattenedStruct[][]) {
+export function generateUntracked(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/untracked.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/untracked.rs`,
+		`${stateWarningBlock()}
 
 use crate::simulation::*;
-use crate::untracked::UntrackedState;
+use borger_plugin_sdk::traits::UntrackedState;
 
 ${VALID_TYPES}
 
-${simStructs
+${flattened.output
 	.map((group) =>
 		group
 			.map(function generateConstructor(struct) {
@@ -27,9 +22,10 @@ ${simStructs
 	{
 		${struct.fields
 			.filter(
-				({ outerType, isCustomStruct, netVisibility }) =>
-					outerType !== "Input" &&
-					(isCustomStruct || isCollection(outerType) || netVisibility === "untracked"),
+				({ outerType, typeKind, netVisibility }) =>
+					(typeKind === "struct" && outerType !== "Input") ||
+					typeKind === "collection" ||
+					netVisibility === "untracked",
 			)
 			.map(function generateSimConstruct({ name, netVisibilityAttribute }) {
 				return `${netVisibilityAttribute}

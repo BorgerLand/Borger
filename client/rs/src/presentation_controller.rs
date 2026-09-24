@@ -1,8 +1,9 @@
-use borger::interpolation::{InterpolateTicks, InterpolationContext};
+use borger::interpolation::InterpolationContext;
 use borger::presentation::{PresentationContext, PresentationOutput};
 use borger::simulation::Input;
 use borger::simulation_controller::{self, SimControllerExternals};
 use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
+use borger_plugin_sdk::traits::InterpolateTicks;
 use game::input;
 use js_sys::{Function, Uint8Array};
 use log::Level;

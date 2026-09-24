@@ -1,25 +1,74 @@
-import { type Field, type Struct } from "@borger/code_generator/state_schema.ts";
-import type {
-	FlattenedStruct,
-	AllFlattenedStructs,
-	FlattenedField,
-	DiffPath,
-	ClientKind,
-} from "@borger/code_generator/common.ts";
-import { isGeneric, nvEnum } from "@borger/code_generator/common.ts";
+import type { Field, NetVisibility, Presentation, Struct, Plugin } from "@borger/plugin_sdk";
+import { nvEnum } from "@borger/code_generator/common.ts";
+import {
+	collectionTypeSchema,
+	primitiveTypeSchema,
+	type PrimitiveType,
+} from "@borger/code_generator/state_schema.ts";
 
-//recursively traverse the state object and "flatten" it
-//into a big list of structs
+export type FlattenedOutput = {
+	output: FlattenedStruct[][]; //inner layer = structs that are grouped in the same diff path, outer layer = all
+	input: FlattenedStruct[];
+	plugins: Plugin[];
+};
+
+export type FlattenedStruct = {
+	name: string;
+	path: string[];
+	clientKind: ClientKind;
+	netVisibility: NetVisibility;
+	fields: FlattenedField[];
+	collectionNestDepth: number;
+};
+
+export type FlattenedField = {
+	name: string;
+	netVisibility: NetVisibility;
+	netVisibilityAttribute: string;
+	presentation?: Presentation;
+	fieldID: number | "N/A";
+} & (
+	| {
+			typeKind: "struct" | "external";
+			outerType: string; //if external, this is an fqn, if struct then nope
+			innerType?: never;
+			plugin?: never;
+	  }
+	| {
+			typeKind: "primitive";
+			outerType: PrimitiveType;
+			innerType?: never;
+			plugin?: never;
+	  }
+	| {
+			typeKind: "plugin";
+			outerType: string; //fqn of the type
+			innerType?: never;
+			plugin: Plugin;
+	  }
+	| {
+			typeKind: "collection";
+			outerType: string; //fqn of the type, excluding generic params
+			innerType: string; //inner generic param type inside the <>
+			plugin?: never;
+	  }
+);
+
+type ClientKind = "NA" | "Owned" | "Remote";
+
+//recursively traverse the state object and "flatten" it into a big list of structs
 export function flatten(
 	parentStruct: Struct,
+	plugins: Plugin[],
 	parentPath: string[] = ["state"],
 	parentField?: Field,
 	parentClientKind: ClientKind = "NA",
-	structsFlattened: AllFlattenedStructs = {
+	structsFlattened: FlattenedOutput = {
 		output: [[]],
 		input: [],
+		plugins,
 	},
-	diffPathInfo: { path: DiffPath; depth: number; structGroupID: number; fieldID: number } = {
+	diffPathInfo: { path: (string | number)[]; depth: number; structGroupID: number; fieldID: number } = {
 		path: [],
 		depth: 0,
 		structGroupID: 0,
@@ -76,27 +125,43 @@ export function flatten(
 
 		let childFieldFlattened: FlattenedField | undefined;
 		if (!skipGeneratingField) {
-			//default to treating this field as primitive data.
-			//go back and change it later if needed
-			childFieldFlattened = {
+			const childFieldFlattenedCommon = {
 				name: childFieldName,
-				outerType: childField.type,
-				fullType: childField.type,
-				innerType: childField.type,
-				isCustomStruct: childField.type === "struct",
 				presentation: childField.presentation,
 				netVisibility: childField.netVisibility,
 				netVisibilityAttribute: netVisibilityAttribute!,
 				fieldID,
-			};
+			} as const;
+
+			const plugin = plugins.find((plugin) => plugin.name === childField.type);
+			if (plugin) {
+				childFieldFlattened = {
+					...childFieldFlattenedCommon,
+					typeKind: "plugin",
+					outerType: plugin.rustSimFQN,
+					plugin,
+				};
+			} else {
+				const primitiveParse = primitiveTypeSchema.safeParse(childField.type);
+				if (primitiveParse.success) {
+					childFieldFlattened = {
+						...childFieldFlattenedCommon,
+						typeKind: "primitive",
+						outerType: primitiveParse.data,
+					};
+				} else {
+					childFieldFlattened = {
+						...childFieldFlattenedCommon,
+						typeKind: "external", // compute struct+collection later and overwrite
+						outerType: childField.type,
+					};
+				}
+			}
 
 			parentStructFlattened.fields.push(childFieldFlattened);
 		}
 
-		if (
-			(isGeneric(childField.type) || childField.type === "struct") &&
-			childField.netVisibility !== "untracked"
-		) {
+		if (collectionTypeSchema.safeParse(childField.type).success || childField.type === "struct") {
 			//field has nested data (child struct or collection)
 			let childPath = [...parentPath, childFieldName];
 			const childBaseTypeName = childField.typeName ?? pathToStructName(childPath);
@@ -109,22 +174,17 @@ export function flatten(
 				childClientKind = "NA";
 			}
 
-			if (!skipGeneratingField && /*redundant:*/ childFieldFlattened) {
+			if (childFieldFlattened) {
 				if (childField.type === "struct") {
-					//static struct
-					childFieldFlattened.fullType =
-						childFieldFlattened.outerType =
-						childFieldFlattened.innerType =
-							generateStructName(childBaseTypeName, childClientKind);
+					childFieldFlattened.typeKind = "struct";
+					childFieldFlattened.outerType = generateStructName(childBaseTypeName, childClientKind);
 				} else {
-					//collection/dynamic allocation - the content must
-					//always be a struct, even if the declaration only
-					//requests a primitive. this gives the _diff_path
-					//field and state-tracking setter method a home
-					const innerType = generateStructName(childBaseTypeName, childClientKind);
-					childFieldFlattened.fullType = `${childField.type}<${innerType}>`;
+					//the content must always be a struct, even if the content
+					//was declared as a string. this gives the _diff_path field
+					//and state-tracking setter method a home
+					childFieldFlattened.typeKind = "collection";
 					childFieldFlattened.outerType = childField.type;
-					childFieldFlattened.innerType = innerType;
+					childFieldFlattened.innerType = generateStructName(childBaseTypeName, childClientKind);
 				}
 			}
 
@@ -135,7 +195,7 @@ export function flatten(
 			if (typeof childField.content === "object") {
 				childStruct = childField.content;
 			} else {
-				//wrap primitive/utility field in a single-field struct.
+				//wrap primitive/plugin field in a single-field struct.
 				//collection's value must implement TrackedState trait,
 				//which can only be implemented by a struct
 				childStruct = {
@@ -143,7 +203,7 @@ export function flatten(
 						netVisibility: childField.netVisibility,
 						presentation: childField.presentation,
 						type: childField.content!,
-					} as Field,
+					},
 				};
 			}
 
@@ -176,6 +236,7 @@ export function flatten(
 				//owned+remote client structs
 				flatten(
 					childStruct,
+					plugins,
 					childPath,
 					childField,
 					"Owned",
@@ -184,6 +245,7 @@ export function flatten(
 				);
 				flatten(
 					childStruct,
+					plugins,
 					childPath,
 					childField,
 					"Remote",
@@ -193,6 +255,7 @@ export function flatten(
 			} else {
 				flatten(
 					childStruct,
+					plugins,
 					childPath,
 					childField,
 					childClientKind,

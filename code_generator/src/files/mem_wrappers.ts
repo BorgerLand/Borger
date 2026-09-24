@@ -1,10 +1,4 @@
-import {
-	CLIENT_TS_GENERATED_DIR,
-	STATE_WARNING,
-	getNestedPath,
-	isPrimitive,
-	type AllFlattenedStructs,
-} from "@borger/code_generator/common.ts";
+import { CLIENT_TS_GENERATED_DIR, stateWarningBlock, getNestedPath } from "@borger/code_generator/common.ts";
 import {
 	multiFieldPrimitiveTypeSchema,
 	simplePrimitiveTypeSchema,
@@ -13,13 +7,14 @@ import {
 } from "@borger/code_generator/state_schema.ts";
 import { presentationStructFilter } from "@borger/code_generator/files/presentation.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
-export function generateMemWrappers(structs: AllFlattenedStructs) {
-	const rootInputStruct = structs.input[0];
+export function generateMemWrappers(flattened: FlattenedOutput) {
+	const rootInputStruct = flattened.input[0];
 
 	writeFileSync(
 		`${CLIENT_TS_GENERATED_DIR}/mem_wrappers.ts`,
-		`${STATE_WARNING}
+		`${stateWarningBlock()}
 
 /*eslint-disable*/
 
@@ -27,7 +22,7 @@ import * as MemWrappers from "@borger/ts/handwritten/mem_wrappers.ts";
 import * as SlotMap from "@borger/ts/networked_types/collections/slotmap.ts";
 import * as Primitive from "@borger/ts/networked_types/primitive.ts";
 
-${structs.input
+${flattened.input
 	.map(
 		({ name, path }) =>
 			`export type ${name} = ReturnType<typeof wrap_Input>${name === "Input" ? `` : `["${getNestedPath(rootInputStruct.path, path).replaceAll(".", '"]["')}"]`}`,
@@ -39,20 +34,21 @@ export function wrap_Input(state: MemWrappers.State, ptr: number)
 	const lifetime = state.curLifetime;
 	const offsets = state.offsets.struct.Input;
 	
-${structs.input
+${flattened.input
+	.slice()
 	.reverse()
 	.map(
 		(struct) =>
 			`	const ${struct.name} =
 	{
 ${struct.fields
-	.map(function generateInputField({ name, outerType, fullType }) {
+	.map(function generateInputField({ name, outerType, typeKind }) {
 		const offset = `offsets.${getNestedPath(rootInputStruct.path, struct.path, name)}`;
 
 		if ((multiFieldPrimitiveTypeSchema.options as string[]).includes(outerType))
 			return `		${name}: Primitive.wrap_mut_${outerType}(state, ptr + ${offset}),`;
 
-		if (isPrimitive(outerType)) {
+		if (typeKind === "primitive") {
 			return `		get_${name}()
 		{
 			MemWrappers.checkUseAfterFree(state, lifetime);
@@ -70,7 +66,7 @@ ${struct.fields
 		},`;
 		}
 
-		return `		${name}: ${fullType},`; //custom struct
+		return `		${name}: ${outerType},`; //custom struct
 	})
 	.join("\n\t\t\n")}${
 				struct.name === "Input"
@@ -90,7 +86,7 @@ ${struct.fields
 }
 
 export type GameContext = ReturnType<typeof wrap_GameContext>;
-${structs.output
+${flattened.output
 	.filter((group) => presentationStructFilter(group[0]))
 	.map(function generateOutputTypes(group) {
 		const rootStruct = group[0];
@@ -120,20 +116,24 @@ ${group
 	{
 ${struct.fields
 	.filter((field) => field.presentation)
-	.map(function generateOutputField({ name, outerType, fullType, innerType, isCustomStruct }) {
-		if (isCustomStruct) return `		${name}: ${fullType},`;
+	.map(function generateOutputField({ name, outerType, innerType, typeKind, plugin }) {
+		if (typeKind === "struct") return `		${name}: ${outerType},`;
 
 		const offset = `offsets.${getNestedPath(rootStruct.path, outputStructPath, name)}`;
 
-		if (isPrimitive(outerType)) return `		${name}: ${getPrimitive(outerType, offset)},`;
-		if (outerType === "EventDispatcher") return `		${name}: ${getPrimitive("bool", offset)},`;
+		if (typeKind === "primitive") return `		${name}: ${getPrimitive(outerType, offset)},`;
+		if (typeKind === "plugin")
+			return `		${name}: ${plugin.tsMemWrappers!(offset)
+				.split("\n")
+				.map((line, i) => (i === 0 ? line : `		${line}`))
+				.join("\n")},`;
 
 		if (outerType === "SlotMap")
 			return `		${name}: SlotMap.wrap
 		(
 			state,
 			ptr + ${offset},
-			state.offsets.slotmap.${innerType},
+			state.offsets.plugins.SlotMap.${innerType},
 			wrap_${innerType},
 			state.wasmBindgen.slotmap_get_${innerType},
 		),`;

@@ -1,31 +1,28 @@
 import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
+	ENGINE_GENERATED_DIR,
+	stateWarningBlock,
 	VALID_TYPES,
-	isPrimitive,
-	type FlattenedStruct,
-	isUtility,
-	isCollection,
 	nvEnum,
 } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
-export function generateConstructors(simStructs: FlattenedStruct[][]) {
+export function generateConstructors(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/constructors.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/constructors.rs`,
+		`${stateWarningBlock()}
 
 use crate::simulation::*;
-use crate::constructors::{ConstructCustomStruct, ConstructCollectionOrUtilityType};
-use crate::ClientKind;
+use borger_plugin_sdk::traits::{ConstructCustomStruct, ConstructPlugin};
+use borger_plugin_sdk::ClientKind;
 use std::rc::Rc;
 
 #[cfg(feature = "server")]
-use crate::NetVisibility;
+use borger_plugin_sdk::NetVisibility;
 
 ${VALID_TYPES}
 
-${simStructs
+${flattened.output
 	.map((group) =>
 		group
 			.map(function generateConstructor(struct) {
@@ -42,12 +39,13 @@ ${simStructs
 					netVisibilityAttribute,
 					outerType,
 					fieldID,
+					typeKind,
 				}) {
 					let constructor;
-					if (isPrimitive(outerType) || outerType === "Input" || netVisibility === "untracked") {
+					if (typeKind === "primitive" || outerType === "Input" || netVisibility === "untracked") {
 						if (outerType === "Input") outerType = "InputHistory";
 						constructor = `default()`;
-					} else if (isCollection(outerType) || isUtility(outerType)) {
+					} else if (typeKind === "collection" || typeKind === "plugin") {
 						constructor = `construct
 			(
 				path,

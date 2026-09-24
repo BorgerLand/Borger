@@ -1,27 +1,19 @@
-import {
-	BORGER_GENERATED_DIR,
-	STATE_WARNING,
-	isPrimitive,
-	type FlattenedStruct,
-	getNestedPath,
-	type FlattenedField,
-} from "@borger/code_generator/common.ts";
+import { ENGINE_GENERATED_DIR, stateWarningBlock, getNestedPath } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
+import type { FlattenedField, FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 //new client: all public data should be serialized
 //predict remove: all locally accessible data should be serialized. "all" has different meanings depending on server/client
-export function generateSnapshotSerDes(simStructs: FlattenedStruct[][]) {
+export function generateSnapshotSerDes(flattened: FlattenedOutput) {
 	writeFileSync(
-		`${BORGER_GENERATED_DIR}/snapshot_serdes.rs`,
-		`${STATE_WARNING}
+		`${ENGINE_GENERATED_DIR}/snapshot_serdes.rs`,
+		`${stateWarningBlock()}
 
 use crate::simulation::*;
-use crate::DeserializeOopsy;
-use crate::networked_types::primitive::PrimitiveSerDes;
-use crate::snapshot_serdes::SnapshotState;
-use crate::networked_types::primitive::usize32;
+use borger_plugin_sdk::primitive::{PrimitiveSerDes, DeserializeOopsy, usize32};
+use borger_plugin_sdk::traits::SnapshotState;
 
-${simStructs
+${flattened.output
 	.map(function generatePredictRemoveImpl(group) {
 		const rootStruct = group[0];
 		return `impl SnapshotState for ${rootStruct.name}
@@ -37,14 +29,14 @@ ${group
 				name,
 				netVisibility,
 				netVisibilityAttribute,
-				outerType,
+				typeKind,
 			}) {
 				const isClientData = struct.path[1] === "clients";
 				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
-				if (isPrimitive(outerType)) serializer = `self.${field}.ser_tx(_buffer)`;
-				else serializer = `self.${field}.ser_tx_new_client(_client_id, _buffer)`; //collections+utilities
+				if (typeKind === "primitive") serializer = `self.${field}.ser_tx(_buffer)`;
+				else serializer = `self.${field}.ser_tx_new_client(_client_id, _buffer)`; //collections+plugins
 
 				if (isClientData && netVisibility === "owner") {
 					//scope filtering: skip sending this state to any
@@ -71,12 +63,13 @@ ${group
 	.map((struct) =>
 		struct.fields
 			.filter(canSnapshotNewClient)
-			.map(function generateSerializeRemoveField({ name, netVisibilityAttribute, outerType }) {
+			.map(function generateSerializeRemoveField({ name, netVisibilityAttribute, typeKind }) {
 				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
-				if (isPrimitive(outerType)) serializer = `self.${field} = PrimitiveSerDes::des_rx(_buffer)?`;
-				else serializer = `self.${field}.des_rx_new_client(_client_id, _buffer)?`; //collections+utilities
+				if (typeKind === "primitive")
+					serializer = `self.${field} = PrimitiveSerDes::des_rx(_buffer)?`;
+				else serializer = `self.${field}.des_rx_new_client(_client_id, _buffer)?`; //collections+plugins
 
 				return `		${netVisibilityAttribute}
 		${serializer};`;
@@ -98,12 +91,12 @@ ${group
 			.filter(canSnapshotPredictRemove)
 			.slice()
 			.reverse()
-			.map(function generateSerializeRemoveField({ name, netVisibilityAttribute, outerType }) {
+			.map(function generateSerializeRemoveField({ name, netVisibilityAttribute, typeKind }) {
 				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
-				if (isPrimitive(outerType)) serializer = `self.${field}.ser_rollback(_buffer)`;
-				else serializer = `self.${field}.ser_rollback_predict_remove(_buffer)`; //collections+utilities
+				if (typeKind === "primitive") serializer = `self.${field}.ser_rollback(_buffer)`;
+				else serializer = `self.${field}.ser_rollback_predict_remove(_buffer)`; //collections+plugins
 
 				return `		${netVisibilityAttribute}
 		${serializer};`;
@@ -123,14 +116,14 @@ ${group
 				name,
 				netVisibility,
 				netVisibilityAttribute,
-				outerType,
+				typeKind,
 			}) {
 				const field = getNestedPath(rootStruct.path, struct.path, name);
 
 				let serializer;
-				if (isPrimitive(outerType))
+				if (typeKind === "primitive")
 					serializer = `self.${field} = PrimitiveSerDes::des_rollback(_buffer)?`;
-				else serializer = `self.${field}.des_rollback_predict_remove(_buffer)?`; //collection
+				else serializer = `self.${field}.des_rollback_predict_remove(_buffer)?`; //collections+plugins
 
 				//brackets are a workaround for https://github.com/rust-lang/rust/issues/127436
 				if (netVisibility === "private") serializer = `{ ${serializer} }`;
@@ -148,7 +141,7 @@ ${group
 
 		function canSnapshotNewClient(field: FlattenedField) {
 			return (
-				!field.isCustomStruct &&
+				field.typeKind !== "struct" &&
 				field.netVisibility !== "private" &&
 				field.netVisibility !== "untracked"
 			);
@@ -160,7 +153,7 @@ ${group
 					rootStruct.collectionNestDepth === 0 || //skip State. can't delete the entire game
 					(rootStruct.collectionNestDepth === 1 && rootStruct.path[1] === "clients") //removal of a client is unrollbackable
 				) &&
-				!field.isCustomStruct &&
+				field.typeKind !== "struct" &&
 				field.netVisibility !== "untracked"
 			);
 		}

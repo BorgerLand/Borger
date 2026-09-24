@@ -1,12 +1,14 @@
 use crate::diff_ser::DiffSerializer;
-use crate::multiplayer_tradeoff::{Immediate, WaitForConsensus};
-use crate::networked_types::primitive::usize32;
 use crate::simulation::{Input, State};
 use crate::simulation_controller::GameContext;
-use crate::tick::TickID;
+use borger_plugin_sdk::TickID;
+use borger_plugin_sdk::multiplayer_tradeoff::{Immediate, WaitForConsensus};
+use borger_plugin_sdk::primitive::usize32;
 
 pub mod multiplayer_tradeoff;
 pub mod physics;
+pub mod scope;
+pub mod slotmap;
 
 ///Drives the simulation tick; controls pretty
 ///much everything from atop its throne
@@ -21,23 +23,16 @@ pub mod thread_comms;
 ///Time-keeping
 pub mod tick;
 
-///Serdes strategies for all networked state types
-pub mod networked_types;
-
-///Random small snippets of code that didn't seem
-///to belong anywhere else
-mod misc;
-pub(crate) use misc::*;
-
 mod handwritten {
 	pub(crate) mod constructors;
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
-	pub(crate) mod interpolation;
 	pub(crate) mod simulation;
 	pub(crate) mod snapshot_serdes;
 	pub(crate) mod untracked;
 
+	#[cfg(feature = "client")]
+	pub(crate) mod interpolation;
 	#[cfg(feature = "client")]
 	pub(crate) mod presentation;
 }
@@ -47,11 +42,19 @@ mod generated {
 	pub(crate) mod constructors;
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
-	pub(crate) mod interpolation;
+	pub(crate) mod plugin_exports;
 	pub(crate) mod simulation;
 	pub(crate) mod snapshot_serdes;
+	///Responsible for resetting fields with netVisibility: "Untracked"
+	///back to their default values in between ticks. This is important
+	///for maintaining deterministic behavior; otherwise, the data in
+	///each untracked field is stale/left over from any arbitrary tick,
+	///forward or backward in time. It'd be the same effect as reading
+	///from uninitialized memory
 	pub(crate) mod untracked;
 
+	#[cfg(feature = "client")]
+	pub(crate) mod interpolation;
 	#[cfg(feature = "client")]
 	pub(crate) mod presentation;
 }
@@ -63,17 +66,13 @@ pub mod simulation {
 	pub use super::handwritten::simulation::*;
 }
 
-///Constructors for state objects
-pub(crate) mod constructors {
-	pub use super::handwritten::constructors::*;
-}
-
 ///Any changes to state during the simulation tick
 ///are recorded by this system as they're
 ///happening. Rollback and rx systems use this
 ///data to make multiplayer happen
 pub mod diff_ser {
-	pub use super::handwritten::diff_ser::*;
+	pub(crate) use super::handwritten::diff_ser::*;
+	pub use borger_plugin_sdk::diff_ser::*;
 
 	#[cfg(feature = "client")]
 	pub(crate) use super::generated::diff_ser::*;
@@ -105,16 +104,6 @@ pub(crate) mod snapshot_serdes {
 	pub use super::handwritten::snapshot_serdes::*;
 }
 
-///Responsible for resetting fields with netVisibility: "Untracked"
-///back to their default values in between ticks. This is important
-///for maintaining deterministic behavior; otherwise, the data in
-///each untracked field is stale/left over from any arbitrary tick,
-///forward or backward in time. It'd be the same effect as reading
-///from uninitialized memory
-pub(crate) mod untracked {
-	pub use super::handwritten::untracked::*;
-}
-
 ///Stripped down version of state (only fields with
 ///with presentation enabled), cloned and shipped to
 ///the presentation thread at the end of each client
@@ -126,10 +115,9 @@ pub mod presentation {
 }
 
 ///Interpolation and presentation of entities
+#[cfg(feature = "client")]
 pub mod interpolation {
-	#[cfg(feature = "client")]
 	pub use super::generated::interpolation::*;
-
 	pub use super::handwritten::interpolation::*;
 }
 
@@ -138,11 +126,14 @@ pub mod prelude {
 	pub use crate::SimulationInitOptions;
 	pub use crate::diff_ser::DiffSerializer;
 	pub use crate::multiplayer_tradeoff; //macro
-	pub use crate::multiplayer_tradeoff::*;
-	pub use crate::networked_types::primitive::usize32;
 	pub use crate::simulation::*;
 	pub use crate::simulation_controller::GameContext;
-	pub use crate::tick::{TickID, TickInfo};
+	pub use crate::tick::TickInfo;
+	pub use borger_plugin_sdk::TickID;
+	pub use borger_plugin_sdk::multiplayer_tradeoff::{
+		AnyTradeOff, Immediate, ImmediateOrWaitForServer, WaitForConsensus, WaitForServer,
+	};
+	pub use borger_plugin_sdk::primitive::usize32;
 	pub use borger_procmac::server;
 	pub use log::{debug, error, info, warn};
 }

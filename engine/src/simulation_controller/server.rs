@@ -1,8 +1,10 @@
 use super::*;
-use crate::networked_types::primitive::PrimitiveSerDes;
+use crate::diff_des;
 use crate::snapshot_serdes;
-use crate::tick::{TickID, TickInfo, TickType, UnrollbackableNetEvent};
-use crate::{ClientKind, diff_des};
+use crate::tick::{TickInfo, UnrollbackableNetEvent};
+use borger_plugin_sdk::multiplayer_tradeoff::DiffSerializerToConsensus;
+use borger_plugin_sdk::primitive::PrimitiveSerDes;
+use borger_plugin_sdk::{ClientKind, TickID, TickType};
 use log::debug;
 use std::sync::mpsc::channel as sync_unbounded_channel;
 
