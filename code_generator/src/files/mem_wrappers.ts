@@ -32,7 +32,7 @@ ${flattened.input
 export function wrap_Input(state: MemWrappers.State, ptr: number)
 {
 	const lifetime = state.curLifetime;
-	const offsets = state.offsets.struct.Input;
+	const offsets = state.offsets.structs.Input;
 	
 ${flattened.input
 	.slice()
@@ -103,7 +103,7 @@ ${flattened.output
 
 ${rootStructName === "GameContext" ? "export " : ""}function wrap_${rootStructName}(state: MemWrappers.State, ptr: number${rootStructName === "GameContext" ? ", input: Input" : ""})
 {
-	const offsets = state.offsets.struct.${rootStructName};
+	const offsets = state.offsets.structs.${rootStructName};
 	
 ${group
 	.filter(presentationStructFilter)
@@ -172,7 +172,7 @@ export type Client =
 
 function wrap_Client(state: MemWrappers.State, ptr: number): Client
 {
-	const offsets = state.offsets.struct.Client;
+	const offsets = state.offsets.structs.Client;
 	return state.memView.getUint8(ptr) === ClientDiscriminant.Owned
 			? { type: ClientDiscriminant.Owned, value: wrap_ClientOwned(state, ptr + offsets.owned) }
 			: { type: ClientDiscriminant.Remote, value: wrap_ClientRemote(state, ptr + offsets.remote) };
