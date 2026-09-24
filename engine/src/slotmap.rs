@@ -102,9 +102,6 @@ impl<V> RawSlotMap<V> {
 
 	pub fn clear(&mut self) -> usize32 {
 		let len = self.len();
-		if len == 0 {
-			return 0;
-		}
 
 		self.slots.clear();
 		self.random_access.clear();
@@ -261,7 +258,9 @@ impl<V: CustomStruct> SlotMap<V> {
 	//compared to iter+remove
 	pub fn clear(&mut self, diff: &mut DiffSerializer<impl AnyTradeOff>) -> usize32 {
 		let len = self.data.len();
-		if len == 0 {
+
+		//can't early exit if next_id != 0. must still reset the id
+		if len == 0 && self.data.next_id == 0 {
 			return 0;
 		}
 
