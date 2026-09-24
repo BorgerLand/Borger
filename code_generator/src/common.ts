@@ -29,7 +29,9 @@ export const VALID_TYPES = `use
 };`;
 
 export function pluginCrateName(plugin: Plugin) {
-	return plugin.rustSimFQN.split("::").find((segment) => segment.length > 0);
+	const crateName = plugin.rustSimFQN.split("::").find((segment) => segment.length > 0);
+	if (!crateName) throw Error(`Plugin ${plugin.name} has invalid rustSimFQN`);
+	return crateName;
 }
 
 /*

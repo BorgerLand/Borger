@@ -7,7 +7,7 @@ export function generatePluginExports(flattened: FlattenedOutput) {
 		`${ENGINE_GENERATED_DIR}/plugin_exports.rs`,
 		`${stateWarningBlock()}
 
-${flattened.plugins.map((plugin) => `pub use ${pluginCrateName(plugin)}::*;`).join("\n")}
+${[...new Set(flattened.plugins.map(pluginCrateName))].map((crateName) => `pub use ${crateName};`).join("\n")}
 `,
 	);
 }

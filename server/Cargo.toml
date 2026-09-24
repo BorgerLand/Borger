@@ -18,7 +18,7 @@ game = { path = "../.." }
 
 log.workspace = true
 
-tokio = { version = "*", default-features = false, features = ["rt"] }
+tokio = { version = "*", default-features = false, features = ["rt", "macros", "net", "time", "fs", "io-util", "sync"] }
 wtransport = { version = "*", default-features = false, features = ["ring", "self-signed"] }
 simple_logger = { version = "*", default-features = false, features = ["colors"] }
 clap = { version = "*", default-features = false, features = ["std", "derive", "color", "error-context", "help", "suggestions", "usage"] }
