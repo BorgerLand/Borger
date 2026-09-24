@@ -1,17 +1,20 @@
-use crate::diff_ser::DiffSerializer;
 use crate::simulation::{Input, State};
 use crate::simulation_controller::GameContext;
 use borger_plugin_sdk::TickID;
+use borger_plugin_sdk::diff_ser::DiffSerializer;
 use borger_plugin_sdk::multiplayer_tradeoff::{Immediate, WaitForConsensus};
 use borger_plugin_sdk::primitive::usize32;
 
-pub mod multiplayer_tradeoff;
+pub(crate) mod multiplayer_tradeoff;
+pub(crate) mod scope;
+
+//things that really ought to be plugins but aren't
 pub mod physics;
-pub mod scope;
 pub mod slotmap;
 
 ///Drives the simulation tick; controls pretty
 ///much everything from atop its throne
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub mod simulation_controller;
 
 ///Defines bidirectional, RPC-like communication
@@ -21,7 +24,7 @@ pub mod simulation_controller;
 pub mod thread_comms;
 
 ///Time-keeping
-pub mod tick;
+pub(crate) mod tick;
 
 mod handwritten {
 	pub(crate) mod constructors;
@@ -42,7 +45,6 @@ mod generated {
 	pub(crate) mod constructors;
 	pub(crate) mod diff_des;
 	pub(crate) mod diff_ser;
-	pub(crate) mod plugin_exports;
 	pub(crate) mod simulation;
 	pub(crate) mod snapshot_serdes;
 	///Responsible for resetting fields with netVisibility: "Untracked"
@@ -57,6 +59,9 @@ mod generated {
 	pub(crate) mod interpolation;
 	#[cfg(feature = "client")]
 	pub(crate) mod presentation;
+
+	#[cfg(any(feature = "server", feature = "client"))]
+	pub(crate) mod plugin_exports;
 }
 
 ///Struct definitions of state objects
@@ -72,7 +77,6 @@ pub mod simulation {
 ///data to make multiplayer happen
 pub mod diff_ser {
 	pub(crate) use super::handwritten::diff_ser::*;
-	pub use borger_plugin_sdk::diff_ser::*;
 
 	#[cfg(feature = "client")]
 	pub(crate) use super::generated::diff_ser::*;
@@ -124,18 +128,21 @@ pub mod interpolation {
 ///Helpful types and macros when writing simulation logic
 pub mod prelude {
 	pub use crate::SimulationInitOptions;
-	pub use crate::diff_ser::DiffSerializer;
-	pub use crate::multiplayer_tradeoff; //macro
 	pub use crate::simulation::*;
 	pub use crate::simulation_controller::GameContext;
 	pub use crate::tick::TickInfo;
 	pub use borger_plugin_sdk::TickID;
+	pub use borger_plugin_sdk::diff_ser::DiffSerializer;
 	pub use borger_plugin_sdk::multiplayer_tradeoff::{
 		AnyTradeOff, Immediate, ImmediateOrWaitForServer, WaitForConsensus, WaitForServer,
 	};
-	pub use borger_plugin_sdk::primitive::usize32;
+	pub use borger_plugin_sdk::primitive::{isize32, usize32};
+	pub use borger_plugin_sdk::traits::Interpolate;
 	pub use borger_procmac::server;
 	pub use log::{debug, error, info, warn};
+
+	#[doc(inline)]
+	pub use crate::multiplayer_tradeoff; //macro
 }
 
 pub struct SimulationInitOptions {

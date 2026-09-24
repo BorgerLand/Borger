@@ -6,7 +6,7 @@ use borger_procmac::get_plugin_diff_op_range;
 use std::collections::VecDeque;
 
 #[cfg(feature = "client")]
-use {crate::diff_ser::DiffSerializer, borger_plugin_sdk::multiplayer_tradeoff::Impl, std::vec};
+use {borger_plugin_sdk::diff_ser::DiffSerializer, borger_plugin_sdk::multiplayer_tradeoff::Impl, std::vec};
 
 impl DiffDeserializeCustomStruct for Client {
 	fn set_field_rollback(

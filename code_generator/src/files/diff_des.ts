@@ -27,7 +27,7 @@ use crate::simulation::Input;
 #[cfg(feature = "client")]
 use
 {
-	crate::diff_ser::DiffSerializer,
+	borger_plugin_sdk::diff_ser::DiffSerializer,
 	borger_plugin_sdk::multiplayer_tradeoff::Impl,
 	std::vec,
 };

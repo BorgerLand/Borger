@@ -154,6 +154,7 @@ use std::mem;
 ///} satisfies State;
 ///```
 #[macro_export]
+#[doc(hidden)]
 macro_rules! multiplayer_tradeoff
 {
 	//WaitForServer - adds server feature flag

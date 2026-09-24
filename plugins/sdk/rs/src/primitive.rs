@@ -21,7 +21,6 @@ const PTR_ERR: &str = "Server must abort because it is using more memory than a 
 #[derive(Debug)]
 pub struct DeserializeOopsy;
 
-#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub fn usize_to_32(v: usize) -> usize32 {
 	#[cfg(target_pointer_width = "32")]
 	return v as usize32;

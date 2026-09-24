@@ -21,7 +21,7 @@ use {crate::NetVisibility, std::collections::HashMap};
 ///cur_time -= 1;
 ///ctx.state.set_time(cur_time, diff);
 ///```
-#[derive(Default)]
+#[cfg_attr(any(feature = "server", feature = "client"), derive(Default))]
 pub struct DiffSerializer<TradeOff: AnyTradeOff> {
 	//write the PREVIOUS value of a state in order to
 	//undo+resimulate it later. will be read back to
@@ -75,6 +75,7 @@ impl Default for TxData {
 
 //using the fact that "Impl" is inaccessible from the game
 //in order to make the object opaque
+#[cfg(any(feature = "server", feature = "client"))]
 impl DiffSerializer<Impl> {
 	//---state change tracking---//
 	//ser_rollback_begin and the server side version of ser_tx_begin

@@ -29,7 +29,7 @@ rapier3d.workspace = true
 web-time = { version = "*", default-features = false }
 wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33
 
-${flattened.plugins.map((plugin) => `${pluginCrateName(plugin)} = { path = "../../node_modules/${plugin.nodePackageName}" }`).join("\n")}
+${flattened.plugins.map((plugin) => `${pluginCrateName(plugin)} = { path = "../../node_modules/${plugin.nodePackageName}", optional = true }`).join("\n")}
 
 #server only
 tokio = { version = "*", optional = true, default-features = false }

@@ -66,10 +66,12 @@ impl DiffSerializerToConsensus for DiffSerializer<Impl> {
 	}
 }
 
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 pub trait DiffSerializerToImpl {
 	fn to_impl(&mut self) -> &mut DiffSerializer<Impl>;
 }
 
+#[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
 impl<TradeOff: AnyTradeOff> DiffSerializerToImpl for DiffSerializer<TradeOff> {
 	fn to_impl(&mut self) -> &mut DiffSerializer<Impl> {
 		unsafe { mem::transmute(self) }

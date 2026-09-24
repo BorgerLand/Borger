@@ -14,7 +14,8 @@ export function generateDiffSer(flattened: FlattenedOutput) {
 		`${stateWarningBlock()}
 
 use crate::simulation::*;
-use crate::diff_ser::{DiffSerializer, ser_sim_primitive};
+use crate::diff_ser::ser_sim_primitive;
+use borger_plugin_sdk::diff_ser::DiffSerializer;
 use borger_plugin_sdk::multiplayer_tradeoff::{AnyTradeOff, DiffSerializerToImpl};
 
 #[cfg(feature = "server")]
