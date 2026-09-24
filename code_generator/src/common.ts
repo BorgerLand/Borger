@@ -25,7 +25,7 @@ export const VALID_TYPES = `use
 {
 	glam::{Vec2, DVec2, Vec3, DVec3, Quat, DQuat},
 	borger_plugin_sdk::primitive::{usize32, isize32},
-	crate::slotmap::SlotMap,
+	crate::plugins::slotmap::SlotMap,
 };`;
 
 export function pluginCrateName(plugin: Plugin) {

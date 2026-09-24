@@ -133,7 +133,10 @@ ${group
 ${group
 	.map((struct) =>
 		struct.fields
-			.filter((field) => field.typeKind === "collection" || field.typeKind === "plugin")
+			.filter(
+				({ typeKind, netVisibility }) =>
+					(typeKind === "collection" || typeKind === "plugin") && netVisibility !== "untracked",
+			)
 			.map(function generateGetter({ name, netVisibilityAttribute, fieldID }) {
 				const field = getNestedPath(rootStruct.path, struct.path, name);
 

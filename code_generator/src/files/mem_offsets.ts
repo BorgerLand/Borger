@@ -19,7 +19,7 @@ use borger::interpolation::*;
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Reflect, Number};
 use std::mem::offset_of;
-use borger::slotmap::InterpolationSlotMap;
+use borger::plugins::slotmap::InterpolationSlotMap;
 use borger_plugin_sdk::primitive::usize32;
 
 //what is exposed as "GameContext" in ts maps to an

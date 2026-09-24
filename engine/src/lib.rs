@@ -8,10 +8,6 @@ use borger_plugin_sdk::primitive::usize32;
 pub(crate) mod multiplayer_tradeoff;
 pub(crate) mod scope;
 
-//things that really ought to be plugins but aren't
-pub mod physics;
-pub mod slotmap;
-
 ///Drives the simulation tick; controls pretty
 ///much everything from atop its throne
 #[cfg_attr(not(any(feature = "server", feature = "client")), doc(hidden))]
@@ -38,6 +34,9 @@ mod handwritten {
 	pub(crate) mod interpolation;
 	#[cfg(feature = "client")]
 	pub(crate) mod presentation;
+
+	//things that really ought to be plugins but aren't
+	pub(crate) mod plugin_exports;
 }
 
 #[allow(unused, dead_code)]
@@ -75,11 +74,11 @@ pub mod simulation {
 ///are recorded by this system as they're
 ///happening. Rollback and rx systems use this
 ///data to make multiplayer happen
-pub mod diff_ser {
-	pub(crate) use super::handwritten::diff_ser::*;
+pub(crate) mod diff_ser {
+	pub use super::handwritten::diff_ser::*;
 
 	#[cfg(feature = "client")]
-	pub(crate) use super::generated::diff_ser::*;
+	pub use super::generated::diff_ser::*;
 }
 
 ///Parses and executes operations record by
@@ -123,6 +122,14 @@ pub mod presentation {
 pub mod interpolation {
 	pub use super::generated::interpolation::*;
 	pub use super::handwritten::interpolation::*;
+}
+
+///Plugins add new types that can be used in the state.ts schema
+pub mod plugins {
+	pub use super::handwritten::plugin_exports::*;
+
+	#[cfg(any(feature = "server", feature = "client"))]
+	pub use super::generated::plugin_exports::*;
 }
 
 ///Helpful types and macros when writing simulation logic
