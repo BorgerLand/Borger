@@ -34,6 +34,14 @@ export function pluginCrateName(plugin: Plugin) {
 	return crateName;
 }
 
+//this is specifically for typeKind: "external", which will
+//still have generic params inside of its outerType
+//before: ::example::TypeName<GenericParam>
+//after:  ::example::TypeName
+export function removeGenerics(type: string) {
+	return type.split("<", 1)[0].trim();
+}
+
 /*
 baseGroupPath: ["state", "x", "y"]
 fullPath: ["state", "x", "y"]

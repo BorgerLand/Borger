@@ -160,8 +160,7 @@ export function stateSchema<TrackedPluginType extends string, UntrackedPluginTyp
 						presentation: z.literal("clone"),
 					}),
 					z.object({
-						//- must specify fully qualified name (including the leading
-						//::)
+						//- must specify fully qualified name, including the leading ::
 						//- chosen type must be Debug+Default
 						type: z.string(), //referred to as "external" type kind by flattener
 						presentation: z.never().optional(),

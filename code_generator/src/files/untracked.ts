@@ -1,4 +1,9 @@
-import { ENGINE_GENERATED_DIR, stateWarningBlock, VALID_TYPES } from "@borger/code_generator/common.ts";
+import {
+	ENGINE_GENERATED_DIR,
+	removeGenerics,
+	stateWarningBlock,
+	VALID_TYPES,
+} from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
@@ -30,7 +35,7 @@ ${flattened.output
 			.map(function generateSimConstruct({ name, netVisibilityAttribute, typeKind, outerType }) {
 				let resetter;
 				if (typeKind === "primitive" || typeKind === "external")
-					resetter = `self.${name} = ${outerType}::default()`;
+					resetter = `self.${name} = ${removeGenerics(outerType)}::default()`;
 				else resetter = `self.${name}.reset_untracked()`;
 
 				return `${netVisibilityAttribute}

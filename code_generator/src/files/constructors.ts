@@ -3,6 +3,7 @@ import {
 	stateWarningBlock,
 	VALID_TYPES,
 	nvEnum,
+	removeGenerics,
 } from "@borger/code_generator/common.ts";
 import { writeFileSync } from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
@@ -59,7 +60,7 @@ ${flattened.output
 						constructor = `construct(path, ClientKind::${struct.clientKind})`;
 					}
 
-					const field = `${name}: ${outerType}::${constructor},`;
+					const field = `${name}: ${removeGenerics(outerType)}::${constructor},`;
 					return `
 			
 			${netVisibilityAttribute}
