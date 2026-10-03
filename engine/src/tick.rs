@@ -60,7 +60,7 @@ impl TickInfo {
 	//simulation delta time/tick rate, in seconds/tick.
 	//can be higher or lower than vsync refresh rate.
 	//too low feels kinda floaty, too high hurts performance
-	pub const SIM_DT: f32 = 1.0 / 30.0;
+	pub const SIM_DT: f32 = borger_plugin_sdk::SIM_DT;
 
 	pub(crate) fn new(id_start: TickID, fast_forward_ticks: TickID) -> Self {
 		TickInfo {

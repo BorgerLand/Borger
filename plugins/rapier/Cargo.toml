@@ -1,5 +1,5 @@
 [package]
-name = "borger_event_dispatcher"
+name = "borger_rapier"
 version.workspace = true
 edition.workspace = true
 
@@ -10,5 +10,7 @@ client = []
 [dependencies]
 #note that a plugin lives inside the node_modules folder, and
 #you will have to traverse up .. depending on the nodePackageName
-borger_procmac = { path = "../../../borger/procmac" }
 borger_plugin_sdk = { path = "../../../borger/plugins/sdk/rs" }
+
+glam.workspace = true
+rapier3d.workspace = true

@@ -162,9 +162,7 @@ export function stateSchema<TrackedPluginType extends string, UntrackedPluginTyp
 					z.object({
 						//- must specify fully qualified name (including the leading
 						//::)
-						//- chosen type must either be Debug+Default OR Debug+
-						//UntrackedState+contain a `pub(crate) fn default() -> Self`
-						//method not associated with the Default trait.
+						//- chosen type must be Debug+Default
 						type: z.string(), //referred to as "external" type kind by flattener
 						presentation: z.never().optional(),
 					}),
@@ -278,7 +276,7 @@ export type State<TrackedPluginType extends string, UntrackedPluginType extends 
 	ReturnType<typeof stateSchema<TrackedPluginType, UntrackedPluginType>>
 >;
 
-function validateRecursively(struct: Struct, { isInvalid, error }: RecursiveSchemaValidator) {
+export function validateRecursively(struct: Struct, { isInvalid, error }: RecursiveSchemaValidator) {
 	return traverse(struct);
 	function traverse(childStruct: Struct, parentField?: Field, parentPath: string[] = []): boolean {
 		for (const [childFieldName, childField] of Object.entries(childStruct)) {

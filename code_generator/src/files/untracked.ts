@@ -27,9 +27,14 @@ ${flattened.output
 					typeKind === "collection" ||
 					netVisibility === "untracked",
 			)
-			.map(function generateSimConstruct({ name, netVisibilityAttribute }) {
+			.map(function generateSimConstruct({ name, netVisibilityAttribute, typeKind, outerType }) {
+				let resetter;
+				if (typeKind === "primitive" || typeKind === "external")
+					resetter = `self.${name} = ${outerType}::default()`;
+				else resetter = `self.${name}.reset_untracked()`;
+
 				return `${netVisibilityAttribute}
-		self.${name}.reset_untracked();`;
+		${resetter};`;
 			})
 			.join("\n\t\t\n\t\t")}
 	}

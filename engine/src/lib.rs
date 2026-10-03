@@ -129,6 +129,7 @@ pub mod plugins {
 	pub use super::handwritten::plugin_exports::*;
 
 	#[cfg(any(feature = "server", feature = "client"))]
+	#[allow(unused)]
 	pub use super::generated::plugin_exports::*;
 }
 

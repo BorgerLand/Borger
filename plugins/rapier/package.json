@@ -1,0 +1,10 @@
+{
+	"name": "@borger/rapier",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@borger/plugin_sdk": "file:../sdk/ts"
+	}
+}

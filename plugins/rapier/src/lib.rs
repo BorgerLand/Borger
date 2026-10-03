@@ -1,4 +1,4 @@
-use crate::tick::TickInfo;
+use borger_plugin_sdk::SIM_DT;
 use borger_plugin_sdk::traits::UntrackedState;
 use glam::Vec3;
 use rapier3d::prelude::*;
@@ -8,7 +8,8 @@ use std::fmt::{Debug, Error, Formatter};
 ///Due to time constraints, the entire physics scene must be rebuilt
 ///at the start of every tick. All rigid bodies are discarded at the
 ///end of the tick. Will revisit someday to make this less awful.
-pub struct Physics {
+#[derive(Default)]
+pub struct Rapier {
 	///Resets every tick
 	pub integration_parameters: IntegrationParameters,
 	///Resets every tick
@@ -31,7 +32,7 @@ pub struct Physics {
 	level_col_handle: Option<ColliderHandle>,
 }
 
-impl UntrackedState for Physics {
+impl UntrackedState for Rapier {
 	fn reset_untracked(&mut self) {
 		let level_col = self
 			.level_col_handle
@@ -42,7 +43,7 @@ impl UntrackedState for Physics {
 			.flatten();
 
 		self.integration_parameters = IntegrationParameters::default();
-		self.integration_parameters.dt = TickInfo::SIM_DT;
+		self.integration_parameters.dt = SIM_DT;
 
 		self.islands = IslandManager::new();
 		self.broad_phase = BroadPhaseBvh::new();
@@ -59,32 +60,15 @@ impl UntrackedState for Physics {
 	}
 }
 
-impl Debug for Physics {
+impl Debug for Rapier {
 	fn fmt(&self, _: &mut Formatter) -> Result<(), Error> {
 		Ok(())
 	}
 }
 
-impl Physics {
+impl Rapier {
 	pub fn init_static_level_geom(&mut self, level_col: Collider) {
 		self.level_col_handle = Some(self.colliders.insert(level_col));
-	}
-
-	#[allow(unused)]
-	pub(crate) fn default() -> Self {
-		Self {
-			integration_parameters: IntegrationParameters::default(),
-			islands: IslandManager::new(),
-			broad_phase: BroadPhaseBvh::new(),
-			narrow_phase: NarrowPhase::new(),
-			rigid_bodies: RigidBodySet::new(),
-			colliders: ColliderSet::new(),
-			impulse_joints: ImpulseJointSet::new(),
-			multibody_joints: MultibodyJointSet::new(),
-			ccd_solver: CCDSolver::new(),
-
-			level_col_handle: None,
-		}
 	}
 
 	pub fn step(&mut self, gravity: Vec3, hooks: &dyn PhysicsHooks, events: &dyn EventHandler) {

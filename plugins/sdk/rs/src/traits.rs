@@ -94,12 +94,6 @@ pub trait UntrackedState {
 	fn reset_untracked(&mut self);
 }
 
-impl<T: Default> UntrackedState for T {
-	fn reset_untracked(&mut self) {
-		*self = Self::default();
-	}
-}
-
 #[cfg(feature = "client")]
 pub trait PresentTick {
 	type PresentationOutput: InterpolateTicks;

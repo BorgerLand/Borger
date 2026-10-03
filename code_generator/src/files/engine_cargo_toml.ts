@@ -35,7 +35,6 @@ borger_plugin_sdk = { path = "../plugins/sdk/rs" }
 
 log.workspace = true
 glam.workspace = true
-rapier3d.workspace = true
 
 web-time = { version = "*", default-features = false }
 wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33

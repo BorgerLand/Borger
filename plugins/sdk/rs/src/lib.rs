@@ -64,3 +64,6 @@ pub enum TickType {
 //the u64 loses some precision when casting to f64 later on but
 //should still give a lot more than 4.5 years.
 pub type TickID = u64;
+
+///Simulation tick duration in seconds (30hz)
+pub const SIM_DT: f32 = 1.0 / 30.0;
