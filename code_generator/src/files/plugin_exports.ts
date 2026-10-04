@@ -1,9 +1,9 @@
 import { ENGINE_GENERATED_DIR, pluginCrateName, stateWarningBlock } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 export function generatePluginExports(flattened: FlattenedOutput) {
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/plugin_exports.rs`,
 		`${stateWarningBlock()}
 

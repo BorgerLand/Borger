@@ -4,13 +4,13 @@ import {
 	stateWarningBlock,
 	VALID_TYPES,
 } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 import { interpolablePrimitiveTypeSchema, type PrimitiveType } from "@borger/code_generator/state_schema.ts";
 import { getPresentationCollectStructName } from "@borger/code_generator/files/presentation_collect.ts";
 
 export function generatePresentationOutput(flattened: FlattenedOutput) {
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/presentation_output.rs`,
 		`${stateWarningBlock()}
 

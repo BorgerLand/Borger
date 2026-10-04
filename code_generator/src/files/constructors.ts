@@ -5,11 +5,11 @@ import {
 	nvEnum,
 	removeGenerics,
 } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 export function generateConstructors(flattened: FlattenedOutput) {
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/constructors.rs`,
 		`${stateWarningBlock()}
 

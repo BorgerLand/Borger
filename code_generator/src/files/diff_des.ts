@@ -4,7 +4,7 @@ import {
 	getNestedPath,
 	VALID_TYPES,
 } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 //the way the generated file generally works is:
@@ -13,7 +13,7 @@ import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 //uses match statements to route the value where
 //it needs to go
 export function generateDiffDes(flattened: FlattenedOutput) {
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/diff_des.rs`,
 		`${stateWarningBlock()}
 

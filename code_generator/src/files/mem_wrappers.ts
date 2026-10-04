@@ -10,13 +10,13 @@ import {
 	type PrimitiveType,
 	type SimplePrimitiveType,
 } from "@borger/code_generator/state_schema.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 export function generateMemWrappers(flattened: FlattenedOutput) {
 	const rootInputStruct = flattened.input[0];
 
-	writeFileSync(
+	fs.writeFileSync(
 		`${CLIENT_TS_GENERATED_DIR}/mem_wrappers.ts`,
 		`${stateWarningBlock()}
 

@@ -1,12 +1,13 @@
 import { ENGINE_DIR, pluginCrateName, stateWarningHash } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
+import path from "path";
 
 export function generateEngineCargoTOML(flattened: FlattenedOutput) {
 	const uniqueCrates = new Map<string, string>(); //crate name, package name
 	for (const plugin of flattened.plugins) uniqueCrates.set(pluginCrateName(plugin), plugin.nodePackageName);
 
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_DIR}/Cargo.toml`,
 		`${stateWarningHash()}
 
@@ -39,11 +40,12 @@ glam.workspace = true
 web-time = { version = "*", default-features = false }
 wasm_thread = { git = "https://github.com/buttercrab/wasm_thread.git", branch = "patch-1", default-features = false, features = ["es_modules"] } #https://github.com/chemicstry/wasm_thread/pull/33
 
+#plugins
 ${uniqueCrates
 	.entries()
 	.map(
 		([crateName, packageName]) =>
-			`${crateName} = { path = "../../node_modules/${packageName}", optional = true }`,
+			`${crateName} = { path = "${path.relative(`borger/engine`, fs.realpathSync(`node_modules/${packageName}`))}", optional = true }`,
 	)
 	.toArray()
 	.join("\n")}

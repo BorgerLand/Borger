@@ -4,11 +4,11 @@ import {
 	stateWarningBlock,
 	VALID_TYPES,
 } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 export function generatePresentationCollect(flattened: FlattenedOutput) {
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/presentation_collect.rs`,
 		`${stateWarningBlock()}
 

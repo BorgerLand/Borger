@@ -3,7 +3,7 @@
 import { stateSchema, type State } from "@borger/code_generator/state_schema.ts";
 import z from "zod";
 import { flatten } from "@borger/code_generator/flatten.ts";
-import { mkdirSync, writeSync } from "fs";
+import fs from "fs";
 import {
 	ENGINE_GENERATED_DIR,
 	CLIENT_RS_GENERATED_DIR,
@@ -27,7 +27,7 @@ import { generateMemWrappers } from "@borger/code_generator/files/mem_wrappers.t
 
 process.on("exit", function (code) {
 	if (code === 0) console.timeEnd("Great success");
-	else writeSync(2, `Code generation failed\n`);
+	else fs.writeSync(2, `Code generation failed\n`);
 });
 
 console.time("Great success");
@@ -90,9 +90,10 @@ export function codeGenerator<
 			}
 
 			const flattened = flatten(validState, plugins);
-			mkdirSync(ENGINE_GENERATED_DIR, { recursive: true });
-			mkdirSync(CLIENT_RS_GENERATED_DIR, { recursive: true });
-			mkdirSync(CLIENT_TS_GENERATED_DIR, { recursive: true });
+			fs.mkdirSync(ENGINE_GENERATED_DIR, { recursive: true });
+			fs.mkdirSync(CLIENT_RS_GENERATED_DIR, { recursive: true });
+			fs.mkdirSync(CLIENT_TS_GENERATED_DIR, { recursive: true });
+			fs.mkdirSync("src/plugins", { recursive: true });
 			generateDiffOperation(flattened);
 			generatePluginExports(flattened);
 			generateEngineCargoTOML(flattened);

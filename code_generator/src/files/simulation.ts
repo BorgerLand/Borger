@@ -1,9 +1,9 @@
 import { ENGINE_GENERATED_DIR, stateWarningBlock, VALID_TYPES } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 export function generateSimulation(flattened: FlattenedOutput) {
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/simulation.rs`,
 		`${stateWarningBlock()}
 

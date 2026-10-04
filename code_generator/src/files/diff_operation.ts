@@ -1,10 +1,10 @@
 import { ENGINE_GENERATED_DIR } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 export function generateDiffOperation(flattened: FlattenedOutput) {
 	let curID = 0;
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/diff_operation.json`,
 		`{
 	"base":

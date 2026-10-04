@@ -5,7 +5,7 @@ import {
 	presentationStructFilter,
 } from "@borger/code_generator/common.ts";
 import { getOuterOutputStructName } from "@borger/code_generator/files/mem_wrappers.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 export function generateMemOffsets(flattened: FlattenedOutput) {
@@ -14,7 +14,7 @@ export function generateMemOffsets(flattened: FlattenedOutput) {
 
 	const slotMapInnerTypes: string[] = [];
 
-	writeFileSync(
+	fs.writeFileSync(
 		`${CLIENT_RS_GENERATED_DIR}/mem_offsets.rs`,
 		`${stateWarningBlock()}
 

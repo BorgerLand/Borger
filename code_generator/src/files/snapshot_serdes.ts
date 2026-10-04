@@ -1,11 +1,11 @@
 import { ENGINE_GENERATED_DIR, stateWarningBlock, getNestedPath } from "@borger/code_generator/common.ts";
-import { writeFileSync } from "fs";
+import fs from "fs";
 import type { FlattenedField, FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
 //new client: all public data should be serialized
 //predict remove: all locally accessible data should be serialized. "all" has different meanings depending on server/client
 export function generateSnapshotSerDes(flattened: FlattenedOutput) {
-	writeFileSync(
+	fs.writeFileSync(
 		`${ENGINE_GENERATED_DIR}/snapshot_serdes.rs`,
 		`${stateWarningBlock()}
 
