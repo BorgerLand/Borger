@@ -59,6 +59,7 @@ pub trait DiffDeserializeCustomStruct {
 }
 
 pub trait DiffDeserializePlugin {
+	//this is for collection types only. all others should return none
 	fn navigate_down(&mut self, element_id: usize32) -> Option<&mut dyn DiffDeserializeCustomStruct>;
 
 	//note for both deserializers: diff_op has not been checked whether it
