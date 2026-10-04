@@ -13,4 +13,5 @@ client = []
 borger_plugin_sdk = { path = "../../../borger/plugins/sdk/rs" }
 
 glam.workspace = true
-rapier3d.workspace = true
+
+rapier3d = { version = "*", default-features = false, features = ["dim3", "f32", "alloc"] }

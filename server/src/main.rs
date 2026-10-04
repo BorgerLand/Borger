@@ -12,7 +12,7 @@ compile_error!("Compiling both server+client into the same binary is dumb and br
 compile_error!("Feature flag `session_replay` in the server build is not yet implemented .");
 #[cfg(all(feature = "server", feature = "singlethreaded"))]
 compile_error!(
-	"Feature flag `singlethreaded` in the server build is redundant. The server is inherently singlethreaded due to lack of a separate presentation thread."
+	"Feature flag `singlethreaded` in the server build is redundant. The server is inherently singlethreaded due to the lack of a separate presentation thread."
 );
 
 #[cfg(feature = "server")]

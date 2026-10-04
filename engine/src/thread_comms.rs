@@ -5,7 +5,7 @@ use tokio::sync::mpsc::UnboundedSender as AsyncSender;
 
 #[cfg(feature = "client")]
 use {
-	crate::presentation::PresentationContext, crate::simulation::Input, atomicbox::AtomicOptionBox,
+	crate::presentation_collect::PresentationCollectContext, crate::simulation::Input, atomicbox::AtomicOptionBox,
 	std::sync::Arc,
 };
 
@@ -67,12 +67,12 @@ pub enum SessionReplayAction {
 pub struct PresentationToSimChannel {
 	pub to_sim: SyncSender<PresentationToSimCommand>,
 	pub from_sim: SyncReceiver<SimToPresentationCommand>,
-	pub sim_out: Arc<AtomicOptionBox<PresentationContext>>,
+	pub sim_out: Arc<AtomicOptionBox<PresentationCollectContext>>,
 }
 
 #[cfg(feature = "client")]
 pub struct SimToPresentationChannel {
 	pub to_presentation: SyncSender<SimToPresentationCommand>,
 	pub from_presentation: SyncReceiver<PresentationToSimCommand>,
-	pub sim_out: Arc<AtomicOptionBox<PresentationContext>>,
+	pub sim_out: Arc<AtomicOptionBox<PresentationCollectContext>>,
 }

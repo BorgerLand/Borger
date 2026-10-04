@@ -3,7 +3,7 @@ use crate::diff_des;
 use crate::diff_ser::ser_tx_input_diff;
 use borger_plugin_sdk::TickType;
 use borger_plugin_sdk::primitive::PrimitiveSerDes;
-use borger_plugin_sdk::traits::PresentTick;
+use borger_plugin_sdk::traits::PresentationCollect;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::TryRecvError;
 
@@ -101,7 +101,7 @@ impl SimControllerInternals {
 		//that every simulation tick is rendered, depending on
 		//whether presentation tick is able to keep up with SIM_DT
 		self.comms.sim_out.store(
-			Some(Box::new(PresentationContext {
+			Some(Box::new(PresentationCollectContext {
 				time: self.ctx.tick.get_now(),
 				local_client_id: self.local_client_id,
 				output: self.ctx.state.clone_to_presentation(self.ctx.tick.id_cur),

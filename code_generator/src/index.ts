@@ -20,8 +20,8 @@ import { generateSnapshotSerDes } from "@borger/code_generator/files/snapshot_se
 import { generateDiffSer } from "@borger/code_generator/files/diff_ser.ts";
 import { generateDiffDes } from "@borger/code_generator/files/diff_des.ts";
 import { generateUntracked } from "@borger/code_generator/files/untracked.ts";
-import { generatePresentation } from "@borger/code_generator/files/presentation.ts";
-import { generateInterpolation } from "@borger/code_generator/files/interpolation.ts";
+import { generatePresentationCollect } from "@borger/code_generator/files/presentation_collect.ts";
+import { generatePresentationOutput } from "@borger/code_generator/files/presentation_output.ts";
 import { generateMemOffsets } from "@borger/code_generator/files/mem_offsets.ts";
 import { generateMemWrappers } from "@borger/code_generator/files/mem_wrappers.ts";
 
@@ -102,8 +102,8 @@ export function codeGenerator<
 			generateDiffSer(flattened);
 			generateDiffDes(flattened);
 			generateUntracked(flattened);
-			generatePresentation(flattened);
-			generateInterpolation(flattened);
+			generatePresentationCollect(flattened);
+			generatePresentationOutput(flattened);
 			generateMemOffsets(flattened);
 			generateMemWrappers(flattened);
 		},

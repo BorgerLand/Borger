@@ -14,7 +14,7 @@ use borger_plugin_sdk::NetVisibility;
 use {
 	borger_plugin_sdk::TickID,
 	borger_plugin_sdk::multiplayer_tradeoff::Impl,
-	borger_plugin_sdk::traits::{InterpolateTicks, PresentTick},
+	borger_plugin_sdk::traits::{PresentationCollect, PresentationOutput},
 };
 
 diff_operation_enum!("EventDispatcher");
@@ -138,40 +138,36 @@ impl SnapshotState for EventDispatcher {
 	}
 }
 
-//---presentation_state---//
+//---presentation_collect---//
 
 #[cfg(feature = "client")]
-pub struct PresentationEventDispatcher(u8);
+pub struct PresentationCollectEventDispatcher(u8);
 
 #[cfg(feature = "client")]
-impl PresentTick for EventDispatcher {
-	type PresentationOutput = PresentationEventDispatcher;
+impl PresentationCollect for EventDispatcher {
+	type PresentationCollect = PresentationCollectEventDispatcher;
 
-	fn clone_to_presentation(&self, _: TickID) -> Self::PresentationOutput {
-		PresentationEventDispatcher(self.version)
+	fn clone_to_presentation(&self, _: TickID) -> Self::PresentationCollect {
+		PresentationCollectEventDispatcher(self.version)
 	}
 }
 
-//---interpolation---//
+//---presentation_output---//
 
 #[cfg(feature = "client")]
-#[repr(transparent)]
-pub struct InterpolationEventDispatcher(bool);
-
-#[cfg(feature = "client")]
-impl InterpolateTicks for PresentationEventDispatcher {
-	type InterpolationOutput = InterpolationEventDispatcher;
-	fn interpolate_and_diff(
+impl PresentationOutput for PresentationCollectEventDispatcher {
+	type PresentationOutput = bool;
+	fn presentation_output(
 		prv: Option<&Self>,
 		cur: &Self,
 		_: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationOutput {
-		let Some(&PresentationEventDispatcher(prv)) = prv else {
-			return InterpolationEventDispatcher(false);
+	) -> Self::PresentationOutput {
+		let Some(&PresentationCollectEventDispatcher(prv)) = prv else {
+			return false;
 		};
 
 		let cur = cur.0;
-		InterpolationEventDispatcher(received_new_tick && (cur > prv || (prv - cur) > u8::MAX / 2))
+		received_new_tick && (cur > prv || (prv - cur) > u8::MAX / 2)
 	}
 }

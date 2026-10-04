@@ -31,9 +31,9 @@ mod handwritten {
 	pub(crate) mod untracked;
 
 	#[cfg(feature = "client")]
-	pub(crate) mod interpolation;
+	pub(crate) mod presentation_collect;
 	#[cfg(feature = "client")]
-	pub(crate) mod presentation;
+	pub(crate) mod presentation_output;
 
 	//things that really ought to be plugins but aren't
 	pub(crate) mod plugin_exports;
@@ -55,9 +55,9 @@ mod generated {
 	pub(crate) mod untracked;
 
 	#[cfg(feature = "client")]
-	pub(crate) mod interpolation;
+	pub(crate) mod presentation_collect;
 	#[cfg(feature = "client")]
-	pub(crate) mod presentation;
+	pub(crate) mod presentation_output;
 
 	#[cfg(any(feature = "server", feature = "client"))]
 	pub(crate) mod plugin_exports;
@@ -112,16 +112,17 @@ pub(crate) mod snapshot_serdes {
 ///the presentation thread at the end of each client
 ///sided tick
 #[cfg(feature = "client")]
-pub mod presentation {
-	pub use super::generated::presentation::*;
-	pub use super::handwritten::presentation::*;
+pub mod presentation_collect {
+	pub use super::generated::presentation_collect::*;
+	pub use super::handwritten::presentation_collect::*;
 }
 
-///Interpolation and presentation of entities
+///Final output to presentation layer by interpolating
+///and diffing 2 "presentation collect" objects
 #[cfg(feature = "client")]
-pub mod interpolation {
-	pub use super::generated::interpolation::*;
-	pub use super::handwritten::interpolation::*;
+pub mod presentation_output {
+	pub use super::generated::presentation_output::*;
+	pub use super::handwritten::presentation_output::*;
 }
 
 ///Plugins add new types that can be used in the state.ts schema

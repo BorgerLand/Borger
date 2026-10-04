@@ -1,3 +1,5 @@
+pub use rapier3d;
+
 use borger_plugin_sdk::SIM_DT;
 use borger_plugin_sdk::traits::UntrackedState;
 use glam::Vec3;
@@ -8,7 +10,6 @@ use std::fmt::{Debug, Error, Formatter};
 ///Due to time constraints, the entire physics scene must be rebuilt
 ///at the start of every tick. All rigid bodies are discarded at the
 ///end of the tick. Will revisit someday to make this less awful.
-#[derive(Default)]
 pub struct Rapier {
 	///Resets every tick
 	pub integration_parameters: IntegrationParameters,
@@ -27,36 +28,56 @@ pub struct Rapier {
 	///Resets every tick
 	pub multibody_joints: MultibodyJointSet,
 	///Resets every tick
+	pub soft_bodies: SoftBodySet,
+	///Resets every tick
 	pub ccd_solver: CCDSolver,
 
 	level_col_handle: Option<ColliderHandle>,
 }
 
+impl Default for Rapier {
+	fn default() -> Self {
+		let mut integration_parameters = IntegrationParameters::default();
+		integration_parameters.dt = SIM_DT;
+
+		Self {
+			integration_parameters,
+			islands: IslandManager::new(),
+			broad_phase: BroadPhaseBvh::new(),
+			narrow_phase: NarrowPhase::new(),
+			rigid_bodies: RigidBodySet::new(),
+			colliders: ColliderSet::new(),
+			impulse_joints: ImpulseJointSet::new(),
+			multibody_joints: MultibodyJointSet::new(),
+			soft_bodies: SoftBodySet::new(),
+			ccd_solver: CCDSolver::new(),
+			level_col_handle: None,
+		}
+	}
+}
+
 impl UntrackedState for Rapier {
 	fn reset_untracked(&mut self) {
-		let level_col = self
+		let mut colliders = ColliderSet::new();
+		let level_col_handle = self
 			.level_col_handle
 			.map(|level_col_handle| {
-				self.colliders
-					.remove(level_col_handle, &mut self.islands, &mut self.rigid_bodies, false)
+				self.colliders.remove(
+					level_col_handle,
+					&mut self.islands,
+					&mut self.rigid_bodies,
+					&mut self.soft_bodies,
+					false,
+				)
 			})
-			.flatten();
+			.flatten()
+			.map(|level_col| colliders.insert(level_col));
 
-		self.integration_parameters = IntegrationParameters::default();
-		self.integration_parameters.dt = SIM_DT;
-
-		self.islands = IslandManager::new();
-		self.broad_phase = BroadPhaseBvh::new();
-		self.narrow_phase = NarrowPhase::new();
-		self.rigid_bodies = RigidBodySet::new();
-		self.colliders = ColliderSet::new();
-		self.impulse_joints = ImpulseJointSet::new();
-		self.multibody_joints = MultibodyJointSet::new();
-		self.ccd_solver = CCDSolver::new();
-
-		if let Some(level_col) = level_col {
-			self.level_col_handle = Some(self.colliders.insert(level_col));
-		}
+		*self = Rapier {
+			colliders,
+			level_col_handle,
+			..Rapier::default()
+		};
 	}
 }
 
@@ -82,6 +103,7 @@ impl Rapier {
 			&mut self.colliders,
 			&mut self.impulse_joints,
 			&mut self.multibody_joints,
+			&mut self.soft_bodies,
 			&mut self.ccd_solver,
 			hooks,
 			events,

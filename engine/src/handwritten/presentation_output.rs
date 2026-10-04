@@ -1,39 +1,44 @@
-use crate::interpolation::*;
-use crate::presentation;
+use crate::presentation_collect;
+use crate::presentation_output::*;
 use crate::scope::Scope;
 use borger_plugin_sdk::primitive::usize32;
-use borger_plugin_sdk::traits::InterpolateTicks;
+use borger_plugin_sdk::traits::PresentationOutput;
+
+pub struct PresentationOutputContext {
+	pub local_client_id: usize32,
+	pub output: PresentationOutputState,
+}
 
 pub type Client = Scope<ClientOwned, ClientRemote>;
 
-impl InterpolateTicks for presentation::Client {
-	type InterpolationOutput = Client;
-	fn interpolate_and_diff(
+impl PresentationOutput for presentation_collect::Client {
+	type PresentationOutput = Client;
+	fn presentation_output(
 		prv: Option<&Self>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationOutput {
+	) -> Self::PresentationOutput {
 		match cur {
-			Self::Owned(cur) => Client::Owned(InterpolateTicks::interpolate_and_diff(
+			Self::Owned(cur) => Client::Owned(PresentationOutput::presentation_output(
 				prv.map(|prv| prv.as_owned().unwrap()),
 				cur,
 				amount,
 				received_new_tick,
 			)),
 			Self::Remote(cur) => {
-				if let Some(presentation::Client::Owned(prv)) = prv {
+				if let Some(presentation_collect::Client::Owned(prv)) = prv {
 					//special case: received a new client id after reconnecting
 					//to server. the previously owned client is now a stale
 					//remote client that the server hasn't timed out yet
-					Client::Remote(presentation::ClientRemote::interpolate_and_diff(
+					Client::Remote(presentation_collect::ClientRemote::presentation_output(
 						Some(prv),
 						cur,
 						amount,
 						received_new_tick,
 					))
 				} else {
-					Client::Remote(presentation::ClientRemote::interpolate_and_diff(
+					Client::Remote(presentation_collect::ClientRemote::presentation_output(
 						prv.map(|prv| prv.as_remote().unwrap()),
 						cur,
 						amount,
@@ -43,9 +48,4 @@ impl InterpolateTicks for presentation::Client {
 			}
 		}
 	}
-}
-
-pub struct InterpolationContext {
-	pub local_client_id: usize32,
-	pub output: InterpolationOutput,
 }

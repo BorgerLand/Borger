@@ -25,7 +25,7 @@ use {
 
 #[cfg(feature = "client")]
 use {
-	crate::presentation::PresentationContext, crate::snapshot_serdes, atomicbox::AtomicOptionBox,
+	crate::presentation_collect::PresentationCollectContext, crate::snapshot_serdes, atomicbox::AtomicOptionBox,
 	std::sync::Arc,
 };
 

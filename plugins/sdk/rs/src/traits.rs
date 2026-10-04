@@ -95,9 +95,9 @@ pub trait UntrackedState {
 }
 
 #[cfg(feature = "client")]
-pub trait PresentTick {
-	type PresentationOutput: InterpolateTicks;
-	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationOutput;
+pub trait PresentationCollect {
+	type PresentationCollect: PresentationOutput;
+	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationCollect;
 }
 
 ///Classic lerp/slerp helper for various simple math primitives
@@ -110,12 +110,12 @@ pub trait Interpolate: Copy {
 //be an option in order to fire initial collection add/remove
 //events, otherwise no change would be detected
 #[cfg(feature = "client")]
-pub trait InterpolateTicks<Prv = Self> {
-	type InterpolationOutput;
-	fn interpolate_and_diff(
+pub trait PresentationOutput<Prv = Self> {
+	type PresentationOutput;
+	fn presentation_output(
 		prv: Option<&Prv>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationOutput;
+	) -> Self::PresentationOutput;
 }

@@ -1,11 +1,15 @@
-import { CLIENT_TS_GENERATED_DIR, stateWarningBlock, getNestedPath } from "@borger/code_generator/common.ts";
+import {
+	CLIENT_TS_GENERATED_DIR,
+	stateWarningBlock,
+	getNestedPath,
+	presentationStructFilter,
+} from "@borger/code_generator/common.ts";
 import {
 	multiFieldPrimitiveTypeSchema,
 	simplePrimitiveTypeSchema,
 	type PrimitiveType,
 	type SimplePrimitiveType,
 } from "@borger/code_generator/state_schema.ts";
-import { presentationStructFilter } from "@borger/code_generator/files/presentation.ts";
 import { writeFileSync } from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 

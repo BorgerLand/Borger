@@ -19,7 +19,7 @@ use {
 	crate::simulation::Client,
 	borger_plugin_sdk::TickID,
 	borger_plugin_sdk::multiplayer_tradeoff::Impl,
-	borger_plugin_sdk::traits::{InterpolateTicks, PresentTick},
+	borger_plugin_sdk::traits::{PresentationCollect, PresentationOutput},
 	std::any::TypeId,
 	std::mem::MaybeUninit,
 	std::ptr,
@@ -461,15 +461,15 @@ impl<V: CustomStruct> UntrackedState for SlotMap<V> {
 	}
 }
 
-//---presentation_state---//
+//---presentation_collect---//
 
 #[cfg(feature = "client")]
-impl<V> PresentTick for SlotMap<V>
+impl<V> PresentationCollect for SlotMap<V>
 where
-	V: CustomStruct + PresentTick,
+	V: CustomStruct + PresentationCollect,
 {
-	type PresentationOutput = RawSlotMap<V::PresentationOutput>;
-	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationOutput {
+	type PresentationCollect = RawSlotMap<V::PresentationCollect>;
+	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationCollect {
 		RawSlotMap {
 			slots: self
 				.data
@@ -484,10 +484,10 @@ where
 	}
 }
 
-//---interpolation---//
+//---presentation_output---//
 
 #[cfg(feature = "client")]
-pub struct InterpolationSlotMap<V> {
+pub struct PresentationOutputSlotMap<V> {
 	pub data: RawSlotMap<V>,
 	pub slots_ptr: *const (usize32, V),
 	pub slots_len: usize32,
@@ -500,22 +500,22 @@ pub struct InterpolationSlotMap<V> {
 }
 
 #[cfg(feature = "client")]
-impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlotMap<V> {
-	type InterpolationOutput = InterpolationSlotMap<V::InterpolationOutput>;
-	fn interpolate_and_diff(
+impl<V: PresentationOutput<Prv>, Prv> PresentationOutput<RawSlotMap<Prv>> for RawSlotMap<V> {
+	type PresentationOutput = PresentationOutputSlotMap<V::PresentationOutput>;
+	fn presentation_output(
 		prv: Option<&RawSlotMap<Prv>>,
 		cur: &Self,
 		amount: f32,
 		received_new_tick: bool,
-	) -> Self::InterpolationOutput {
+	) -> Self::PresentationOutput {
 		let Some(prv) = prv else {
-			let slots: Vec<(u32, V::InterpolationOutput)> = cur
+			let slots: Vec<(u32, V::PresentationOutput)> = cur
 				.slots
 				.iter()
 				.map(|slot| {
 					(
 						slot.0,
-						V::interpolate_and_diff(None, &slot.1, amount, received_new_tick),
+						V::presentation_output(None, &slot.1, amount, received_new_tick),
 					)
 				})
 				.collect();
@@ -530,7 +530,7 @@ impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlo
 			let added_ptr = added.as_ptr();
 			let added_len = added.len() as usize32;
 
-			return InterpolationSlotMap {
+			return PresentationOutputSlotMap {
 				data: RawSlotMap {
 					slots,
 					random_access: cur.random_access.clone(),
@@ -548,7 +548,7 @@ impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlo
 			};
 		};
 
-		let mut slots: Vec<MaybeUninit<(u32, V::InterpolationOutput)>> =
+		let mut slots: Vec<MaybeUninit<(u32, V::PresentationOutput)>> =
 			(0..cur.slots.len()).map(|_a| MaybeUninit::uninit()).collect();
 
 		let mut removed = Vec::new();
@@ -572,14 +572,14 @@ impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlo
 				//the same slot as the previous tick so can cleanly interpolate
 				slots[slot_idx].write((
 					cur_slot.0,
-					V::interpolate_and_diff(Some(&prv_slot.1), &cur_slot.1, amount, received_new_tick),
+					V::presentation_output(Some(&prv_slot.1), &cur_slot.1, amount, received_new_tick),
 				));
 			} else {
 				if let Some(cur_slot) = cur_slot {
 					let prv_moved_slot = prv.get(cur_slot.0);
 					slots[slot_idx].write((
 						cur_slot.0,
-						V::interpolate_and_diff(prv_moved_slot, &cur_slot.1, amount, received_new_tick),
+						V::presentation_output(prv_moved_slot, &cur_slot.1, amount, received_new_tick),
 					));
 
 					if received_new_tick && prv_moved_slot.is_none() {
@@ -596,14 +596,14 @@ impl<V: InterpolateTicks<Prv>, Prv> InterpolateTicks<RawSlotMap<Prv>> for RawSlo
 		}
 
 		//safety: for loop guarantees every slot was written to
-		let slots: Vec<(u32, V::InterpolationOutput)> = unsafe { mem::transmute(slots) };
+		let slots: Vec<(u32, V::PresentationOutput)> = unsafe { mem::transmute(slots) };
 		let slots_ptr = slots.as_ptr();
 		let removed_ptr = removed.as_ptr();
 		let removed_len = removed.len() as usize32;
 		let added_ptr = added.as_ptr();
 		let added_len = added.len() as usize32;
 
-		InterpolationSlotMap {
+		PresentationOutputSlotMap {
 			data: RawSlotMap {
 				slots,
 				random_access: cur.random_access.clone(),

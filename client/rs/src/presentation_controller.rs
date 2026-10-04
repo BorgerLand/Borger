@@ -1,9 +1,9 @@
-use borger::interpolation::InterpolationContext;
-use borger::presentation::{PresentationContext, PresentationOutput};
+use borger::presentation_collect::PresentationCollectContext;
+use borger::presentation_output::PresentationOutputContext;
 use borger::simulation::Input;
 use borger::simulation_controller::{self, SimControllerExternals};
 use borger::thread_comms::{PresentationToSimCommand, SimToPresentationCommand};
-use borger_plugin_sdk::traits::InterpolateTicks;
+use borger_plugin_sdk::traits::PresentationOutput;
 use game::input;
 use js_sys::{Function, Uint8Array};
 use log::Level;
@@ -32,10 +32,10 @@ pub struct PresentationController {
 	//must wait on the simulation thread to init
 	//before they can be used (hence option type)
 	next_tick_i: bool,
-	tick_buffers: [Option<PresentationContext>; 2],
+	tick_buffers: [Option<PresentationCollectContext>; 2],
 
 	input: Input,
-	output: Option<InterpolationContext>,
+	output: Option<PresentationOutputContext>,
 
 	#[cfg(feature = "session_replay")]
 	session_recording: Vec<SessionReplayAction>,
@@ -76,10 +76,10 @@ impl PresentationController {
 	}
 
 	//when resuming it is very important to not drop the existing
-	//tick buffers, in order to interpolate and dispatch all events
-	//that have occurred since disconnecting. this effectively is
-	//the same as the presentation loop skipping over many
-	//simulation ticks
+	//tick buffers, in order to diff and dispatch all events that
+	//have occurred since disconnecting. this effectively is the
+	//same as the presentation loop skipping over many simulation
+	//ticks
 	pub fn resume_disconnected_session(
 		old: Self,
 		new_client_snapshot: Vec<u8>,
@@ -104,7 +104,7 @@ impl PresentationController {
 	//1 frame delay before seeing the consequences. this will
 	//not return some until simulation thread has produced its
 	//first tick
-	pub fn presentation_tick(&mut self, dt: f32) -> Option<*const InterpolationContext> {
+	pub fn presentation_tick(&mut self, dt: f32) -> Option<*const PresentationOutputContext> {
 		//received input state: send to server
 		//(these are old input states that have
 		//been merged+validated+diff compressed,
@@ -152,9 +152,9 @@ impl PresentationController {
 
 		//need to store the result in some rust-owned memory to avoid
 		//dropping before js is able to borrow it
-		self.output = Some(InterpolationContext {
+		self.output = Some(PresentationOutputContext {
 			local_client_id: cur_tick.local_client_id,
-			output: PresentationOutput::interpolate_and_diff(
+			output: PresentationOutput::presentation_output(
 				prv_tick.map(|prv| &prv.output),
 				&cur_tick.output,
 				interp_amount,
@@ -169,7 +169,7 @@ impl PresentationController {
 			.send(PresentationToSimCommand::RawInput(mem::take(&mut self.input)))
 			.unwrap();
 
-		Some(self.output.as_ref().unwrap() as *const InterpolationContext)
+		Some(self.output.as_ref().unwrap() as *const PresentationOutputContext)
 	}
 
 	pub fn listen_for_state(&self, state: &Uint8Array) {

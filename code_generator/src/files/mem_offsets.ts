@@ -1,6 +1,10 @@
-import { CLIENT_RS_GENERATED_DIR, stateWarningBlock, getNestedPath } from "@borger/code_generator/common.ts";
+import {
+	CLIENT_RS_GENERATED_DIR,
+	stateWarningBlock,
+	getNestedPath,
+	presentationStructFilter,
+} from "@borger/code_generator/common.ts";
 import { getOuterOutputStructName } from "@borger/code_generator/files/mem_wrappers.ts";
-import { presentationStructFilter } from "@borger/code_generator/files/presentation.ts";
 import { writeFileSync } from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 
@@ -15,16 +19,16 @@ export function generateMemOffsets(flattened: FlattenedOutput) {
 		`${stateWarningBlock()}
 
 use borger::simulation::Input;
-use borger::interpolation::*;
+use borger::presentation_output::*;
 use wasm_bindgen::prelude::*;
 use js_sys::{Object, Reflect, Number};
 use std::mem::offset_of;
-use borger::plugins::slotmap::InterpolationSlotMap;
+use borger::plugins::slotmap::PresentationOutputSlotMap;
 use borger_plugin_sdk::primitive::usize32;
 
-//what is exposed as "GameContext" in ts maps to an
-//InterpolationContext struct in rs
-type GameContext = InterpolationContext;
+//what is exposed as "GameContext" in ts maps to a
+//PresentationOutputContext struct in rs
+type GameContext = PresentationOutputContext;
 
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -145,37 +149,37 @@ ${flattened.output
 	(
 		&slotmap_${innerType},
 		&"slots_ptr".into(),
-		&Number::from(offset_of!(InterpolationSlotMap<${innerType}>, slots_ptr) as f64)
+		&Number::from(offset_of!(PresentationOutputSlotMap<${innerType}>, slots_ptr) as f64)
 	).unwrap();
 	Reflect::set
 	(
 		&slotmap_${innerType},
 		&"slots_len".into(),
-		&Number::from(offset_of!(InterpolationSlotMap<${innerType}>, slots_len) as f64)
+		&Number::from(offset_of!(PresentationOutputSlotMap<${innerType}>, slots_len) as f64)
 	).unwrap();
 	Reflect::set
 	(
 		&slotmap_${innerType},
 		&"removed_ptr".into(),
-		&Number::from(offset_of!(InterpolationSlotMap<${innerType}>, removed_ptr) as f64)
+		&Number::from(offset_of!(PresentationOutputSlotMap<${innerType}>, removed_ptr) as f64)
 	).unwrap();
 	Reflect::set
 	(
 		&slotmap_${innerType},
 		&"removed_len".into(),
-		&Number::from(offset_of!(InterpolationSlotMap<${innerType}>, removed_len) as f64)
+		&Number::from(offset_of!(PresentationOutputSlotMap<${innerType}>, removed_len) as f64)
 	).unwrap();
 	Reflect::set
 	(
 		&slotmap_${innerType},
 		&"added_ptr".into(),
-		&Number::from(offset_of!(InterpolationSlotMap<${innerType}>, added_ptr) as f64)
+		&Number::from(offset_of!(PresentationOutputSlotMap<${innerType}>, added_ptr) as f64)
 	).unwrap();
 	Reflect::set
 	(
 		&slotmap_${innerType},
 		&"added_len".into(),
-		&Number::from(offset_of!(InterpolationSlotMap<${innerType}>, added_len) as f64)
+		&Number::from(offset_of!(PresentationOutputSlotMap<${innerType}>, added_len) as f64)
 	).unwrap();`;
 						})
 						.join(""),
@@ -206,7 +210,7 @@ ${slotMapInnerTypes
 	.map(
 		(innerType) => `#[wasm_bindgen]
 #[allow(non_snake_case)]
-pub unsafe fn slotmap_get_${innerType}(ptr: *const InterpolationSlotMap<${innerType}>, id: usize32) -> Option<*const ${innerType}>
+pub unsafe fn slotmap_get_${innerType}(ptr: *const PresentationOutputSlotMap<${innerType}>, id: usize32) -> Option<*const ${innerType}>
 {
 	let slotmap = unsafe { &*ptr };
 	slotmap.data.get(id).map(|element| element as *const ${innerType})

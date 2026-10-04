@@ -1,4 +1,5 @@
 import type { NetVisibility, Plugin } from "@borger/plugin_sdk";
+import type { FlattenedStruct } from "@borger/code_generator/flatten.ts";
 
 export const ENGINE_DIR = "borger/engine";
 export const ENGINE_GENERATED_DIR = "borger/engine/src/generated";
@@ -40,6 +41,13 @@ export function pluginCrateName(plugin: Plugin) {
 //after:  ::example::TypeName
 export function removeGenerics(type: string) {
 	return type.split("<", 1)[0].trim();
+}
+
+export function presentationStructFilter(struct: FlattenedStruct) {
+	return !(
+		(struct.clientKind === "Remote" && struct.netVisibility !== "public") ||
+		struct.netVisibility === "private"
+	);
 }
 
 /*
