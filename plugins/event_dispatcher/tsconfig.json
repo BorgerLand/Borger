@@ -1,0 +1,12 @@
+{
+	"include": ["src/index.ts"],
+	"module": "esnext",
+	"skipLibCheck": true,
+	"isolatedModules": true,
+	"noEmit": true,
+	"allowImportingTsExtensions": true,
+	"compilerOptions": {
+		"lib": ["ESNext"],
+		"types": ["node"]
+	}
+}
