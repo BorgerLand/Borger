@@ -33,7 +33,7 @@ pub struct DiffSerializer<TradeOff: AnyTradeOff> {
 	//over wire
 	rollback_buffer: Vec<u8>, //raw packed bytes representing diffs to the state
 	rollback_enabled: bool,   //rollback is disabled during consensus/unrollbackable events
-	rollback_prv_path: Option<Rc<Vec<usize32>>>,
+	rollback_prv_path: Option<Rc<[usize32]>>,
 
 	//write the CURRENT value of a state to transmit
 	//over the wire. will be read front to back (i=0
@@ -57,7 +57,7 @@ struct TxData {
 	#[cfg(feature = "server")]
 	enabled: bool,
 	#[cfg(feature = "server")]
-	cur_path: Rc<Vec<usize32>>,
+	cur_path: Rc<[usize32]>,
 }
 
 impl Default for TxData {
@@ -82,7 +82,7 @@ impl DiffSerializer<Impl> {
 	//should be called in pairs, one after the other. caller must
 	//serialize the diff operation
 
-	pub fn ser_rollback_begin(&mut self, path: &Rc<Vec<usize32>>) -> Option<&mut Vec<u8>> {
+	pub fn ser_rollback_begin(&mut self, path: &Rc<[usize32]>) -> Option<&mut Vec<u8>> {
 		if self.rollback_enabled {
 			self.ser_rollback_navigate_to(path);
 			Some(&mut self.rollback_buffer)
@@ -95,7 +95,7 @@ impl DiffSerializer<Impl> {
 	#[cfg(feature = "server")]
 	pub fn ser_tx_begin(
 		&mut self,
-		path: &Rc<Vec<usize32>>,
+		path: &Rc<[usize32]>,
 		visibility: NetVisibility,
 	) -> impl Iterator<Item = &mut Vec<u8>> {
 		self.tx
@@ -208,7 +208,7 @@ impl DiffSerializer<Impl> {
 	//there cannot be more than 256 layers of nested collection
 	//types. deal with it
 	//[field id, element id, field id, element id...]
-	fn ser_rollback_navigate_to(&mut self, new_path: &Rc<Vec<usize32>>) {
+	fn ser_rollback_navigate_to(&mut self, new_path: &Rc<[usize32]>) {
 		//the thing that makes rollback navigation
 		//clunkier than tx navigation is that the
 		//path must be written to the buffer AFTER
@@ -246,7 +246,7 @@ impl DiffSerializer<Impl> {
 	}
 
 	#[cfg(feature = "server")]
-	fn ser_tx_navigate_to(tx_data: &mut TxData, new_path: &Rc<Vec<usize32>>) {
+	fn ser_tx_navigate_to(tx_data: &mut TxData, new_path: &Rc<[usize32]>) {
 		if let Some(shared_len) = find_first_mismatch(&tx_data.cur_path, &new_path) {
 			let cur_len = tx_data.cur_path.len();
 			let new_len = new_path.len();

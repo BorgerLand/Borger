@@ -27,7 +27,7 @@ diff_operation_enum!("EventDispatcher");
 ///rollback can undo the event before it ever hits presentation.
 #[derive(Debug)]
 pub struct EventDispatcher {
-	diff_path: Rc<Vec<usize32>>,
+	diff_path: Rc<[usize32]>,
 	field_id: usize32,
 
 	#[cfg(feature = "server")]
@@ -40,7 +40,7 @@ pub struct EventDispatcher {
 
 impl ConstructPlugin for EventDispatcher {
 	fn construct(
-		path: &Rc<Vec<usize32>>,
+		path: &Rc<[usize32]>,
 		_field_id: usize32,
 
 		#[cfg(feature = "server")] visibility: NetVisibility,

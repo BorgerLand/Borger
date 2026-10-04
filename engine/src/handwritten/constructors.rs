@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 impl ConstructCustomStruct for Client {
 	//note this the only time that the client_kind argument is used
-	fn construct(path: &Rc<Vec<usize32>>, client_kind: ClientKind) -> Self {
+	fn construct(path: &Rc<[usize32]>, client_kind: ClientKind) -> Self {
 		if client_kind == ClientKind::Owned {
 			Client::Owned(ClientOwned::construct(path, ClientKind::Owned))
 		} else {

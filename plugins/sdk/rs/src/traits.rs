@@ -30,12 +30,12 @@ impl<T> CustomStruct for T where
 //custom user-defined structs - required by collections in
 //order to construct whatever values they hold
 pub trait ConstructCustomStruct {
-	fn construct(path: &Rc<Vec<usize32>>, client_kind: ClientKind) -> Self;
+	fn construct(path: &Rc<[usize32]>, client_kind: ClientKind) -> Self;
 }
 
 pub trait ConstructPlugin {
 	fn construct(
-		path: &Rc<Vec<usize32>>,
+		path: &Rc<[usize32]>,
 		field_id: usize32,
 
 		#[cfg(feature = "server")] visibility: NetVisibility,

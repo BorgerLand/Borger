@@ -23,7 +23,7 @@ use borger_plugin_sdk::NetVisibility;
 //determine who it's sent to
 pub fn ser_sim_primitive<T: PrimitiveSerDes>(
 	diff: &mut DiffSerializer<Impl>,
-	path: &Rc<Vec<usize32>>,
+	path: &Rc<[usize32]>,
 	field_id: usize32,
 	rollback_prv_value: T,
 

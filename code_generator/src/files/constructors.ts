@@ -29,7 +29,7 @@ ${flattened.output
 			.map(function generateConstructor(struct) {
 				return `impl ConstructCustomStruct for ${struct.name}
 {
-	fn construct(path: &Rc<Vec<usize32>>, _: ClientKind) -> Self
+	fn construct(path: &Rc<[usize32]>, _: ClientKind) -> Self
 	{
 		Self
 		{

@@ -40,7 +40,7 @@ ${flattened.output
 #[allow(non_camel_case_types)]
 pub struct ${struct.name}
 {
-	pub(crate) _diff_path: Rc<Vec<usize32>>,${struct.fields
+	pub(crate) _diff_path: Rc<[usize32]>,${struct.fields
 		.map(function generateSimulationStructField({
 			name,
 			netVisibilityAttribute,

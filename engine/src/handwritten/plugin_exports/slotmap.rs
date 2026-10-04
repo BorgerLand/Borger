@@ -155,7 +155,7 @@ impl<V> RawSlotMap<V> {
 
 #[derive(Debug)]
 pub struct SlotMap<V: CustomStruct> {
-	diff_path: Rc<Vec<usize32>>,
+	diff_path: Rc<[usize32]>,
 	field_id: usize32,
 
 	#[cfg(feature = "server")]
@@ -168,7 +168,7 @@ pub struct SlotMap<V: CustomStruct> {
 
 impl<V: CustomStruct> ConstructPlugin for SlotMap<V> {
 	fn construct(
-		path: &Rc<Vec<usize32>>,
+		path: &Rc<[usize32]>,
 		field_id: usize32,
 
 		#[cfg(feature = "server")] visibility: NetVisibility,
@@ -624,10 +624,6 @@ impl<V: PresentationOutput<Prv>, Prv> PresentationOutput<RawSlotMap<Prv>> for Ra
 
 //---misc---//
 
-fn build_slot_path(id: usize32, diff_path: &Rc<Vec<usize32>>, field_id: usize32) -> Rc<Vec<usize32>> {
-	let mut element_path = Vec::with_capacity(diff_path.len() + 2);
-	element_path.extend(diff_path.iter());
-	element_path.push(field_id);
-	element_path.push(id);
-	Rc::new(element_path)
+fn build_slot_path(id: usize32, diff_path: &Rc<[usize32]>, field_id: usize32) -> Rc<[usize32]> {
+	diff_path.iter().copied().chain([field_id, id]).collect()
 }
