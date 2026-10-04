@@ -220,6 +220,7 @@ cmd_dev()
 			-w '../../borger/engine' \
 			-w '../../borger/server' \
 			-w '../../src/simulation' \
+			-w '../../src/plugins' \
 			-w '../../Cargo.toml' \
 			-w '../../Cargo.lock' \
 			-w '../../rust-toolchain.toml' \
@@ -234,6 +235,7 @@ cmd_dev()
 			-w '../../../borger/client/rs/Cargo.toml' \
 			-w '../../../borger/client/rs/.cargo' \
 			-w '../../../src/simulation' \
+			-w '../../../src/plugins' \
 			-w '../../../Cargo.toml' \
 			-w '../../../Cargo.lock' \
 			-w '../../../rust-toolchain.toml' \
