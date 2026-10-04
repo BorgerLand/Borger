@@ -106,10 +106,14 @@ pub trait Interpolate: Copy {
 	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self;
 }
 
-//trait exists to fire events when some change occurs between
-//ticks (eg. for slotmaps, adding+removing slots). prv has to
-//be an option in order to fire initial collection add/remove
-//events, otherwise no change would be detected
+//given previous and current tick data, calculate what to send
+//directly to jsland. interpolate values, fire events when some
+//change occurs between ticks (eg. for slotmaps, adding+removing
+//slots), etc. prv has to be an option in order to fire initial
+//collection add/remove events, otherwise no change would be
+//detected. prv and cur both outlive Self::PresentationOutput,
+//allowing the return type to (unsafely) contain raw pointers
+//back into prv or cur
 #[cfg(feature = "client")]
 pub trait PresentationOutput<Prv = Self> {
 	type PresentationOutput;
