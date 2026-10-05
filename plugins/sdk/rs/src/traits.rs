@@ -98,7 +98,7 @@ pub trait UntrackedState {
 #[cfg(feature = "client")]
 pub trait PresentationCollect {
 	type PresentationCollect: PresentationOutput;
-	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationCollect;
+	fn presentation_collect(&self, tick: TickID) -> Self::PresentationCollect;
 }
 
 ///Classic lerp/slerp helper for various simple math primitives
@@ -120,7 +120,7 @@ pub trait PresentationOutput<Prv = Self> {
 	fn presentation_output(
 		prv: Option<&Prv>,
 		cur: &Self,
-		amount: f32,
+		interpolation_alpha: f32,
 		received_new_tick: bool,
 	) -> Self::PresentationOutput;
 }

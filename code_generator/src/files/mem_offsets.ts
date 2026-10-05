@@ -89,15 +89,26 @@ ${struct.fields
 	Reflect::set
 	(
 		&struct_GameContext,
-		&"output".into(),
-		&struct_State
+		&"interpolation_alpha".into(),
+		&Number::from(offset_of!(GameContext, interpolation_alpha) as f64)
 	).unwrap();
-	
+	Reflect::set
+	(
+		&struct_GameContext,
+		&"received_new_tick".into(),
+		&Number::from(offset_of!(GameContext, received_new_tick) as f64)
+	).unwrap();
 	Reflect::set
 	(
 		&struct_GameContext,
 		&"local_client_id".into(),
 		&Number::from(offset_of!(GameContext, local_client_id) as f64)
+	).unwrap();
+	Reflect::set
+	(
+		&struct_GameContext,
+		&"output".into(),
+		&struct_State
 	).unwrap();
 	
 	let structs = Object::new();

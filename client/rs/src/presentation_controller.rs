@@ -141,7 +141,7 @@ impl PresentationController {
 
 		let prv_tick = self.tick_buffers[(self.next_tick_i) as usize].as_ref();
 
-		let interp_amount = if let Some(prv_tick) = prv_tick {
+		let interpolation_alpha = if let Some(prv_tick) = prv_tick {
 			let desired_time = self.now + Duration::from_secs_f32(dt);
 			self.now = desired_time.clamp(prv_tick.time, cur_tick.time);
 			(self.now - prv_tick.time).as_secs_f32() / (cur_tick.time - prv_tick.time).as_secs_f32()
@@ -153,11 +153,13 @@ impl PresentationController {
 		//need to store the result in some rust-owned memory to avoid
 		//dropping before js is able to borrow it
 		self.output = Some(PresentationOutputContext {
+			interpolation_alpha,
+			received_new_tick,
 			local_client_id: cur_tick.local_client_id,
 			output: PresentationOutput::presentation_output(
 				prv_tick.map(|prv| &prv.output),
 				&cur_tick.output,
-				interp_amount,
+				interpolation_alpha,
 				received_new_tick,
 			),
 		});

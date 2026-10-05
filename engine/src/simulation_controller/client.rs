@@ -104,7 +104,7 @@ impl SimControllerInternals {
 			Some(Box::new(PresentationCollectContext {
 				time: self.ctx.tick.get_now(),
 				local_client_id: self.local_client_id,
-				output: self.ctx.state.clone_to_presentation(self.ctx.tick.id_cur),
+				output: self.ctx.state.presentation_collect(self.ctx.tick.id_cur),
 			})),
 			Ordering::AcqRel,
 		);

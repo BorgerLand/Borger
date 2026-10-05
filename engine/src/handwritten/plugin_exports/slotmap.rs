@@ -469,13 +469,13 @@ where
 	V: CustomStruct + PresentationCollect,
 {
 	type PresentationCollect = RawSlotMap<V::PresentationCollect>;
-	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationCollect {
+	fn presentation_collect(&self, tick: TickID) -> Self::PresentationCollect {
 		RawSlotMap {
 			slots: self
 				.data
 				.slots
 				.iter()
-				.map(|slot| (slot.0, slot.1.clone_to_presentation(tick)))
+				.map(|slot| (slot.0, slot.1.presentation_collect(tick)))
 				.collect(),
 
 			random_access: self.data.random_access.clone(),
@@ -505,7 +505,7 @@ impl<V: PresentationOutput<Prv>, Prv> PresentationOutput<RawSlotMap<Prv>> for Ra
 	fn presentation_output(
 		prv: Option<&RawSlotMap<Prv>>,
 		cur: &Self,
-		amount: f32,
+		interpolation_alpha: f32,
 		received_new_tick: bool,
 	) -> Self::PresentationOutput {
 		let Some(prv) = prv else {
@@ -515,7 +515,7 @@ impl<V: PresentationOutput<Prv>, Prv> PresentationOutput<RawSlotMap<Prv>> for Ra
 				.map(|slot| {
 					(
 						slot.0,
-						V::presentation_output(None, &slot.1, amount, received_new_tick),
+						V::presentation_output(None, &slot.1, interpolation_alpha, received_new_tick),
 					)
 				})
 				.collect();
@@ -572,14 +572,24 @@ impl<V: PresentationOutput<Prv>, Prv> PresentationOutput<RawSlotMap<Prv>> for Ra
 				//the same slot as the previous tick so can cleanly interpolate
 				slots[slot_idx].write((
 					cur_slot.0,
-					V::presentation_output(Some(&prv_slot.1), &cur_slot.1, amount, received_new_tick),
+					V::presentation_output(
+						Some(&prv_slot.1),
+						&cur_slot.1,
+						interpolation_alpha,
+						received_new_tick,
+					),
 				));
 			} else {
 				if let Some(cur_slot) = cur_slot {
 					let prv_moved_slot = prv.get(cur_slot.0);
 					slots[slot_idx].write((
 						cur_slot.0,
-						V::presentation_output(prv_moved_slot, &cur_slot.1, amount, received_new_tick),
+						V::presentation_output(
+							prv_moved_slot,
+							&cur_slot.1,
+							interpolation_alpha,
+							received_new_tick,
+						),
 					));
 
 					if received_new_tick && prv_moved_slot.is_none() {

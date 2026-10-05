@@ -46,7 +46,7 @@ ${struct.fields
 impl PresentationCollect for simulation::${struct.name}
 {
 	type PresentationCollect = ${presentationCollectStructName};
-	fn clone_to_presentation(&self, _tick: TickID) -> Self::PresentationCollect
+	fn presentation_collect(&self, _tick: TickID) -> Self::PresentationCollect
 	{
 		Self::PresentationCollect
 		{
@@ -55,7 +55,7 @@ ${struct.fields
 	.map(function generatePresentationCollectFieldImpl({ name, typeKind }) {
 		let presentationGetter;
 		if (typeKind === "primitive") presentationGetter = "";
-		else presentationGetter = ".clone_to_presentation(_tick)";
+		else presentationGetter = ".presentation_collect(_tick)";
 
 		return `			${name}: self.${name}${presentationGetter},`;
 	})

@@ -60,7 +60,7 @@ ${generatePresentationOutputStructImpl(true)}`
 					return `impl PresentationOutput${downgradeScope ? `<presentation_collect::${downgradedName}>` : ""} for presentation_collect::${presentationCollectStructName}
 {
 	type PresentationOutput = ${presentationOutputStructName};
-	fn presentation_output(_prv: Option<&${downgradeScope ? `presentation_collect::${downgradedName}` : "Self"}>, _cur: &Self, _amount: f32, _received_new_tick: bool) -> Self::PresentationOutput
+	fn presentation_output(_prv: Option<&${downgradeScope ? `presentation_collect::${downgradedName}` : "Self"}>, _cur: &Self, _interpolation_alpha: f32, _received_new_tick: bool) -> Self::PresentationOutput
 	{
 		Self::PresentationOutput
 		{
@@ -73,7 +73,7 @@ ${struct.fields
 			(
 				_prv.map(|prv| &prv.${name}),
 				&_cur.${name},
-				_amount,
+				_interpolation_alpha,
 				_received_new_tick
 			)`;
 		else if (
@@ -84,7 +84,7 @@ ${struct.fields
 		else
 			outputter = `if let Some(prv) = _prv
 			{
-				${outerType}::interpolate(prv.${name}, _cur.${name}, _amount)
+				${outerType}::interpolate(prv.${name}, _cur.${name}, _interpolation_alpha)
 			}
 			else
 			{

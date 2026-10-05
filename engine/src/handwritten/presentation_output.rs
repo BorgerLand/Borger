@@ -5,6 +5,8 @@ use borger_plugin_sdk::primitive::usize32;
 use borger_plugin_sdk::traits::PresentationOutput;
 
 pub struct PresentationOutputContext {
+	pub interpolation_alpha: f32,
+	pub received_new_tick: bool,
 	pub local_client_id: usize32,
 	pub output: PresentationOutputState,
 }
@@ -16,14 +18,14 @@ impl PresentationOutput for presentation_collect::Client {
 	fn presentation_output(
 		prv: Option<&Self>,
 		cur: &Self,
-		amount: f32,
+		interpolation_alpha: f32,
 		received_new_tick: bool,
 	) -> Self::PresentationOutput {
 		match cur {
 			Self::Owned(cur) => Client::Owned(PresentationOutput::presentation_output(
 				prv.map(|prv| prv.as_owned().unwrap()),
 				cur,
-				amount,
+				interpolation_alpha,
 				received_new_tick,
 			)),
 			Self::Remote(cur) => {
@@ -34,14 +36,14 @@ impl PresentationOutput for presentation_collect::Client {
 					Client::Remote(presentation_collect::ClientRemote::presentation_output(
 						Some(prv),
 						cur,
-						amount,
+						interpolation_alpha,
 						received_new_tick,
 					))
 				} else {
 					Client::Remote(presentation_collect::ClientRemote::presentation_output(
 						prv.map(|prv| prv.as_remote().unwrap()),
 						cur,
-						amount,
+						interpolation_alpha,
 						received_new_tick,
 					))
 				}

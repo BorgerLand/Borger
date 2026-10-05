@@ -16,10 +16,10 @@ pub(crate) type Client = Scope<ClientOwned, ClientRemote>;
 
 impl PresentationCollect for simulation::Client {
 	type PresentationCollect = Client;
-	fn clone_to_presentation(&self, tick: TickID) -> Self::PresentationCollect {
+	fn presentation_collect(&self, tick: TickID) -> Self::PresentationCollect {
 		match self {
-			simulation::Client::Owned(client) => Client::Owned(client.clone_to_presentation(tick)),
-			simulation::Client::Remote(client) => Client::Remote(client.clone_to_presentation(tick)),
+			simulation::Client::Owned(client) => Client::Owned(client.presentation_collect(tick)),
+			simulation::Client::Remote(client) => Client::Remote(client.presentation_collect(tick)),
 		}
 	}
 }

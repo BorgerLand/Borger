@@ -147,7 +147,7 @@ pub struct PresentationCollectEventDispatcher(u8);
 impl PresentationCollect for EventDispatcher {
 	type PresentationCollect = PresentationCollectEventDispatcher;
 
-	fn clone_to_presentation(&self, _: TickID) -> Self::PresentationCollect {
+	fn presentation_collect(&self, _: TickID) -> Self::PresentationCollect {
 		PresentationCollectEventDispatcher(self.version)
 	}
 }

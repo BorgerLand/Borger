@@ -155,6 +155,8 @@ ${plugin
 			? `
 	const GameContext =
 	{
+		interpolation_alpha: state.memView.getFloat32(ptr + offsets.interpolation_alpha, true),
+		received_new_tick: state.memView.getUint8(ptr + offsets.received_new_tick) !== 0,
 		local_client_id: state.memView.getUint32(ptr + offsets.local_client_id, true),
 		
 		input,
