@@ -61,6 +61,7 @@ ${struct.fields
 		set_${name}(value: ${(function getSimplePrimitiveType() {
 			if (outerType === "bool") return "boolean";
 			if (outerType === "char") return "string";
+			if (outerType === "u64" || outerType === "i64") return "bigint";
 			return "number";
 		})()})
 		{
@@ -220,10 +221,10 @@ function getPrimitive(type: PrimitiveType, offset: string) {
 					dataViewMethod = "Int32";
 					break;
 				case "u64":
-					dataViewMethod = "Uint64";
+					dataViewMethod = "BigUint64";
 					break;
 				case "i64":
-					dataViewMethod = "Int64";
+					dataViewMethod = "BigInt64";
 					break;
 				case "f32":
 					dataViewMethod = "Float32";
@@ -271,10 +272,10 @@ function setSimplePrimitive(type: SimplePrimitiveType, offset: string): string {
 				dataViewMethod = "Int32";
 				break;
 			case "u64":
-				dataViewMethod = "Uint64";
+				dataViewMethod = "BigUint64";
 				break;
 			case "i64":
-				dataViewMethod = "Int64";
+				dataViewMethod = "BigInt64";
 				break;
 			case "f32":
 				dataViewMethod = "Float32";
