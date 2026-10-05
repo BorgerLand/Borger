@@ -208,6 +208,14 @@ cmd_dev()
 		sb_open
 	fi
 	
+	#src/plugins is optional, and cargo watch crashes if a -w path doesn't exist
+	local SERVER_GAME_PLUGINS=""
+	local CLIENT_GAME_PLUGINS=""
+	if [[ -d src/plugins ]]; then
+		SERVER_GAME_PLUGINS="-w '../../src/plugins'"
+		CLIENT_GAME_PLUGINS="-w '../../../src/plugins'"
+	fi
+	
 	local -a DEV_CMD=(
 		npx concurrently
 		--names "TSC-CODEGEN,RUN-CODEGEN,SERVER-RUST,CLIENT-RUST,CLIENT-VITE"
@@ -220,7 +228,7 @@ cmd_dev()
 			-w '../../borger/engine' \
 			-w '../../borger/server' \
 			-w '../../src/simulation' \
-			-w '../../src/plugins' \
+			$SERVER_GAME_PLUGINS \
 			-w '../../Cargo.toml' \
 			-w '../../Cargo.lock' \
 			-w '../../rust-toolchain.toml' \
@@ -235,7 +243,7 @@ cmd_dev()
 			-w '../../../borger/client/rs/Cargo.toml' \
 			-w '../../../borger/client/rs/.cargo' \
 			-w '../../../src/simulation' \
-			-w '../../../src/plugins' \
+			$CLIENT_GAME_PLUGINS \
 			-w '../../../Cargo.toml' \
 			-w '../../../Cargo.lock' \
 			-w '../../../rust-toolchain.toml' \

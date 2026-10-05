@@ -93,7 +93,6 @@ export function codeGenerator<
 			fs.mkdirSync(ENGINE_GENERATED_DIR, { recursive: true });
 			fs.mkdirSync(CLIENT_RS_GENERATED_DIR, { recursive: true });
 			fs.mkdirSync(CLIENT_TS_GENERATED_DIR, { recursive: true });
-			fs.mkdirSync("src/plugins", { recursive: true });
 			generateDiffOperation(flattened);
 			generatePluginExports(flattened);
 			generateEngineCargoTOML(flattened);
