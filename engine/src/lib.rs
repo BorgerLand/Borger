@@ -155,6 +155,11 @@ pub mod prelude {
 }
 
 pub struct SimulationInitOptions {
+	///Simulation delta time/tick rate, in seconds/tick.
+	///Can be higher or lower than vsync refresh rate.
+	///Too low feels kinda floaty, too high hurts performance.
+	pub sim_dt: f32,
+
 	//pipeline
 	pub init_static_level_geom: Option<fn(/*state*/ &mut State)>,
 	pub simulation_loop: fn(/*ctx*/ &mut GameContext<Immediate>),

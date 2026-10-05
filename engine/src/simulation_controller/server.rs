@@ -1,7 +1,7 @@
 use super::*;
 use crate::diff_des;
 use crate::snapshot_serdes;
-use crate::tick::{TickInfo, UnrollbackableNetEvent};
+use crate::tick::UnrollbackableNetEvent;
 use borger_plugin_sdk::multiplayer_tradeoff::DiffSerializerToConsensus;
 use borger_plugin_sdk::primitive::PrimitiveSerDes;
 use borger_plugin_sdk::{ClientKind, TickID, TickType};
@@ -40,7 +40,7 @@ impl SimControllerInternals {
 		//server is running behind, try to calculate "early" as an
 		//offset of where the server should truly be right now
 		let tick_id_too_early =
-			self.ctx.tick.get_tick_at(Instant::now()) + TickInfo::get_ticks(INPUT_TOO_EARLY);
+			self.ctx.tick.get_tick_at(Instant::now()) + self.ctx.tick.get_ticks(INPUT_TOO_EARLY);
 
 		//if client doesn't have an input for this tick id yet,
 		//put it in timeout mode
@@ -48,7 +48,7 @@ impl SimControllerInternals {
 			.ctx
 			.tick
 			.id_cur
-			.saturating_sub(TickInfo::get_ticks(INPUT_TOO_LATE));
+			.saturating_sub(self.ctx.tick.get_ticks(INPUT_TOO_LATE));
 
 		//if client is in timeout mode and has an input for this
 		//tick id, disable timeout mode and allow influencing the
@@ -57,7 +57,7 @@ impl SimControllerInternals {
 			.ctx
 			.tick
 			.id_cur
-			.saturating_sub(TickInfo::get_ticks(INPUT_TOO_LATE / 2));
+			.saturating_sub(self.ctx.tick.get_ticks(INPUT_TOO_LATE / 2));
 
 		let mut rollback_to = self.ctx.tick.id_cur; //oldest tick id associated with a newly received input
 		//other events received from client-specific comms

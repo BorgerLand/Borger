@@ -56,7 +56,7 @@ fn apply_input(
 	diff: &mut DiffSerializer<Immediate>,
 ) {
 	let mut pos = character.get_pos();
-	pos += input.omnidir * SPEED * TickInfo::SIM_DT;
+	pos += input.omnidir * SPEED * SIM_DT;
 	character.set_pos(pos, diff);
 }
 ```

@@ -12,6 +12,10 @@ pub struct TickInfo {
 	//simulation has been running
 	first: Instant,
 
+	//simulation delta time/tick rate, in seconds/tick.
+	//see SimulationInitOptions::sim_dt
+	sim_dt: f32,
+
 	//all of these id's are incremental
 
 	//oldest tick that can still be rolled back and (as in, rewind
@@ -57,15 +61,17 @@ pub struct TickInfo {
 }
 
 impl TickInfo {
-	//simulation delta time/tick rate, in seconds/tick.
-	//can be higher or lower than vsync refresh rate.
-	//too low feels kinda floaty, too high hurts performance
-	pub const SIM_DT: f32 = borger_plugin_sdk::SIM_DT;
+	pub(crate) fn new(sim_dt: f32, id_start: TickID, fast_forward_ticks: TickID) -> Self {
+		assert!(
+			sim_dt.is_finite() && sim_dt > 0.0,
+			"sim_dt must be a positive number of seconds"
+		);
 
-	pub(crate) fn new(id_start: TickID, fast_forward_ticks: TickID) -> Self {
 		TickInfo {
 			first: Instant::now()
-				- Duration::from_secs_f64((id_start + fast_forward_ticks) as f64 * Self::SIM_DT as f64),
+				- Duration::from_secs_f64((id_start + fast_forward_ticks) as f64 * sim_dt as f64),
+
+			sim_dt,
 
 			id_consensus: id_start,
 
@@ -115,22 +121,22 @@ impl TickInfo {
 	}
 
 	#[cfg(any(feature = "server", feature = "singlethreaded"))]
-	pub(crate) const fn get_ticks(dur: Duration) -> TickID {
-		f32::round(dur.as_secs_f32() / Self::SIM_DT) as TickID
+	pub(crate) fn get_ticks(&self, dur: Duration) -> TickID {
+		f32::round(dur.as_secs_f32() / self.sim_dt) as TickID
 	}
 
-	pub(crate) fn get_duration(offset: TickID) -> Duration {
-		Duration::from_secs_f64(Self::SIM_DT as f64 * offset as f64)
+	pub(crate) fn get_duration(&self, offset: TickID) -> Duration {
+		Duration::from_secs_f64(self.sim_dt as f64 * offset as f64)
 	}
 
 	pub(crate) fn get_instant_at(&self, id: TickID) -> Instant {
-		self.first + Self::get_duration(id)
+		self.first + self.get_duration(id)
 	}
 
 	#[cfg(any(feature = "server", feature = "singlethreaded"))]
 	pub(crate) fn get_tick_at(&self, instant: Instant) -> TickID {
 		let duration = instant - self.first;
-		Self::get_ticks(duration)
+		self.get_ticks(duration)
 	}
 
 	pub(crate) fn get_now(&self) -> Instant {
@@ -146,13 +152,13 @@ impl TickInfo {
 		if offset_from_server >= 0 {
 			//early relative to server
 			let offset_from_server = offset_from_server as TickID;
-			self.first += Self::get_duration(offset_from_server);
+			self.first += self.get_duration(offset_from_server);
 			//do not modify id_target. rather, the adjustment of first
 			//causes the simulation to pause for that many ticks
 		} else {
 			//late relative to server
 			let offset_from_server = (-offset_from_server) as TickID;
-			self.first -= Self::get_duration(offset_from_server);
+			self.first -= self.get_duration(offset_from_server);
 			self.id_target += offset_from_server;
 		}
 	}

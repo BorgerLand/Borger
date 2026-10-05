@@ -102,7 +102,7 @@ use std::mem;
 ///pub fn process_input(character: &mut Character, input: &Input, diff: &mut DiffSerializer<impl ImmediateOrWaitForServer>)
 ///{
 ///	let mut pos = character.get_pos();
-///	pos.x += input.omnidir.x * TickInfo::SIM_DT;
+///	pos.x += input.omnidir.x * SIM_DT;
 ///	character.set_pos(pos, diff);
 ///	//                     ^ diff serializer records all state mutations, the key to engine's rollback implementation
 ///}

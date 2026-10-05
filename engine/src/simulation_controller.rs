@@ -38,7 +38,7 @@ mod seek;
 #[cfg(feature = "server")]
 mod server;
 
-//recommend decreasing SIM_DT with this feature on
+//recommend increasing sim_dt with this feature on
 #[cfg(feature = "server")]
 const TRACE_TICK_ADVANCEMENT: bool = false;
 #[cfg(feature = "client")]
@@ -231,9 +231,10 @@ fn make_context(
 	let new_client_header = snapshot_serdes::des_new_client(&mut state, new_client_snapshot).unwrap();
 
 	#[cfg(feature = "server")]
-	let tick_info = TickInfo::new(0, 0);
+	let tick_info = TickInfo::new(o.sim_dt, 0, 0);
 	#[cfg(feature = "client")]
 	let tick_info = TickInfo::new(
+		o.sim_dt,
 		new_client_header.tick_id_snapshot,
 		new_client_header.fast_forward_ticks,
 	);

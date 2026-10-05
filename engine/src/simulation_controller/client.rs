@@ -15,7 +15,7 @@ const JITTER_TOLERANCE: Duration = Duration::from_millis(50);
 
 //how far behind/ahead of the server the client can be before
 //triggering recalibration (+- this amount, NOT HALF)
-//note 30hz = 1000/30 = 33.3333 ms
+//note 30hz sim_dt = 1000/30 = 33.3333 ms
 const OFFSET_TOLERANCE: Duration = Duration::from_millis(100);
 
 impl SimControllerInternals {
@@ -47,7 +47,7 @@ impl SimControllerInternals {
 				self.ctx.tick.recalibrate(-(offset as i16));
 			} else {
 				//what likely happened is the simulation is taking longer
-				//than SIM_DT per tick. possible death spiral
+				//than sim_dt per tick. possible death spiral
 				self.ctx.tick.id_target += offset;
 			}
 
@@ -59,13 +59,13 @@ impl SimControllerInternals {
 		//ping must be stable in order to recalibrate accurately.
 		//note that because ping is only sampled per tick, the data
 		//can be somewhat course and imprecise (to the nearest
-		//SIM_DT)
+		//sim_dt)
 		if self.calibration_samples.len() == OFFSET_BUFFER_SIZE
-			&& get_jitter(&self.calibration_samples) < JITTER_TOLERANCE
+			&& get_jitter(&self.ctx.tick, &self.calibration_samples) < JITTER_TOLERANCE
 		{
 			let average_offset = self.calibration_samples.iter().sum::<i16>() / OFFSET_BUFFER_SIZE as i16;
 			if self.initial_calibration
-				|| TickInfo::get_duration(average_offset.abs() as TickID) >= OFFSET_TOLERANCE
+				|| self.ctx.tick.get_duration(average_offset.abs() as TickID) >= OFFSET_TOLERANCE
 			{
 				if TRACE_TICK_ADVANCEMENT {
 					debug!("recalibrating by {} ticks", average_offset);
@@ -99,7 +99,7 @@ impl SimControllerInternals {
 		//whatever state the simulation is in at the end of the
 		//scheduled tick, render it. note there is no guarantee
 		//that every simulation tick is rendered, depending on
-		//whether presentation tick is able to keep up with SIM_DT
+		//whether presentation tick is able to keep up with sim_dt
 		self.comms.sim_out.store(
 			Some(Box::new(PresentationCollectContext {
 				time: self.ctx.tick.get_now(),
@@ -355,9 +355,9 @@ impl SimControllerInternals {
 	}
 }
 
-fn get_jitter(samples: &VecDeque<i16>) -> Duration {
+fn get_jitter(tick: &TickInfo, samples: &VecDeque<i16>) -> Duration {
 	let min = *samples.iter().min().unwrap();
 	let max = *samples.iter().max().unwrap();
-	let jitter = TickInfo::get_duration((max - min).abs() as TickID);
+	let jitter = tick.get_duration((max - min).abs() as TickID);
 	jitter
 }

@@ -1,6 +1,5 @@
 pub use rapier3d;
 
-use borger_plugin_sdk::SIM_DT;
 use borger_plugin_sdk::traits::UntrackedState;
 use glam::Vec3;
 use rapier3d::prelude::*;
@@ -37,11 +36,8 @@ pub struct Rapier {
 
 impl Default for Rapier {
 	fn default() -> Self {
-		let mut integration_parameters = IntegrationParameters::default();
-		integration_parameters.dt = SIM_DT;
-
 		Self {
-			integration_parameters,
+			integration_parameters: IntegrationParameters::new(),
 			islands: IslandManager::new(),
 			broad_phase: BroadPhaseBvh::new(),
 			narrow_phase: NarrowPhase::new(),
