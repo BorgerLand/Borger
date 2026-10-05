@@ -17,5 +17,5 @@ export const eventDispatcher = {
 	],
 
 	rsPresentationOutputFQN: "bool",
-	tsMemWrappers: (offset) => `state.memView.getUint8(ptr + ${offset}) !== 0`,
+	tsMemWrapperFunctionBody: `return state.memView.getUint8(ptr) !== 0;`,
 } satisfies Plugin<"EventDispatcher">;

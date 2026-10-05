@@ -127,10 +127,13 @@ ${struct.fields
 
 		if (typeKind === "primitive") return `		${name}: ${getPrimitive(outerType, offset)},`;
 		if (typeKind === "plugin")
-			return `		${name}: ${plugin.tsMemWrappers!(offset)
-				.split("\n")
-				.map((line, i) => (i === 0 ? line : `		${line}`))
-				.join("\n")},`;
+			return `		${name}: (function(ptr: number)${plugin.tsMemWrapperReturnType ? `: ${plugin.tsMemWrapperReturnType}` : ""}
+		{
+${plugin
+	.tsMemWrapperFunctionBody!.split("\n")
+	.map((line) => `			${line}`)
+	.join("\n")}
+		})(ptr + ${offset}),`;
 
 		if (outerType === "SlotMap")
 			return `		${name}: SlotMap.wrap
