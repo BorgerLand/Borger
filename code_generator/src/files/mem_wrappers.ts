@@ -23,8 +23,8 @@ export function generateMemWrappers(flattened: FlattenedOutput) {
 /*eslint-disable*/
 
 import * as MemWrappers from "@borger/ts/handwritten/mem_wrappers.ts";
-import * as SlotMap from "@borger/ts/networked_types/collections/slotmap.ts";
-import * as Primitive from "@borger/ts/networked_types/primitive.ts";
+import * as SlotMap from "@borger/ts/slotmap.ts";
+import * as Primitive from "@borger/ts/primitive.ts";
 
 ${flattened.input
 	.map(

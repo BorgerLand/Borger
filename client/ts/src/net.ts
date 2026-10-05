@@ -1,4 +1,4 @@
-import { SIZEOF_32BIT } from "@borger/ts/networked_types/primitive.ts";
+import { SIZEOF_32BIT } from "@borger/ts/primitive.ts";
 
 const NET_SIMULATION_PING = 0; //rtt/2 ms
 const NET_CONNECTION_TIMEOUT = 10; //kill a websocket connection after this many seconds of lag. should match net.rs

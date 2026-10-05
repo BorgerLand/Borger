@@ -1,5 +1,5 @@
 import * as MemWrappers from "@borger/ts/handwritten/mem_wrappers.ts";
-import { SIZEOF_32BIT } from "@borger/ts/networked_types/primitive.ts";
+import { SIZEOF_32BIT } from "@borger/ts/primitive.ts";
 
 export type SlotMap<V> = ((events?: {
 	added: (id: number) => void;

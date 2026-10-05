@@ -271,6 +271,7 @@ export async function replaySession() {
 	(wasmBindgen.PresentationController as any).replay_session(file);
 }
 
-export type * from "@borger/ts/networked_types/networked_types.ts";
+export type * from "@borger/ts/slotmap.ts";
+export type * from "@borger/ts/primitive.ts";
 export type * from "@borger/ts/generated/mem_wrappers.ts";
 export { ClientDiscriminant } from "@borger/ts/generated/mem_wrappers.ts";
