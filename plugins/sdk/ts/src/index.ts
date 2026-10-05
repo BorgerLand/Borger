@@ -1,11 +1,11 @@
 export type Plugin<Name extends string = string> = {
 	name: Name;
 	tracked: boolean;
-	schemaValidators?: RecursiveSchemaValidator[];
 	rustSimFQN: string; //including the leading "::"
 	nodePackageName: string;
 	diffOps: string[];
 
+	schemaValidators?: RecursiveSchemaValidator[];
 	//see mem_offsets.ts for example pattern. only needed if
 	//type allows presentation and has multiple fields
 	rsMemOffsets?: string;
