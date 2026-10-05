@@ -19,6 +19,7 @@ export const TITLE = [BOLD, ITALIC, "font-size: 57px;"];
 export function init() {
 	styledLog(false, [" 🍔", ["font-size: 140px;"]]);
 	styledLog(false, [" 🅱️ORGER ", [BROWN, ...TITLE]]);
+	styledLog(false, ["                 https://borger.dev", []]);
 
 	styledLog(
 		false,
