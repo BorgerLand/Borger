@@ -187,15 +187,21 @@ ${flattened.output
 				.join(""),
 		)
 		.join("")}${flattened.plugins
-		.filter((plugin) => plugin.rsMemOffsets)
+		.filter((plugin) => plugin.rsPresentationOutputFieldNames)
 		.map(
 			(plugin) => `
 	
 	let ${plugin.name} = Object::new();
 	Reflect::set(&plugins, &"${plugin.name}".into(), &${plugin.name}).unwrap();
 ${plugin
-	.rsMemOffsets!.split("\n")
-	.map((line) => `	${line}`)
+	.rsPresentationOutputFieldNames!.map(
+		(fieldName) => `Reflect::set
+	(
+		&${plugin.name},
+		&"${fieldName}".into(),
+		&Number::from(offset_of!(${plugin.rsPresentationOutputFQN}, ${fieldName}) as f64)
+	).unwrap();`,
+	)
 	.join("\n")}`,
 		)
 		.join("")}

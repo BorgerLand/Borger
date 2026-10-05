@@ -138,7 +138,7 @@ export function flatten(
 				childFieldFlattened = {
 					...childFieldFlattenedCommon,
 					typeKind: "plugin",
-					outerType: plugin.rustSimFQN,
+					outerType: plugin.rsSimulationFQN,
 					plugin,
 				};
 			} else {

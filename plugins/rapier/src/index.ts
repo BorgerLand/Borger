@@ -3,7 +3,7 @@ import type { Plugin } from "@borger/plugin_sdk";
 export const rapier = {
 	name: "Rapier",
 	tracked: false,
-	rustSimFQN: "::borger_rapier::Rapier",
+	rsSimulationFQN: "::borger_rapier::Rapier",
 	nodePackageName: "@borger/rapier",
 	diffOps: [],
 

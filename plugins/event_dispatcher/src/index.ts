@@ -3,7 +3,7 @@ import type { Plugin } from "@borger/plugin_sdk";
 export const eventDispatcher = {
 	name: "EventDispatcher",
 	tracked: true,
-	rustSimFQN: "::borger_event_dispatcher::EventDispatcher",
+	rsSimulationFQN: "::borger_event_dispatcher::EventDispatcher",
 	nodePackageName: "@borger/event_dispatcher",
 	diffOps: ["EventDispatcher"],
 
@@ -16,5 +16,6 @@ export const eventDispatcher = {
 		},
 	],
 
+	rsPresentationOutputFQN: "bool",
 	tsMemWrappers: (offset) => `state.memView.getUint8(ptr + ${offset}) !== 0`,
 } satisfies Plugin<"EventDispatcher">;
