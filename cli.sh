@@ -298,9 +298,11 @@ cmd_release()
 		
 		read -r response
 		if ! [[ "$response" =~ $YES_RE ]]; then
+			echo "Interpreted as no"
 			exit 1
 		fi
 		
+		echo "Interpreted as yes"
 		set -x
 		rm -rf release "$CLIENT_PKG"
 	else
@@ -368,9 +370,11 @@ cmd_clean()
 	
 	read -r response
 	if ! [[ "$response" =~ $YES_RE ]]; then
+		echo "Interpreted as no"
 		exit 1
 	fi
 	
+	echo "Interpreted as yes"
 	for file in "${FILES_TO_CLEAN[@]}"; do
 		rm -rf "$file"
 	done
