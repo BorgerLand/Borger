@@ -7,6 +7,7 @@ use borger_plugin_sdk::traits::{
 };
 use borger_plugin_sdk::{ClientKind, diff_operation_enum};
 use std::collections::HashMap;
+use std::iter::FusedIterator;
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -37,13 +38,19 @@ diff_operation_enum!("SlotMap");
 //- add is amortized O(1), but O(n) if internal data structures need to resize
 //- iteration order is deterministic but not in order of insertion*
 //- 	*it will only be in order of insertion so long as elements are not removed from the "middle"
-//- 	*you can grab the most recently inserted slot with .iter().last(), if no slots have been removed since inserting it
+//- 	*you can grab the most recently inserted slot with .iter().next_back(), if no slots have been removed since inserting it
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawSlotMap<V> {
 	slots: Vec<(usize32, V)>,
 	random_access: HashMap<usize32, usize32>, //<slot id, physical index>
 	next_id: usize32,
+}
+
+impl<V> Default for RawSlotMap<V> {
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl<V> RawSlotMap<V> {
@@ -130,23 +137,35 @@ impl<V> RawSlotMap<V> {
 		self.slots.len() as usize32
 	}
 
-	pub fn iter(&self) -> impl ExactSizeIterator<Item = (usize32, &V)> {
+	pub fn is_empty(&self) -> bool {
+		self.slots.is_empty()
+	}
+
+	pub fn iter(
+		&self,
+	) -> impl ExactSizeIterator<Item = (usize32, &V)> + DoubleEndedIterator + FusedIterator + Clone {
 		self.slots.iter().map(|slot| (slot.0, &slot.1))
 	}
 
-	pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (usize32, &mut V)> {
+	pub fn iter_mut(
+		&mut self,
+	) -> impl ExactSizeIterator<Item = (usize32, &mut V)> + DoubleEndedIterator + FusedIterator {
 		self.slots.iter_mut().map(|slot| (slot.0, &mut slot.1))
 	}
 
-	pub fn ids(&self) -> impl ExactSizeIterator<Item = usize32> {
+	pub fn ids(
+		&self,
+	) -> impl ExactSizeIterator<Item = usize32> + DoubleEndedIterator + FusedIterator + Clone {
 		self.slots.iter().map(|slot| slot.0)
 	}
 
-	pub fn values(&self) -> impl ExactSizeIterator<Item = &V> {
+	pub fn values(&self) -> impl ExactSizeIterator<Item = &V> + DoubleEndedIterator + FusedIterator + Clone {
 		self.slots.iter().map(|slot| &slot.1)
 	}
 
-	pub fn values_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
+	pub fn values_mut(
+		&mut self,
+	) -> impl ExactSizeIterator<Item = &mut V> + DoubleEndedIterator + FusedIterator {
 		self.slots.iter_mut().map(|slot| &mut slot.1)
 	}
 }
@@ -287,11 +306,15 @@ impl<V: CustomStruct> SlotMap<V> {
 		self.data.get_mut(id)
 	}
 
-	pub fn iter_mut(&mut self) -> impl ExactSizeIterator<Item = (usize32, &mut V)> {
+	pub fn iter_mut(
+		&mut self,
+	) -> impl ExactSizeIterator<Item = (usize32, &mut V)> + DoubleEndedIterator + FusedIterator {
 		self.data.iter_mut()
 	}
 
-	pub fn values_mut(&mut self) -> impl ExactSizeIterator<Item = &mut V> {
+	pub fn values_mut(
+		&mut self,
+	) -> impl ExactSizeIterator<Item = &mut V> + DoubleEndedIterator + FusedIterator {
 		self.data.values_mut()
 	}
 }
