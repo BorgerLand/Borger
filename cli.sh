@@ -259,8 +259,36 @@ cmd_dev()
 	fi
 }
 
+cmd_release_help()
+{
+	echo "Usage: borger release [options]"
+	echo ""
+	echo "Options:"
+	echo "  --skip-singlethreaded  Only build the multithreaded client, rendering it incompatible with most game portals"
+	echo "  --help, -h, help"
+}
+
 cmd_release()
 {
+	local SKIP_ST=false
+	
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+			--skip-singlethreaded)
+				SKIP_ST=true
+				shift
+				;;
+			help|--help|-h)
+				cmd_release_help
+				exit 0
+				;;
+			*)
+				cmd_release_help
+				exit 1
+				;;
+		esac
+	done
+	
 	pre_launch_checks
 	toolchain_check
 	
@@ -281,7 +309,10 @@ cmd_release()
 	
 	cd borger/client/rs
 	wasm-pack build --out-name client_rs_mt --target=web --profile client-release --features client --config 'include=[".cargo/config.mt.toml"]'
-	wasm-pack build --out-name client_rs_st --target=web --profile client-release --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
+	if [[ "$SKIP_ST" == false ]]; then
+		wasm-pack build --out-name client_rs_st --target=web --profile client-release --features client,singlethreaded  --config 'include=[".cargo/config.st.toml"]'
+	fi
+	
 	cd ../../..
 	npx vite build
 	npx rolldown --minify "$CLIENT_PKG"/client_rs*.js -d release/client/assets
@@ -347,10 +378,10 @@ cmd_clean()
 
 cmd_help()
 {
-	echo "  install        Download and compile this repo's dependencies"
-	echo "  dev [options]  Development mode: automatically rebuilds when code changes"
-	echo "  release        Release mode: creates server executable and static client webpage"
-	echo "  clean          Remove all gitignored files except IDE config"
+	echo "  install            Download and compile this repo's dependencies"
+	echo "  dev [options]      Development mode: automatically rebuilds when code changes"
+	echo "  release [options]  Release mode: creates server executable and static client webpage"
+	echo "  clean              Remove all gitignored files except IDE config"
 }
 
 case "${1:-}" in
