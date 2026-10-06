@@ -5,7 +5,6 @@ export const rapier = {
 	tracked: false,
 	rsSimulationFQN: "::borger_rapier::Rapier",
 	nodePackageName: "@borger/rapier",
-	diffOps: [],
 
 	schemaValidators: [
 		{

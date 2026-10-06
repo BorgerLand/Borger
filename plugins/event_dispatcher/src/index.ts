@@ -5,7 +5,6 @@ export const eventDispatcher = {
 	tracked: true,
 	rsSimulationFQN: "::borger_event_dispatcher::EventDispatcher",
 	nodePackageName: "@borger/event_dispatcher",
-	diffOps: ["EventDispatcher"],
 
 	schemaValidators: [
 		{
@@ -15,6 +14,8 @@ export const eventDispatcher = {
 			error: (path) => `EventDispatcher at "${path.join(".")}" must have presentation enabled`,
 		},
 	],
+
+	diffOps: ["EventDispatcher"],
 
 	rsPresentationOutputFQN: "bool",
 	tsMemWrapperFunctionBody: `return state.memView.getUint8(ptr) !== 0;`,

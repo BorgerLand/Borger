@@ -3,9 +3,9 @@ export type Plugin<Name extends string = string> = {
 	tracked: boolean;
 	rsSimulationFQN: string; //including the leading "::"
 	nodePackageName: string;
-	diffOps: string[];
 
 	schemaValidators?: RecursiveSchemaValidator[];
+	diffOps?: string[]; //tracked plugins should have at least 1, untracked have none
 
 	//remaining fields only needed for presentable types
 	rsPresentationOutputFQN?: string; //including the leading "::"

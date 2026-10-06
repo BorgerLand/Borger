@@ -29,11 +29,12 @@ export function generateDiffOperation(flattened: FlattenedOutput) {
 		"SlotMapRemove": ${curID++},
 		"SlotMapClear": ${curID++}
 	}${flattened.plugins
+		.filter((plugin) => plugin.tracked && plugin.diffOps)
 		.map(
 			(plugin) => `,
 	"${plugin.name}":
 	{
-${plugin.diffOps.map((diffOp) => `		"${diffOp}": ${curID++}`).join(`,
+${plugin.diffOps!.map((diffOp) => `		"${diffOp}": ${curID++}`).join(`,
 `)}
 	}`,
 		)
