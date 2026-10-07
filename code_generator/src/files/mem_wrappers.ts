@@ -106,15 +106,9 @@ ${flattened.output
 			})
 			.join("\n")}
 
-${rootStructName === "GameContext" ? "export " : ""}function wrap_${rootStructName}(state: MemWrappers.State, ptr: number${rootStructName === "GameContext" ? ", input: Input" : ", interpolation_alpha: number, received_new_tick: boolean"})
+${rootStructName === "GameContext" ? "export " : ""}function wrap_${rootStructName}(state: MemWrappers.State, ptr: number${rootStructName === "GameContext" ? ", input: Input" : ""})
 {
-	const offsets = state.offsets.structs.${rootStructName};${
-		rootStructName === "GameContext"
-			? `
-	const interpolation_alpha = state.memView.getFloat32(ptr + offsets.interpolation_alpha, true);
-	const received_new_tick = state.memView.getUint8(ptr + offsets.received_new_tick) !== 0;`
-			: ""
-	}
+	const offsets = state.offsets.structs.${rootStructName};
 	
 ${group
 	.filter(presentationStructFilter)
@@ -147,8 +141,6 @@ ${plugin
 		(
 			state,
 			ptr + ${offset},
-			interpolation_alpha,
-			received_new_tick,
 			state.offsets.plugins.SlotMap.${innerType},
 			wrap_${innerType},
 			state.wasmBindgen.slotmap_get_${innerType},
@@ -163,9 +155,9 @@ ${plugin
 			? `
 	const GameContext =
 	{
+		interpolation_alpha: state.memView.getFloat32(ptr + offsets.interpolation_alpha, true),
+		received_new_tick: state.memView.getUint8(ptr + offsets.received_new_tick) !== 0,
 		local_client_id: state.memView.getUint32(ptr + offsets.local_client_id, true),
-		interpolation_alpha,
-		received_new_tick,
 		
 		input,
 		output: Output,
@@ -188,12 +180,12 @@ export type Client =
 	| { type: ClientDiscriminant.Owned; value: ReturnType<typeof wrap_ClientOwned> }
 	| { type: ClientDiscriminant.Remote; value: ReturnType<typeof wrap_ClientRemote> };
 
-function wrap_Client(state: MemWrappers.State, ptr: number, interpolation_alpha: number, received_new_tick: boolean): Client
+function wrap_Client(state: MemWrappers.State, ptr: number): Client
 {
 	const offsets = state.offsets.structs.Client;
 	return state.memView.getUint8(ptr) === ClientDiscriminant.Owned
-			? { type: ClientDiscriminant.Owned, value: wrap_ClientOwned(state, ptr + offsets.owned, interpolation_alpha, received_new_tick) }
-			: { type: ClientDiscriminant.Remote, value: wrap_ClientRemote(state, ptr + offsets.remote, interpolation_alpha, received_new_tick) };
+			? { type: ClientDiscriminant.Owned, value: wrap_ClientOwned(state, ptr + offsets.owned) }
+			: { type: ClientDiscriminant.Remote, value: wrap_ClientRemote(state, ptr + offsets.remote) };
 }
 `,
 	);

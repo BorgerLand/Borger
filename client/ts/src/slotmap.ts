@@ -23,15 +23,8 @@ type SlotMapMemOffsets = {
 export function wrap<V>(
 	state: MemWrappers.State,
 	ptr: number,
-	interpolation_alpha: number,
-	received_new_tick: boolean,
 	offsets: SlotMapMemOffsets,
-	wrapElement: (
-		state: MemWrappers.State,
-		ptr: number,
-		interpolation_alpha: number,
-		received_new_tick: boolean,
-	) => V,
+	wrapElement: (state: MemWrappers.State, ptr: number) => V,
 	getElement: (ptr: number, id: number) => number | undefined,
 ): SlotMap<V> {
 	const lifetime = state.curLifetime;
@@ -64,18 +57,7 @@ export function wrap<V>(
 						MemWrappers.checkUseAfterFree(state, lifetime);
 						const slotPtr = slotsPtr + i++ * offsets.slots_stride;
 						const id = state.memView.getUint32(slotPtr + offsets.slot_0, true);
-						return {
-							done: false,
-							value: [
-								id,
-								wrapElement(
-									state,
-									slotPtr + offsets.slot_1,
-									interpolation_alpha,
-									received_new_tick,
-								),
-							],
-						};
+						return { done: false, value: [id, wrapElement(state, slotPtr + offsets.slot_1)] };
 					},
 				};
 			},
@@ -83,8 +65,7 @@ export function wrap<V>(
 			get(id: number) {
 				MemWrappers.checkUseAfterFree(state, lifetime);
 				const elementPtr = getElement(ptr, id);
-				if (elementPtr !== undefined)
-					return wrapElement(state, elementPtr, interpolation_alpha, received_new_tick);
+				if (elementPtr !== undefined) return wrapElement(state, elementPtr);
 			},
 		};
 	};
