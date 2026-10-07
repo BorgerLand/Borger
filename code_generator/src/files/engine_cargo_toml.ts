@@ -1,11 +1,12 @@
-import { ENGINE_DIR, pluginCrateName, stateWarningHash } from "@borger/code_generator/common.ts";
+import { ENGINE_DIR, rsFQNtoCrateName, stateWarningHash } from "@borger/code_generator/common.ts";
 import fs from "fs";
 import type { FlattenedOutput } from "@borger/code_generator/flatten.ts";
 import path from "path";
 
 export function generateEngineCargoTOML(flattened: FlattenedOutput) {
 	const uniqueCrates = new Map<string, string>(); //crate name, package name
-	for (const plugin of flattened.plugins) uniqueCrates.set(pluginCrateName(plugin), plugin.nodePackageName);
+	for (const plugin of flattened.plugins)
+		uniqueCrates.set(rsFQNtoCrateName(plugin.rsSimulationFQN), plugin.nodePackageName);
 
 	fs.writeFileSync(
 		`${ENGINE_DIR}/Cargo.toml`,

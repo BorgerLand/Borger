@@ -1,4 +1,4 @@
-import type { NetVisibility, Plugin } from "@borger/plugin_sdk";
+import type { NetVisibility } from "@borger/plugin_sdk";
 import type { FlattenedStruct } from "@borger/code_generator/flatten.ts";
 
 export const ENGINE_DIR = "borger/engine";
@@ -29,10 +29,8 @@ export const VALID_TYPES = `use
 	crate::plugins::slotmap::SlotMap,
 };`;
 
-export function pluginCrateName(plugin: Plugin) {
-	const crateName = plugin.rsSimulationFQN.split("::").find((segment) => segment.length > 0);
-	if (!crateName) throw Error(`Plugin ${plugin.name} has invalid rsSimulationFQN`);
-	return crateName;
+export function rsFQNtoCrateName(rsFQN: string) {
+	return rsFQN.split("::")[1];
 }
 
 //this is specifically for typeKind: "external", which will

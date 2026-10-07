@@ -3,6 +3,7 @@ import {
 	stateWarningBlock,
 	getNestedPath,
 	presentationStructFilter,
+	rsFQNtoCrateName,
 } from "@borger/code_generator/common.ts";
 import { getOuterOutputStructName } from "@borger/code_generator/files/mem_wrappers.ts";
 import fs from "fs";
@@ -205,14 +206,18 @@ ${flattened.output
 	let ${plugin.name} = Object::new();
 	Reflect::set(&plugins, &"${plugin.name}".into(), &${plugin.name}).unwrap();
 ${plugin
-	.rsPresentationOutputFieldNames!.map(
-		(fieldName) => `Reflect::set
+	.rsPresentationOutputFieldNames!.map(function generatePluginMemOffsets(fieldName) {
+		let presentationOutputType = plugin.rsPresentationOutputFQN!;
+		if (rsFQNtoCrateName(presentationOutputType) === rsFQNtoCrateName(plugin.rsSimulationFQN))
+			presentationOutputType = "::borger::plugins" + presentationOutputType;
+
+		return `Reflect::set
 	(
 		&${plugin.name},
 		&"${fieldName}".into(),
-		&Number::from(offset_of!(${plugin.rsPresentationOutputFQN}, ${fieldName}) as f64)
-	).unwrap();`,
-	)
+		&Number::from(offset_of!(${presentationOutputType}, ${fieldName}) as f64)
+	).unwrap();`;
+	})
 	.join("\n")}`,
 		)
 		.join("")}
