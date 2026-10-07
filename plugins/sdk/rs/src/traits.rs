@@ -103,7 +103,7 @@ pub trait PresentationCollect {
 
 ///Classic lerp/slerp helper for various simple math primitives
 pub trait Interpolate: Copy {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self;
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self;
 }
 
 //given previous and current tick data, calculate what to send

@@ -358,53 +358,53 @@ impl SliceSerDes<Quat> for [Quat] {}
 impl SliceSerDes<DQuat> for [DQuat] {}
 
 impl Interpolate for f32 {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		prv * (1.0 - amount) + cur * amount
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		prv * (1.0 - interpolation_alpha) + cur * interpolation_alpha
 	}
 }
 
 impl Interpolate for f64 {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		let amount = amount as f64;
-		prv * (1.0 - amount) + cur * amount
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		let interpolation_alpha = interpolation_alpha as f64;
+		prv * (1.0 - interpolation_alpha) + cur * interpolation_alpha
 	}
 }
 
 impl Interpolate for Vec2 {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		prv.lerp(cur, amount)
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		prv.lerp(cur, interpolation_alpha)
 	}
 }
 
 impl Interpolate for DVec2 {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		let amount = amount as f64;
-		prv.lerp(cur, amount)
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		let interpolation_alpha = interpolation_alpha as f64;
+		prv.lerp(cur, interpolation_alpha)
 	}
 }
 
 impl Interpolate for Vec3 {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		prv.lerp(cur, amount)
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		prv.lerp(cur, interpolation_alpha)
 	}
 }
 
 impl Interpolate for DVec3 {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		let amount = amount as f64;
-		prv.lerp(cur, amount)
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		let interpolation_alpha = interpolation_alpha as f64;
+		prv.lerp(cur, interpolation_alpha)
 	}
 }
 
 impl Interpolate for Quat {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		prv.slerp(cur, amount)
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		prv.slerp(cur, interpolation_alpha)
 	}
 }
 
 impl Interpolate for DQuat {
-	fn interpolate(prv: Self, cur: Self, amount: f32) -> Self {
-		let amount = amount as f64;
-		prv.slerp(cur, amount)
+	fn interpolate(prv: Self, cur: Self, interpolation_alpha: f32) -> Self {
+		let interpolation_alpha = interpolation_alpha as f64;
+		prv.slerp(cur, interpolation_alpha)
 	}
 }
