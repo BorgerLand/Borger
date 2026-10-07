@@ -37,7 +37,7 @@ pub struct Rapier {
 impl Default for Rapier {
 	fn default() -> Self {
 		Self {
-			integration_parameters: IntegrationParameters::new(),
+			integration_parameters: IntegrationParameters::default(),
 			islands: IslandManager::new(),
 			broad_phase: BroadPhaseBvh::new(),
 			narrow_phase: NarrowPhase::new(),
