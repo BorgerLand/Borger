@@ -18,8 +18,8 @@ export function generateDiffOperation(flattened: FlattenedOutput) {
 		
 		${
 			/*(rollback only) insert a wall between ticks in
-		order to know when to stop rolling back a tick.
-		tx system sends packet size in bytes instead*/ ""
+			order to know when to stop rolling back a tick.
+			tx system sends packet size in bytes instead*/ ""
 		}
 		"RollbackTickSeparator": ${curID++}
 	},
