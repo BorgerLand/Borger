@@ -9,7 +9,7 @@ export type Plugin<Name extends string = string> = {
 
 	//remaining fields only needed for presentable types
 	rsPresentationOutputFQN?: string; //including the leading "::"
-	rsPresentationOutputFieldNames?: [string]; //only needed if there are multiple
+	rsPresentationOutputFieldNames?: string[]; //only needed if there are multiple
 	tsMemWrapperFunctionBody?: string; //see mem_wrappers.ts for example pattern
 	tsMemWrapperReturnType?: string; //optionally manually set the function's return type
 };
