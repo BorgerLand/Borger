@@ -17,7 +17,6 @@ borger = { path = "../../engine" }
 game = { path = "../../.." }
 
 log.workspace = true
-glam.workspace = true
 
 web-time = { version = "*", default-features = false }
 console_log = { version = "*", default-features = false, features = ["color"] }
